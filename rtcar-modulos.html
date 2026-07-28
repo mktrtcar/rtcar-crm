@@ -1,0 +1,2401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RT Car — CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/tabler-icons.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;
+  --tx:#1a1814;--tx2:#4a4a4a;--tx3:#888;
+  --red:#e8431e;--redl:#fff0ec;
+  --gold:#b8860b;--goldl:#faf6e8;
+  --green:#1a6b3c;--greenl:#e8f5ee;
+  --blue:#1e4d8c;--bluel:#e8f0fb;
+  --purple:#6b3db8;--purplel:#f3e8fb;
+  --cyan:#0b7ba8;--cyanl:#e8f8fb;
+  --bdr:#e0e0e0;--r:10px;--r2:14px;
+  --f:'DM Sans',sans-serif;--s:'DM Serif Display',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;font-size:14px}
+.hidden{display:none!important}
+
+/* LOGIN */
+.login-wrap{display:flex;align-items:center;justify-content:center;height:100vh}
+.login-box{background:var(--bg2);border-radius:var(--r2);padding:40px;width:380px;border:1px solid var(--bdr);box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .brand{font-family:var(--s);font-size:32px;color:var(--red);letter-spacing:2px}
+.login-logo .sub{font-size:11px;color:var(--tx3);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.login-box h2{font-size:15px;font-weight:600;margin-bottom:18px}
+.login-error{background:var(--redl);color:var(--red);padding:9px 12px;border-radius:var(--r);font-size:12px;margin-bottom:14px;display:none;border:1px solid rgba(232,67,30,.2)}
+.login-access{margin-top:18px;padding-top:16px;border-top:1px solid var(--bdr)}
+.login-access p{font-size:11px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.login-access a{display:block;color:var(--blue);cursor:pointer;padding:3px 0;font-size:12px;text-decoration:none}
+.login-access a:hover{text-decoration:underline}
+.btn-acesso{display:block;width:100%;text-align:left;background:none;border:none;color:var(--blue);cursor:pointer;padding:3px 0;font-size:12px;font-family:inherit}
+.btn-acesso:hover{text-decoration:underline}
+
+/* FORMS */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;color:var(--tx);background:var(--bg2);transition:border .15s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--red)}
+.field textarea{resize:vertical;min-height:72px;line-height:1.5}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--r);font-family:var(--f);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{opacity:.88}
+.btn-outline{background:transparent;color:var(--tx2);border:1.5px solid var(--bdr)}.btn-outline:hover{background:var(--bg3)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{opacity:.88}
+.btn-ghost{background:transparent;color:var(--tx3);border:none;padding:8px 10px}.btn-ghost:hover{color:var(--tx);background:var(--bg3)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-w{width:100%;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* APP */
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sb{width:220px;background:var(--bg2);border-right:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0}
+.sb-logo{padding:16px 18px 14px;border-bottom:1px solid var(--bdr)}
+.sb-logo .brand{font-family:var(--s);font-size:22px;color:var(--red);letter-spacing:1px}
+.sb-logo .tag{font-size:10px;color:var(--tx3);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.nav{flex:1;padding:10px 0;overflow-y:auto}
+.ni{display:flex;align-items:center;gap:9px;margin:2px 10px;padding:9px 12px;border-radius:8px;font-size:13px;color:var(--tx2);cursor:pointer;transition:all .15s;user-select:none}
+.ni:hover{background:var(--bg3);color:var(--tx)}
+.ni.on{color:var(--red);background:linear-gradient(90deg,var(--redl),transparent);font-weight:600}
+.ni .ti{font-size:17px;flex-shrink:0}
+.ni-sep{height:1px;background:var(--bdr);margin:8px 16px}
+.ni-lbl{font-size:10px;color:var(--tx3);font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:10px 22px 4px}
+.sb-foot{padding:13px 16px;border-top:1px solid var(--bdr)}
+.sb-user{display:flex;align-items:center;gap:9px}
+.sb-av{width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.sb-info{flex:1;min-width:0}
+.sb-name{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-role{font-size:10px;color:var(--tx3)}
+.ti-btn{font-size:18px;color:var(--tx3);cursor:pointer;padding:4px;border-radius:6px;transition:all .15s}
+.ti-btn:hover{color:var(--red);background:var(--redl)}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tb{height:54px;background:var(--bg2);border-bottom:1px solid var(--bdr);padding:0 22px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.tb-title{font-size:15px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:7px;white-space:nowrap}
+.tb-title .ti{color:var(--red);font-size:18px}
+.tb-sep{width:1px;height:20px;background:var(--bdr);flex-shrink:0}
+.tb-tabs{display:flex;gap:2px}
+.tb-tab{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--tx2);transition:all .15s;user-select:none}
+.tb-tab:hover{background:var(--bg3)}
+.tb-tab.on{background:var(--redl);color:var(--red);font-weight:700}
+.tb-spacer{flex:1}
+.tb-search{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1.5px solid var(--bdr);border-radius:var(--r);padding:7px 12px;width:190px;transition:border .15s}
+.tb-search:focus-within{border-color:var(--red)}
+.tb-search input{border:none;background:transparent;font-family:var(--f);font-size:13px;color:var(--tx);width:100%;outline:none}
+.tb-search .ti{color:var(--tx3);font-size:15px;flex-shrink:0}
+.cnt{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+/* KANBAN SHARED */
+.kanban-wrap{flex:1;display:flex;gap:12px;padding:16px 20px;overflow-x:auto;overflow-y:hidden;align-items:stretch}
+.kanban-wrap::-webkit-scrollbar{height:7px}
+.kanban-wrap::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:4px}
+.kb-col{display:flex;flex-direction:column;min-width:220px;width:240px;flex-shrink:0;background:var(--bg3);border-radius:var(--r2);overflow:hidden}
+.kb-col-head{padding:11px 12px 0;display:flex;align-items:center;gap:7px}
+.kb-col-head .col-lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;flex:1;line-height:1.2}
+.kb-col-head .col-cnt{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;min-width:22px;text-align:center;flex-shrink:0}
+.kb-col-desc{padding:3px 12px 8px;font-size:10px;color:var(--tx3);line-height:1.4;border-bottom:2px solid transparent}
+.kb-col-body{flex:1;padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:80px;transition:background .15s}
+.kb-col-body::-webkit-scrollbar{width:3px}
+.kb-col-body::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.kb-col-body.drag-over{background:rgba(232,67,30,.07)}
+.kb-add{margin:0 8px 8px;padding:7px;border-radius:var(--r);border:1.5px dashed var(--bdr);font-size:11px;color:var(--tx3);cursor:pointer;text-align:center;transition:all .15s;user-select:none}
+.kb-add:hover{border-color:var(--red);color:var(--red);background:var(--redl)}
+
+/* CARDS */
+.lcard,.ccard{background:var(--bg2);border-radius:var(--r);padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:grab;transition:all .15s;border-left:3px solid transparent;position:relative;user-select:none}
+.lcard:active,.ccard:active{cursor:grabbing}
+.lcard:hover,.ccard:hover{box-shadow:0 4px 14px rgba(0,0,0,.1);transform:translateY(-1px)}
+.lcard.dragging,.ccard.dragging{opacity:.45;transform:rotate(1.5deg)}
+.card-id{font-size:9px;color:var(--tx3);margin-bottom:3px;font-weight:600;letter-spacing:.3px}
+.card-nome{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{font-size:11px;color:var(--tx2);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.card-sub .ti{font-size:11px;color:var(--tx3)}
+.card-acao{padding:5px 8px;border-radius:6px;font-size:10px;font-weight:600;margin-bottom:6px;line-height:1.4;display:flex;align-items:flex-start;gap:5px}
+.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.card-meta{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:3px}
+.card-actions{display:flex;gap:3px}
+.card-btn{height:24px;border-radius:5px;border:none;background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--tx3);transition:all .15s;padding:0 6px;gap:3px}
+.card-btn:hover{background:var(--blue);color:#fff}
+.card-btn-label{font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}
+.transfer-popup{position:fixed;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:0 4px 20px rgba(0,0,0,.15);padding:8px;z-index:9999;min-width:140px}
+.transfer-popup button{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;border-radius:6px;color:var(--tx)}
+.transfer-popup button:hover{background:var(--bg2)}
+.transfer-popup .tp-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;padding:4px 12px 6px}
+
+/* LISTA */
+.lista-wrap{flex:1;display:flex;flex-direction:column;padding:16px 20px;overflow:hidden;gap:12px}
+.lista-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.filter-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--bdr);background:var(--bg2);color:var(--tx2);transition:all .15s;user-select:none}
+.filter-chip:hover,.filter-chip.on{border-color:var(--red);background:var(--redl);color:var(--red)}
+.lista-table-wrap{flex:1;overflow:auto;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--bdr)}
+.lista-table{width:100%;border-collapse:collapse}
+.lista-table th{padding:10px 14px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bdr);text-align:left;background:var(--bg3);white-space:nowrap;position:sticky;top:0;z-index:1}
+.lista-table td{padding:11px 14px;font-size:13px;color:var(--tx);border-bottom:1px solid var(--bg3)}
+.lista-table tbody tr:last-child td{border-bottom:none}
+.lista-table tbody tr{cursor:pointer;transition:background .1s}
+.lista-table tbody tr:hover td{background:var(--bg3)}
+.lista-empty{padding:60px;text-align:center;color:var(--tx3)}
+.lista-empty .ti{font-size:40px;display:block;margin-bottom:10px;opacity:.5}
+
+/* RELATORIOS */
+.rel-wrap{flex:1;overflow-y:auto;padding:16px 20px}
+.rel-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:22px}
+.rel-card{background:var(--bg2);border-radius:var(--r2);padding:18px 20px;border:1px solid var(--bdr)}
+.rel-card .rc-lbl{font-size:10px;color:var(--tx3);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.rel-card .rc-val{font-size:30px;font-weight:700;color:var(--tx);line-height:1;margin-bottom:4px}
+.rel-card .rc-sub{font-size:12px;color:var(--tx2)}
+.rel-card.c-red .rc-val{color:var(--red)}.rel-card.c-green .rc-val{color:var(--green)}
+.rel-card.c-blue .rc-val{color:var(--blue)}.rel-card.c-gold .rc-val{color:var(--gold)}
+.rel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.rel-section-title{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.rel-section-title .ti{color:var(--red)}
+.chart-box{background:var(--bg2);border-radius:var(--r2);padding:18px 20px;border:1px solid var(--bdr)}
+.bar-item{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-item:last-child{margin-bottom:0}
+.bar-lbl{font-size:12px;color:var(--tx2);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.bar-val{font-size:12px;font-weight:600;color:var(--tx2);width:28px;text-align:right;flex-shrink:0}
+.funnel-item{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.funnel-lbl{font-size:12px;color:var(--tx2);width:130px;flex-shrink:0}
+.funnel-track{flex:1;height:24px;border-radius:var(--r);overflow:hidden;background:var(--bg3)}
+.funnel-fill{height:100%;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:700;color:#fff;border-radius:var(--r);transition:width .4s ease}
+.no-data{padding:32px;text-align:center;color:var(--tx3);font-size:13px}
+
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:150;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}
+.mod{background:var(--bg2);border-radius:var(--r2);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.18)}
+.mod::-webkit-scrollbar{width:6px}
+.mod::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+.mod-head{padding:20px 24px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:1}
+.mod-head h3{font-size:16px;font-weight:700}
+.mod-close{width:30px;height:30px;border-radius:var(--r);border:none;background:var(--bg3);cursor:pointer;font-size:15px;color:var(--tx2);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.mod-close:hover{background:var(--red);color:#fff}
+.mod-body{padding:20px 24px}
+.mod-section{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--bg3)}
+.mod-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.mod-section-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:5px}
+.mod-foot{padding:14px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--bg2)}
+
+/* DETAIL PANEL */
+.detail-ov{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:140}
+.detail-pnl{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--bg2);box-shadow:-4px 0 32px rgba(0,0,0,.14);display:flex;flex-direction:column;z-index:141;overflow:hidden;animation:slideIn .2s ease}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.detail-head{padding:18px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.detail-head h3{flex:1;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-body{flex:1;overflow-y:auto;padding:18px 20px}
+.detail-body::-webkit-scrollbar{width:4px}
+.detail-body::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.d-section{margin-bottom:18px}
+.d-section-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bg3)}
+.d-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.d-field{display:flex;flex-direction:column;gap:2px}
+.d-field .lbl{font-size:10px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.d-field .val{font-size:13px;color:var(--tx);font-weight:500}
+.d-field .val.empty{color:var(--tx3);font-style:italic;font-weight:400;font-size:12px}
+.hist-item{display:flex;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--bg3)}
+.hist-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.hist-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:1px}
+.hist-info{flex:1}
+.hist-acao{font-size:12px;font-weight:600;color:var(--tx);line-height:1.4}
+.hist-obs{font-size:12px;color:var(--tx2);margin-top:2px;line-height:1.4}
+.hist-meta{font-size:10px;color:var(--tx3);margin-top:4px}
+.col-select{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.col-btn{padding:6px 11px;border-radius:var(--r);border:1.5px solid var(--bdr);font-size:11px;font-weight:600;cursor:pointer;background:var(--bg2);color:var(--tx2);transition:all .15s}
+.col-btn:hover{border-color:var(--red);background:var(--redl);color:var(--red)}
+.detail-foot{padding:14px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.milestone-box{background:linear-gradient(135deg,#fff8f0,#fff);border:1.5px solid var(--gold);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px}
+.milestone-box .m-emoji{font-size:22px;margin-bottom:4px;display:block}
+.milestone-box .m-title{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px}
+.milestone-box .m-desc{font-size:12px;color:var(--tx2);line-height:1.5}
+.tag-conv{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:var(--greenl);color:var(--green)}
+.select-sm{padding:6px 10px;border-radius:var(--r);border:1.5px solid var(--bdr);font-family:var(--f);font-size:12px;font-weight:600;color:var(--tx2);cursor:pointer;background:var(--bg2);outline:none}
+.select-sm:focus{border-color:var(--red)}
+.tb-filters-inline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* REPORTE */
+.rel-reporte{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:20px 24px;margin-bottom:18px}
+.rp-header{font-size:14px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}
+.rp-period{margin-left:auto;font-size:11px;color:var(--tx3);font-weight:400}
+.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.rp-section{background:var(--bg3);border-radius:var(--r);padding:14px 16px}
+.rp-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:10px}
+.rp-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--tx2);border-bottom:1px solid var(--bdr)}
+.rp-row:last-child{border-bottom:none}
+.rp-row strong{font-size:14px;color:var(--tx);min-width:20px;text-align:right}
+.rp-total{background:rgba(0,0,0,.03);margin:4px -4px 0;padding:6px 4px;border-radius:6px;font-weight:600}
+.rp-total strong{color:var(--red)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1814;color:#fff;padding:10px 20px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.full-load{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--tx3);font-size:13px}
+@media(max-width:768px){.sb{display:none}.kanban-wrap{padding:10px 12px}.detail-pnl{width:100%}.field-row{grid-template-columns:1fr}}
+
+/* ============================================================
+   WORKSHOP CSS
+   ============================================================ */
+.ws-eventos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:20px}
+.ws-evento-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px 20px;cursor:pointer;transition:all .15s;border-left:4px solid var(--purple)}
+.ws-evento-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-1px)}
+.ws-ev-nome{font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px}
+.ws-ev-meta{font-size:12px;color:var(--tx3);display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
+.ws-ev-stats{display:flex;gap:8px;flex-wrap:wrap}
+.ws-stat{background:var(--bg3);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--tx2)}
+.ws-back{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--blue);cursor:pointer;padding:4px 0}
+.ws-back:hover{color:var(--red)}
+.ws-metrics{display:flex;gap:12px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-wrap:wrap}
+.ws-metric{text-align:center;background:var(--bg3);border-radius:var(--r);padding:8px 16px;min-width:80px}
+.ws-metric-val{font-size:20px;font-weight:700;color:var(--tx)}
+.ws-metric-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+.ws-kb{display:flex;gap:12px;padding:16px 20px;overflow-x:auto;height:calc(100vh - 200px)}
+.ws-col{flex-shrink:0;width:220px;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--bdr);display:flex;flex-direction:column;max-height:100%}
+.ws-col-hd{padding:12px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.ws-col-title{font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px}
+.ws-col-cnt{background:var(--bg3);border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--tx3)}
+.ws-col-body{flex:1;overflow-y:auto;padding:8px}
+.ws-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:grab;transition:all .15s;border-left:3px solid}
+.ws-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.ws-card.dragging{opacity:.4}
+.ws-card-nome{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:4px}
+.ws-card-tel{font-size:11px;color:var(--tx3);display:flex;align-items:center;gap:4px}
+.ws-card-obs{font-size:11px;color:var(--tx2);margin-top:5px;padding-top:5px;border-top:1px solid var(--bdr)}
+.ws-card-actions{display:flex;gap:4px;margin-top:8px}
+.ws-add{padding:8px;text-align:center;color:var(--tx3);font-size:12px;cursor:pointer;border-radius:var(--r);border:1.5px dashed var(--bdr);margin:4px}
+.ws-add:hover{border-color:var(--purple);color:var(--purple)}
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="brand">RT Car</div>
+      <div class="sub">Marketing & Relacionamento</div>
+    </div>
+    <h2>Bem-vindo</h2>
+    <div class="login-error" id="login-error">E-mail ou senha incorretos.</div>
+    <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+    <div class="field"><label>Senha</label><input type="password" id="login-senha" placeholder="Sua senha" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+    <button class="btn btn-red btn-w" onclick="fazerLogin()">→ Entrar</button>
+    <div class="login-access">
+      <p>Acesso rápido:</p>
+      <button class="btn-acesso" onclick="preenchLogin('contato@rtcar.com.br','rtcar2024')">▸ Aline (Master)</button>
+      <button class="btn-acesso" onclick="preenchLogin('milena@rtcar.com.br','rtcar2024')">▸ Milena (Relacionamento)</button>
+      <button class="btn-acesso" onclick="preenchLogin('maicon.meske@rtcar.com.br','rtcar2024')">▸ Maicon (Vendedor)</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="app hidden">
+  <div class="sb">
+    <div class="sb-logo">
+      <div class="brand">RT Car</div>
+      <div class="tag" id="sb-tag">Módulos</div>
+    </div>
+    <nav class="nav">
+      <div class="ni-lbl">Módulos</div>
+      <div class="ni" id="ni-mk" onclick="trocarModulo('marketing')"><i class="ti ti-speakerphone"></i> CRM</div>
+      <div class="ni" id="ni-rel" onclick="trocarModulo('relacionamento')"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
+      <div class="ni" id="ni-ws" onclick="trocarModulo('workshop')"><i class="ti ti-calendar-event"></i> Workshop</div>
+      <div class="ni" id="ni-an" onclick="trocarModulo('anuncios')"><i class="ti ti-speakerphone"></i> Anúncios</div>
+      <div class="ni-sep"></div>
+      <div class="ni-lbl">Sistema</div>
+      <div class="ni" onclick="window.open('https://marcelartcar.github.io/rtcar/','_blank')"><i class="ti ti-external-link"></i> Sistema Principal</div>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-av" id="sb-av">??</div>
+        <div class="sb-info"><div class="sb-name" id="sb-name">...</div><div class="sb-role" id="sb-role">-</div></div>
+        <i class="ti ti-logout ti-btn" onclick="logout()" title="Sair"></i>
+      </div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="tb" id="tb"></div>
+    <div class="cnt" id="cnt"><div class="full-load"><i class="ti ti-loader-2"></i> Carregando...</div></div>
+  </div>
+</div>
+
+<!-- MODAIS MARKETING -->
+<div id="ov-lead" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-lead')">
+  <div class="mod">
+    <div class="mod-head"><h3 id="mod-lead-titulo">Novo Lead</h3><button class="mod-close" onclick="fecharModal('ov-lead')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="mod-section">
+        <div class="mod-section-title"><i class="ti ti-user"></i> Dados do Cliente</div>
+        <div class="field"><label>Nome completo *</label><input type="text" id="f-nome" placeholder="Nome do cliente"></div>
+        <div class="field-row">
+          <div class="field"><label>Telefone *</label><input type="tel" id="f-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
+          <div class="field"><label>E-mail</label><input type="email" id="f-email" placeholder="email@exemplo.com"></div>
+        </div>
+      </div>
+      <div class="mod-section">
+        <div class="mod-section-title"><i class="ti ti-car"></i> Interesse e Origem</div>
+        <div class="field-row">
+          <div class="field"><label>Origem *</label>
+            <select id="f-origem"><option value="">Selecione...</option><optgroup label="📢 Marketing"><option>Facebook</option><option>Instagram</option><option>Google + Site</option><option>Telefone</option><option>Mercado Livre</option><option>iCarros</option><option>Na Pista</option><option>Webmotors</option><option>Litoral Car</option><option>Mobiauto</option><option>OLX</option><option>Estética</option><option>Relacionamento</option><option>Compra</option></optgroup><optgroup label="🏪 Outros"><option>Passante</option><option>Loja</option><option>Evento Externo</option><option>My Business</option><option>Outra</option><option>Carteira</option><option>Prospecção</option><option>Indicação</option></optgroup></select>
+          </div>
+          <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Selecione...</option></select></div>
+        </div>
+        <div class="field"><label>Veículo de interesse</label><input type="text" id="f-veiculo" placeholder="Ex: Honda HR-V 2022"></div>
+        <div class="field-row">
+          <div class="field"><label>Faixa de valor</label><input type="text" id="f-valor" placeholder="Ex: 80.000 - 100.000"></div>
+          <div class="field"><label>Etapa inicial</label>
+            <select id="f-etapa"><option value="ia">I.A.</option><option value="atendimento">Atendimento</option><option value="encantamento">Encantamento</option><option value="agendamento">Agendamento</option><option value="visita">Visita</option><option value="negociacao">Negociação</option><option value="venda">Venda</option><option value="perdido">Perdido</option><option value="resgate">Resgate</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="mod-section">
+        <div class="mod-section-title"><i class="ti ti-notes"></i> Observações</div>
+        <div class="field"><label>Observações</label><textarea id="f-obs" placeholder="Informações adicionais..."></textarea></div>
+      </div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-lead')">Cancelar</button>
+      <button class="btn btn-red" id="btn-salvar-lead" onclick="salvarLead()"><i class="ti ti-check"></i> <span id="btn-salvar-lead-txt">Salvar Lead</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-obs" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-obs')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3 id="obs-titulo">Registrar Contato</h3><button class="mod-close" onclick="fecharModal('ov-obs')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="field"><label>Tipo</label>
+        <select id="obs-tipo"><option>📞 Contato realizado</option><option>💬 WhatsApp enviado</option><option>📅 Visita agendada</option><option>📄 Proposta enviada</option><option>🔄 Retorno agendado</option><option>🔕 Sem resposta</option><option>📝 Observação geral</option></select>
+      </div>
+      <div class="field"><label>Detalhes</label><textarea id="obs-texto" placeholder="Descreva o que aconteceu..." style="min-height:100px"></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-obs')">Cancelar</button>
+      <button class="btn btn-red" onclick="salvarObs()"><i class="ti ti-check"></i> Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-vendido" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-vendido')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>✅ Marcar como Vendido</h3><button class="mod-close" onclick="fecharModal('ov-vendido')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.6">O lead será marcado como <strong>Vendido</strong> e ficará disponível para acompanhamento pós-venda.</p>
+      <div class="field"><label>Veículo negociado</label><input type="text" id="vend-veiculo" placeholder="Confirme o veículo..."></div>
+      <div class="field"><label>Observações</label><textarea id="vend-obs" placeholder="Detalhes do fechamento..."></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-vendido')">Cancelar</button>
+      <button class="btn btn-green" onclick="confirmarVendido()"><i class="ti ti-check"></i> Confirmar Venda</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-perda" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-perda')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>❌ Registrar Perda</h3><button class="mod-close" onclick="fecharModal('ov-perda')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="field"><label>Motivo *</label>
+        <select id="perda-motivo"><option value="">Selecione...</option><option>Preço acima do esperado</option><option>Comprou em outra loja</option><option>Desistiu da compra</option><option>Financiamento não aprovado</option><option>Veículo não disponível</option><option>Sem contato / Sumiu</option><option>Comprou veículo diferente</option><option>Outro</option></select>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="perda-obs" placeholder="Detalhes..."></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-perda')">Cancelar</button>
+      <button class="btn btn-red" onclick="confirmarPerda()"><i class="ti ti-x"></i> Registrar Perda</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAIS RELACIONAMENTO -->
+<div id="ov-cliente" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-cliente')">
+  <div class="mod">
+    <div class="mod-head"><h3 id="mod-cliente-titulo">Novo Cliente</h3><button class="mod-close" onclick="fecharModal('ov-cliente')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="mod-section">
+        <div class="mod-section-title"><i class="ti ti-user"></i> Dados do Cliente</div>
+        <div class="field"><label>Nome completo *</label><input type="text" id="rc-nome" placeholder="Nome do cliente"></div>
+        <div class="field-row">
+          <div class="field"><label>Telefone *</label><input type="tel" id="rc-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
+          <div class="field"><label>E-mail</label><input type="email" id="rc-email" placeholder="email@exemplo.com"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Data de nascimento</label><input type="date" id="rc-nasc"></div>
+          <div class="field"><label>Responsável</label><select id="rc-resp"><option value="">Selecione...</option></select></div>
+        </div>
+      </div>
+      <div class="mod-section">
+        <div class="mod-section-title"><i class="ti ti-car"></i> Veículo Comprado</div>
+        <div class="field"><label>Veículo *</label><input type="text" id="rc-veiculo" placeholder="Ex: Honda HR-V EX 2023 Cinza"></div>
+        <div class="field-row">
+          <div class="field"><label>Data da compra *</label><input type="date" id="rc-dtcompra"></div>
+          <div class="field"><label>Valor negociado</label><input type="text" id="rc-valor" placeholder="R$ 00.000"></div>
+        </div>
+        <div class="field"><label>Etapa inicial</label>
+          <select id="rc-etapa">
+            <option value="nome">📋 Nome — Cadastrado</option>
+            <option value="d7">💬 7 dias — Feedback</option>
+            <option value="d90">🔧 90 dias — Garantia</option>
+            <option value="d1ano">🎁 1 ano — Cesta</option>
+            <option value="aniversario">🎂 Aniversário</option>
+            <option value="d2anos">✨ 2 anos — Vitrificação</option>
+            <option value="d3anos">🎊 3 anos — Parabéns</option>
+            <option value="d4anos">💎 4 anos — Pacote estética</option>
+          </select>
+        </div>
+      </div>
+      <div class="mod-section">
+        <div class="mod-section-title"><i class="ti ti-notes"></i> Observações</div>
+        <div class="field"><label>Obs</label><textarea id="rc-obs" placeholder="Informações adicionais..."></textarea></div>
+      </div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-cliente')">Cancelar</button>
+      <button class="btn btn-red" id="btn-salvar-cli" onclick="salvarCliente()"><i class="ti ti-check"></i> <span id="btn-salvar-cli-txt">Salvar</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-int" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-int')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3 id="int-titulo">Registrar Interação</h3><button class="mod-close" onclick="fecharModal('ov-int')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="field"><label>Tipo</label>
+        <select id="int-tipo"><option>📞 Ligação realizada</option><option>💬 WhatsApp enviado</option><option>🎁 Presente entregue</option><option>✅ Ação do marco realizada</option><option>📝 Observação geral</option><option>🔄 Retorno agendado</option></select>
+      </div>
+      <div class="field"><label>Detalhes</label><textarea id="int-obs" placeholder="Descreva a interação..."></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-int')">Cancelar</button>
+      <button class="btn btn-red" onclick="salvarInteracao()"><i class="ti ti-check"></i> Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAIS WORKSHOP -->
+<div id="ov-evento" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-evento')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>📅 Novo Evento</h3><button class="mod-close" onclick="fecharModal('ov-evento')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="field"><label>Nome do evento *</label><input type="text" id="wev-nome" placeholder="Ex: Workshop RT Car — Agosto"></div>
+      <div class="field-row">
+        <div class="field"><label>Data</label><input type="date" id="wev-data"></div>
+        <div class="field"><label>Hora</label><input type="time" id="wev-hora"></div>
+      </div>
+      <div class="field"><label>Valor</label><input type="text" id="wev-valor" placeholder="Ex: Gratuito"></div>
+      <div class="field"><label>Observações</label><textarea id="wev-obs" placeholder="Detalhes do evento..."></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-evento')">Cancelar</button>
+      <button class="btn btn-red" onclick="salvarEvento()"><i class="ti ti-check"></i> Salvar Evento</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-convidado" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-convidado')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>Convidado</h3><button class="mod-close" onclick="fecharModal('ov-convidado')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <input type="hidden" id="wcv-id">
+      <div class="field"><label>Nome *</label><input type="text" id="wcv-nome" placeholder="Nome do convidado"></div>
+      <div class="field"><label>WhatsApp</label><input type="tel" id="wcv-whatsapp" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
+      <div class="field"><label>Status</label>
+        <select id="wcv-st">
+          <option value="convidado">🎯 Convidado</option>
+          <option value="contato_feito">📲 Contato Feito</option>
+          <option value="confirmado">✅ Confirmado</option>
+          <option value="presente">🏆 Presente</option>
+          <option value="nao_compareceu">❌ Não Compareceu</option>
+          <option value="feedback">💬 Feedback</option>
+        </select>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="wcv-obs" placeholder="Informações adicionais..."></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-convidado')">Cancelar</button>
+      <button class="btn btn-red" onclick="salvarConvidado()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-obs-ws" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-obs-ws')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>Observação — <span id="wobs-nome"></span></h3><button class="mod-close" onclick="fecharModal('ov-obs-ws')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <input type="hidden" id="wobs-id">
+      <div class="field"><label>Observação</label><textarea id="wobs-texto" placeholder="Descreva..." style="min-height:100px"></textarea></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-obs-ws')">Cancelar</button>
+      <button class="btn btn-red" onclick="salvarObsWs()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL (compartilhado) -->
+<div id="detail-ov" class="detail-ov hidden" onclick="fecharDetail()"></div>
+<div id="detail-pnl" class="detail-pnl hidden"></div>
+<div id="toast" class="toast"></div>
+<script>
+/* ============================================================
+   RT CAR — MARKETING & RELACIONAMENTO v1.1.0
+   Arquivo único — login único — navegação sem recarregar
+   ============================================================ */
+
+const FB={projectId:'rtcar-marketing',apiKey:'AIzaSyDskuq7k4z5UyKa8PTazHWj6fiMQBr_HiI'};
+const FB_URL=`https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
+const fbOk=()=>FB.projectId!=='COLE-SEU-PROJECT-ID-AQUI';
+
+/* USUÁRIOS */
+const USUARIOS=[
+  {id:'u01',n:'Aline',   e:'contato@rtcar.com.br',         r:'master',  senha:'rtcar2024'},
+  {id:'u02',n:'Marcela', e:'marcela@rtcar.com.br',          r:'master',  senha:'rtcar2024'},
+  {id:'u03',n:'Rafael',  e:'rafael@rtcar.com.br',           r:'master',  senha:'rtcar2024'},
+  {id:'u04',n:'Milena',  e:'milena@rtcar.com.br',           r:'coordenadora', senha:'rtcar2024'},
+  {id:'u05',n:'Janderson',e:'janderson@rtcar.com.br',       r:'seller',  senha:'rtcar2024'},
+  {id:'u06',n:'Maicon',  e:'maicon.meske@rtcar.com.br',     r:'seller',  senha:'rtcar2024'},
+  {id:'u07',n:'Anderson',e:'anderson@rtcar.com.br',         r:'seller',  senha:'rtcar2024'},
+  {id:'u08',n:'Guilherme',e:'guilhermefleck@rtcar.com.br',  r:'seller',  senha:'rtcar2024'},
+  {id:'u09',n:'Marco Caetano',e:'marcocaetano@rtcar.com.br',r:'seller',  senha:'rtcar2024'},
+  {id:'u10',n:'Carlos',  e:'carlos@rtcar.com.br',           r:'seller',  senha:'rtcar2024'},
+  {id:'u11',n:'Derivan', e:'derivan@rtcar.com.br',          r:'seller',  senha:'rtcar2024'},
+  {id:'u12',n:'Tiago',   e:'tiago@rtcar.com.br',            r:'master',  senha:'rtcar2024'},
+];
+
+/* COLUNAS MARKETING */
+const COLS_MK=[
+  {id:'ia',          label:'I.A.',         emoji:'🤖', desc:'Lead recebido — triagem por I.A.',              cor:'#6b3db8', bg:'#f3e8fb'},
+  {id:'atendimento', label:'Atendimento',  emoji:'💬', desc:'Vendedor em atendimento ativo',                 cor:'#1e4d8c', bg:'#e8f0fb', timer:true},
+  {id:'encantamento',label:'Encantamento', emoji:'✨', desc:'Construindo relacionamento com o cliente',      cor:'#0b7ba8', bg:'#e8f8fb'},
+  {id:'agendamento', label:'Agendamento',  emoji:'📅', desc:'Agendamento feito — timer de resposta ativo',  cor:'#b8860b', bg:'#faf6e8', timer:true},
+  {id:'visita',      label:'Visita',       emoji:'🚗', desc:'Cliente veio à loja',                           cor:'#4a4a4a', bg:'#f0f0f0'},
+  {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee'},
+  {id:'venda',       label:'Venda',        emoji:'🏆', desc:'Negócio fechado com sucesso',                   cor:'#1a6b3c', bg:'#e8f5ee', fim:true},
+  {id:'perdido',     label:'Perdido',      emoji:'❌', desc:'Cliente desistiu ou sem interesse',             cor:'#e8431e', bg:'#fff0ec', fim:true},
+  {id:'resgate',     label:'Resgate',      emoji:'🔄', desc:'Tentativa de resgatar o cliente perdido',       cor:'#6b3db8', bg:'#f3e8fb'},
+];
+/* CATEGORIAS DE ORIGEM */
+const ORIGENS_MK={
+  marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','Webmotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
+  compra:['Compra'],
+  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação']
+};
+const TODAS_ORIGENS=[...ORIGENS_MK.marketing,...ORIGENS_MK.compra,...ORIGENS_MK.outros];
+function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(ORIGENS_MK.compra.includes(o))return'compra';return'outros';}
+
+/* COLUNAS RELACIONAMENTO */
+const COLS_REL=[
+  {id:'nome',label:'Nome',emoji:'📋',desc:'Cliente cadastrado',acao:'Preparar para primeiro contato pós-venda',acolabel:'Novo cliente',cor:'#4a4a4a',bg:'#f0f0f0'},
+  {id:'d7',label:'7 dias',emoji:'💬',desc:'7 dias após a compra',acao:'Enviar mensagem pedindo feedback da experiência de compra',acolabel:'Pedir feedback',cor:'#1e4d8c',bg:'#e8f0fb',
+   msg:'Olá, [NOME]! 😊 Já faz 7 dias que você levou seu [VEICULO] aqui da RT Car. Como está sendo a experiência? Tem alguma dúvida ou feedback para nos dar? Estamos felizes em ajudar! 🚗'},
+  {id:'d90',label:'90 dias',emoji:'🔧',desc:'90 dias após a compra',acao:'Avisar fim da garantia motor/câmbio + bateria estendida por mais 3 meses',acolabel:'Avisar garantia',cor:'#b8860b',bg:'#faf6e8',
+   msg:'Olá, [NOME]! A garantia de motor e câmbio do seu [VEICULO] vence em breve (90 dias). Mas fique tranquilo(a): a RT Car oferece garantia estendida da bateria por mais 3 meses, sem custo! Qualquer dúvida, estamos à disposição. 🔧'},
+  {id:'d1ano',label:'1 ano',emoji:'🎁',desc:'1 ano após a compra',subDiv:{campo:'visita1ano',labels:['Convite','Visita']},acao:'Presentear com cesta especial — cliente deve buscar na loja',acolabel:'Entregar cesta',cor:'#6b3db8',bg:'#f3e8fb',
+   msg:'Olá, [NOME]! 🎉 Faz 1 ano que você faz parte da família RT Car com seu [VEICULO]! Preparamos uma surpresa especial para você — passe na nossa loja em Brusque para retirar seu presente! 🎁'},
+  {id:'aniversario',label:'Aniversário',emoji:'🎂',desc:'Entre 1 e 2 anos — aniversário do cliente',acao:'Enviar mensagem de Feliz Aniversário personalizada',acolabel:'Parabenizar',cor:'#e8431e',bg:'#fff0ec',
+   msg:'Feliz Aniversário, [NOME]! 🎂🎉 A equipe RT Car deseja um dia muito especial! Que este novo ano seja repleto de conquistas e muitas estradas com seu [VEICULO]. Abraço carinhoso! ❤️'},
+  {id:'d2anos',label:'2 anos',emoji:'✨',desc:'2 anos após a compra',subDiv:{campo:'visita2anos',labels:['Convite','Visita']},acao:'Presentear com vitrificação completa — sem custo',acolabel:'Vitrificação',cor:'#0b7ba8',bg:'#e8f8fb',
+   msg:'Olá, [NOME]! ✨ Dois anos juntos! Seu [VEICULO] merece brilhar: temos um presente especial — vitrificação completa, sem custo! Agende pelo WhatsApp e venha renovar o visual do seu carro. 😊'},
+  {id:'d3anos',label:'3 anos',emoji:'🎊',desc:'Entre 2 e 3 anos — aniversário do cliente',acao:'Enviar parabéns pelos 3 anos como cliente RT Car',acolabel:'Parabenizar',cor:'#1a6b3c',bg:'#e8f5ee',
+   msg:'Olá, [NOME]! 🎊 Três anos de parceria com a RT Car! É uma satisfação tê-lo(a) como cliente com seu [VEICULO]. Obrigado pela confiança! Com carinho, equipe RT Car ❤️'},
+  {id:'d4anos',label:'4 anos',emoji:'💎',desc:'4 anos após a compra',acao:'Oferecer pacote completo de estética com desconto especial R$1.299',acolabel:'Oferecer pacote',cor:'#6b3db8',bg:'#f3e8fb',
+   msg:'Olá, [NOME]! 💎 4 anos com seu [VEICULO] e a RT Car tem algo especial: Pacote Completo de Estética Automotiva — lavação, higienização, polimento e vitrificação. De R$1.799 por apenas R$1.299 para você! 🚗✨'},
+];
+
+
+/* COLUNAS WORKSHOP */
+const COLS_WS=[
+  {id:'convidado',label:'Convidado',emoji:'🎯',cor:'#4a4a4a',bg:'#f0f0f0'},
+  {id:'contato_feito',label:'Contato Feito',emoji:'📲',cor:'#1e4d8c',bg:'#e8f0fb'},
+  {id:'confirmado',label:'Confirmado',emoji:'✅',cor:'#1a6b3c',bg:'#e8f5ee'},
+  {id:'presente',label:'Presente',emoji:'🏆',cor:'#b8860b',bg:'#faf6e8'},
+  {id:'nao_compareceu',label:'Não Compareceu',emoji:'❌',cor:'#e8431e',bg:'#fff0ec'},
+  {id:'feedback',label:'Feedback',emoji:'💬',cor:'#6b3db8',bg:'#f3e8fb'},
+];
+
+/* ESTADO GLOBAL */
+const G={
+  user:null, modulo:'marketing',
+  mk:{leads:[],_timerInterval:null,view:'kanban',busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
+  rel:{clientes:[],view:'kanban',busca:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
+  ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
+  an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
+};
+
+/* ---- FIREBASE HELPERS ---- */
+function toFV(v){
+  if(v===null||v===undefined)return{nullValue:null};
+  if(typeof v==='string')return{stringValue:v};
+  if(typeof v==='boolean')return{booleanValue:v};
+  if(typeof v==='number')return Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v};
+  if(Array.isArray(v))return{arrayValue:{values:v.map(toFV)}};
+  if(typeof v==='object')return{mapValue:{fields:toFF(v)}};
+  return{stringValue:String(v)};
+}
+function toFF(obj){const f={};for(const[k,v]of Object.entries(obj))if(v!==undefined)f[k]=toFV(v);return f;}
+function fromFV(v){
+  if(!v)return null;
+  if('stringValue'in v)return v.stringValue;if('booleanValue'in v)return v.booleanValue;
+  if('integerValue'in v)return parseInt(v.integerValue);if('doubleValue'in v)return v.doubleValue;
+  if('nullValue'in v)return null;if('arrayValue'in v)return(v.arrayValue.values||[]).map(fromFV);
+  if('mapValue'in v)return fromFF(v.mapValue.fields||{});return null;
+}
+function fromFF(fields){if(!fields)return{};return Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,fromFV(v)]));}
+async function fbList(col){
+  const r=await fetch(`${FB_URL}/${col}?key=${FB.apiKey}&pageSize=300`);
+  if(!r.ok)throw new Error(await r.text());
+  return((await r.json()).documents||[]).map(d=>({...fromFF(d.fields),_docName:d.name}));
+}
+async function fbCreate(col,id,data){
+  const r=await fetch(`${FB_URL}/${col}?documentId=${id}&key=${FB.apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:toFF(data)})});
+  if(!r.ok)throw new Error(await r.text());
+}
+async function fbUpdate(col,id,data){
+  const q=Object.keys(data).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const r=await fetch(`${FB_URL}/${col}/${id}?${q}&key=${FB.apiKey}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:toFF(data)})});
+  if(!r.ok)throw new Error(await r.text());
+}
+async function proximoId(prefixo,lista,col_config,campo){
+  if(G.mk.modoDemo||G.rel.modoDemo){
+    const max=lista.reduce((m,x)=>{const n=parseInt((x.id||`${prefixo}-000`).split('-')[1]||0);return n>m?n:m;},0);
+    return`${prefixo}-${String(max+1).padStart(3,'0')}`;
+  }
+  try{
+    const r=await fetch(`${FB_URL}/${col_config}?key=${FB.apiKey}`);
+    const j=await r.json();const seq=(fromFV((j.fields||{})[campo])||0)+1;
+    await fbUpdate(col_config.split('/')[0],col_config.split('/')[1],{[campo]:seq});
+    return`${prefixo}-${String(seq).padStart(3,'0')}`;
+  }catch{await fbCreate(col_config.split('/')[0],col_config.split('/')[1],{[campo]:1});return`${prefixo}-001`;}
+}
+
+/* ---- UTILS ---- */
+function hoje(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
+function isoParaBR(iso){if(!iso)return'';const[a,m,d]=iso.split('-');return`${d}/${m}/${a}`;}
+function diasDesdeCompra(dtISO){if(!dtISO)return 0;return Math.floor((new Date()-new Date(dtISO+'T12:00:00'))/(864e5));}
+function labelDias(d){if(d<30)return`${d}d`;if(d<365)return`${Math.floor(d/30)}m`;const a=Math.floor(d/365),m=Math.floor((d%365)/30);return m>0?`${a}a ${m}m`:`${a}a`;}
+function aniversarioMes(dtNasc){if(!dtNasc)return false;return parseInt(dtNasc.split('-')[1])===new Date().getMonth()+1;}
+function mascaraTel(el){let v=el.value.replace(/\D/g,'');el.value=(v.length<=10?v.replace(/(\d{2})(\d{4})(\d+)/,'($1) $2-$3'):v.replace(/(\d{2})(\d{5})(\d+)/,'($1) $2-$3')).substring(0,15);}
+function fecharModal(id){document.getElementById(id).classList.add('hidden');}
+function fecharDetail(){document.getElementById('detail-ov').classList.add('hidden');document.getElementById('detail-pnl').classList.add('hidden');G.mk.detailId=null;G.rel.detailId=null;}
+function toast(msg,tipo='green',ms=3000){
+  const el=document.getElementById('toast');el.textContent=msg;
+  el.style.background=tipo==='red'?'#e8431e':tipo==='gold'?'#b8860b':'#1a6b3c';
+  el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+/* ---- AUTH ---- */
+function preenchLogin(e,s){document.getElementById('login-email').value=e;document.getElementById('login-senha').value=s;fazerLogin();}
+function fazerLogin(){
+  const e=document.getElementById('login-email').value.trim().toLowerCase();
+  const s=document.getElementById('login-senha').value;
+  const u=USUARIOS.find(x=>x.e.toLowerCase()===e&&x.senha===s);
+  if(!u){document.getElementById('login-error').style.display='block';return;}
+  G.user=u;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
+  document.getElementById('sb-name').textContent=u.n;
+  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora'}[u.r]||u.r);
+  popularSelects();
+  // Mostrar/ocultar tabs de navegação conforme perfil
+  ['ni-rel','ni-ws','ni-an'].forEach(id=>{
+    const mod={'ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios'}[id];
+    const el=document.getElementById(id);
+    if(el) el.style.display=podeVerModulo(mod)?'':'none';
+  });
+  trocarModulo('marketing');
+}
+function logout(){
+  G.user=null;G.mk.leads=[];G.rel.clientes=[];
+  // Resetar visibilidade das tabs para o próximo login
+  ['ni-rel','ni-ws','ni-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+  document.getElementById('app-screen').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-error').style.display='none';
+  document.getElementById('login-email').value='';document.getElementById('login-senha').value='';
+}
+function popularSelects(){
+  const vendedores=USUARIOS.filter(u=>['seller','manager','master'].includes(u.r));
+  // vendedor do lead
+  const selCap=document.getElementById('f-captador');
+  if(selCap){selCap.innerHTML='<option value="">Selecione...</option><option value="Marcela">Marcela</option><option value="Rafael">Rafael</option><option value="Aline">Aline</option><option value="Milena">Milena</option><option value="Janderson">Janderson</option><option value="Maicon">Maicon</option>';}
+  // responsável no relacionamento
+  const selResp=document.getElementById('rc-resp');
+  if(selResp){
+    selResp.innerHTML='<option value="">Selecione...</option>';
+    vendedores.forEach(u=>{const o=document.createElement('option');o.value=u.n;o.textContent=u.n;selResp.appendChild(o);});
+  }
+  // quando origem=Compra, auto-seleciona Milena
+  const selOrigem=document.getElementById('f-origem');
+  if(selOrigem) selOrigem.onchange=function(){if(this.value==='Compra'&&selCap&&!selCap.value)selCap.value='Milena';};
+}
+
+/* ---- NAVEGAÇÃO ENTRE MÓDULOS ---- */
+async function trocarModulo(mod){
+  if(!podeVerModulo(mod)){toast('Sem acesso a este módulo','err');return;}
+  G.modulo=mod;
+  fecharDetail();
+  document.getElementById('ni-mk').classList.toggle('on',mod==='marketing');
+  document.getElementById('ni-rel').classList.toggle('on',mod==='relacionamento');
+  document.getElementById('ni-ws').classList.toggle('on',mod==='workshop');
+  document.getElementById('ni-an').classList.toggle('on',mod==='anuncios');
+  document.getElementById('sb-tag').textContent={marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios'}[mod]||mod;
+  if(mod==='marketing'){
+    if(!G.mk.leads.length)await initMarketing();
+    else renderMarketing();
+  } else if(mod==='workshop'){
+    pararTimerCRM();await initWorkshop();
+  } else if(mod==='anuncios'){
+    pararTimerCRM();await initAnuncios();
+  } else {
+    if(!G.rel.clientes.length)await initRelacionamento();
+    else renderRelacionamento();
+  }
+}
+</script>
+<script>
+/* ============================================================
+   MARKETING — DEMO + INIT + RENDER
+   ============================================================ */
+function initDemoMarketing(){
+  G.mk.modoDemo=true;
+  G.mk.leads=[
+    mkLead('LEAD-001','João Silva','(47) 99123-4567','joao@email.com','Facebook','Janderson','Honda HR-V 2022','80.000-90.000','ia','Quer SUV compacto.',hoje()),
+    mkLead('LEAD-002','Maria Oliveira','(47) 98765-4321','maria@email.com','Instagram','Anderson','Jeep Compass','120.000-140.000','ia','Pode visitar sábado.',hoje(-1)),
+    mkLead('LEAD-003','Carlos Mendes','(47) 97654-3210','','OLX','Guilherme','Toyota Corolla Cross','100.000-110.000','atendimento','Aguardando retorno.',hoje(-2)),
+    mkLead('LEAD-004','Ana Costa','(47) 96543-2109','ana@email.com','Indicação','Marco Caetano','Volkswagen T-Cross','75.000-85.000','encantamento','Renda e entrada confirmadas.',hoje(-3)),
+    mkLead('LEAD-005','Pedro Santos','(47) 95432-1098','pedro@email.com','Webmotors','Rafael','Ford Bronco Sport','95.000-105.000','agendamento','Visita agendada para sábado.',hoje(-4)),
+    mkLead('LEAD-006','Lucia Ferreira','(47) 94321-0987','','Passante','Maicon','Honda HR-V EX 2023','89.900','venda','Fechou! HR-V EX 2023 Cinza.',hoje(-5)),
+    mkLead('LEAD-007','Roberto Lima','(47) 93210-9876','roberto@email.com','Compra','Milena','Hyundai Creta','85.000-95.000','negociacao','Em negociação de proposta.',hoje()),
+    mkLead('LEAD-008','Fernanda Ramos','(47) 92109-8765','fernanda@email.com','iCarros','Carlos','Nissan Kicks','70.000-80.000','perdido','Comprou em outra loja.',hoje(-7)),
+    mkLead('LEAD-009','Marcos Teixeira','(47) 98877-6655','','Mercado Livre','Janderson','Volkswagen Golf','90.000-100.000','ia','Aguardando resposta.',hoje(-1)),
+    mkLead('LEAD-010','Alexsandro','(47) 97766-5544','alex@email.com','OLX','Maicon','Volkswagen Golf','85.000','visita','Veio à loja ontem.',hoje(-3)),
+  ];
+  G.mk.leads[0].historico=[{dt:hoje(),icone:'blue',acao:'Lead criado',obs:'Via Facebook',by:'Janderson'},{dt:hoje(),icone:'gold',acao:'Contato realizado',obs:'Respondeu no WhatsApp. Interessado no HR-V.',by:'Janderson'}];
+  G.mk.leads[5].historico=[{dt:hoje(-5),icone:'blue',acao:'Lead criado',obs:'Via Passante',by:'Maicon'},{dt:hoje(-3),icone:'green',acao:'🎉 Vendido',obs:'Honda HR-V EX 2023 Cinza. R$89.900.',by:'Maicon'}];
+  G.mk.leads[7].historico=[{dt:hoje(-7),icone:'blue',acao:'Lead criado',obs:'Via iCarros',by:'Carlos'},{dt:hoje(-5),icone:'red',acao:'❌ Perdido',obs:'Comprou em outra loja.',by:'Carlos'}];
+}
+function mkLead(id,clienteNome,clienteTel,clienteEmail,origem,captador,veiculo,valor,st,obs,dt){
+  const dtISO=new Date().toISOString().split('T')[0];
+  return{id,dt,dtISO,st,by:captador,uid:'demo',origem,captador,clienteNome,clienteTel,clienteEmail,veiculo,valor,obs,convertido:st==='venda',dtVenda:st==='venda'?dt:'',motivoPerda:st==='perdido'?'Sem interesse':'',historico:[],pendente_at:st==='agendamento'?new Date().toISOString():'',pendente_end:'',atendimento_at:st==='atendimento'?new Date().toISOString():'',atendimento_end:''};
+}
+async function initMarketing(){
+  document.getElementById('tb').innerHTML='';
+  document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando leads...</div>';
+  if(!fbOk()){initDemoMarketing();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
+  else{try{G.mk.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}}
+  renderMarketing();
+}
+/* ---- TIMER HELPERS (pendente) ---- */
+function calcElapsed(start,end){
+  const ms=(end?new Date(end):new Date())-new Date(start);
+  if(ms<0)return '0s';
+  const s=Math.floor(ms/1000);
+  const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sc=s%60;
+  return (h?h+'h ':'')+(m||h?m+'min ':'')+(sc+'s');
+}
+function iniciarTimerCRM(){
+  if(G.mk._timerInterval)clearInterval(G.mk._timerInterval);
+  G.mk._timerInterval=setInterval(()=>{
+    if(G.modulo!=='marketing'){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;return;}
+    document.querySelectorAll('.live-timer').forEach(el=>{
+      const start=el.dataset.start;
+      if(start) el.textContent=calcElapsed(start,null);
+    });
+  },1000);
+}
+function pararTimerCRM(){
+  if(G.mk._timerInterval){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;}
+}
+
+function renderMarketing(){
+  if(G.modulo!=='marketing')return;
+  const tb=document.getElementById('tb');
+  const view=G.mk.view;
+  tb.innerHTML=`
+    <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
+    <div class="tb-sep"></div>
+    <div class="tb-tabs">
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
+      <div class="tb-tab${view==='lista'?' on':''}" onclick="G.mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
+      <div class="tb-tab${view==='rel'?' on':''}" onclick="G.mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
+      <div class="tb-tab${view==='visitas'?' on':''}" onclick="G.mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Visitas</div>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-filters-inline">
+      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="G.mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
+      <input type="date" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="G.mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
+      <input type="date" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="G.mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
+      ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.mk.filtroCaptador=\'\';G.mk.filtroDataInicio=\'\';G.mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
+    </div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="G.mk.busca=this.value;renderMarketing()"></div>
+    <button class="btn btn-red btn-sm" onclick="abrirModalLead()"><i class="ti ti-plus"></i> Novo Lead</button>
+  `;
+  const cnt=document.getElementById('cnt');
+  cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  if(view==='kanban') renderKanbanMk(cnt);
+  else if(view==='lista') renderListaMk(cnt);
+  else if(view==='visitas') renderVisitasDashboard(cnt,'','');
+  else renderRelatoriosMk(cnt);
+}
+
+function isSeller(){return G.user?.r==='seller';}
+function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora';}
+function isMaster(){return G.user?.r==='master';}
+function podeVerModulo(mod){
+  const r=G.user?.r||'seller';
+  if(r==='master')return true;
+  if(r==='coordenadora')return mod!=='anuncios';
+  // seller: apenas CRM
+  return mod==='marketing';
+}
+function mkLeadsFiltrados(){
+  let ls=[...G.mk.leads];
+  // CONTROLE DE ACESSO: vendedor vê só seus leads
+  if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  if(G.mk.busca){const b=G.mk.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b));}
+  if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
+  if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');
+  if(G.mk.filtro==='perdidos')ls=ls.filter(l=>l.st==='perdido');
+  if(G.mk.filtroOrigem)ls=ls.filter(l=>l.origem===G.mk.filtroOrigem);
+  // filtro de captador só disponível para master/manager
+  if(isManager()&&G.mk.filtroCaptador)ls=ls.filter(l=>l.captador===G.mk.filtroCaptador||l.by===G.mk.filtroCaptador);
+  if(G.mk.filtroDataInicio){const di=new Date(G.mk.filtroDataInicio+'T00:00:00');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')>=di;});}
+  if(G.mk.filtroDataFim){const df=new Date(G.mk.filtroDataFim+'T23:59:59');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')<=df;});}
+  return ls;
+}
+
+function renderKanbanMk(cnt){
+  const wrap=document.createElement('div');wrap.className='kanban-wrap';
+  COLS_MK.forEach(col=>{
+    const leads=mkLeadsFiltrados().filter(l=>l.st===col.id);
+    const div=document.createElement('div');div.className='kb-col';
+    const head=document.createElement('div');head.className='kb-col-head';
+    head.innerHTML=`<span style="font-size:16px">${col.emoji}</span><span class="col-lbl" style="color:${col.cor}">${col.label}</span><span class="col-cnt" style="background:${col.bg};color:${col.cor}">${leads.length}</span>`;
+    const desc=document.createElement('div');desc.className='kb-col-desc';desc.style.borderBottomColor=col.cor;desc.textContent=col.desc;
+    const body=document.createElement('div');body.className='kb-col-body';body.dataset.col=col.id;
+    body.addEventListener('dragover',e=>{e.preventDefault();body.classList.add('drag-over')});
+    body.addEventListener('dragleave',()=>body.classList.remove('drag-over'));
+    body.addEventListener('drop',e=>{e.preventDefault();body.classList.remove('drag-over');dropLead(col.id)});
+    leads.forEach(l=>{
+      const c=document.createElement('div');c.className='lcard';c.style.borderLeftColor=col.cor;c.draggable=true;c.dataset.id=l.id;
+      c.addEventListener('dragstart',()=>{G.mk.dragId=l.id;c.classList.add('dragging')});
+      c.addEventListener('dragend',()=>{G.mk.dragId=null;c.classList.remove('dragging')});
+      c.onclick=e=>{if(!e.target.closest('.card-btn'))abrirDetailLead(l.id)};
+      const timerStart=col.id==='atendimento'?l.atendimento_at:l.pendente_at;
+      const timerEnd=col.id==='atendimento'?l.atendimento_end:l.pendente_end;
+      const timerInline=col.timer&&timerStart&&!timerEnd?
+        `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
+        (col.timer&&timerStart&&timerEnd?
+          `<span style="color:var(--tx3);font-size:10px"><i class="ti ti-clock"></i> ${calcElapsed(timerStart,timerEnd)}</span>`:
+        '');
+      c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
+        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}</div>
+        <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
+        <div class="card-footer">
+          <div class="card-actions">
+            <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
+            ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button>`:''}
+            <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}</div>`;
+      body.appendChild(c);
+    });
+    const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Novo lead';add.onclick=()=>abrirModalLead(null,col.id);
+    div.appendChild(head);div.appendChild(desc);div.appendChild(body);div.appendChild(add);
+    wrap.appendChild(div);
+  });
+  cnt.appendChild(wrap);
+  iniciarTimerCRM();
+}
+
+async function dropLead(novaCol){
+  if(!G.mk.dragId)return;
+  const lead=G.mk.leads.find(l=>l.id===G.mk.dragId);
+  if(!lead||lead.st===novaCol)return;
+  if(novaCol==='venda'){abrirModalVendido(G.mk.dragId);return;}
+  if(novaCol==='perdido'){abrirModalPerda(G.mk.dragId);return;}
+  await moverLead(G.mk.dragId,novaCol);
+}
+
+function renderListaMk(cnt){
+  const wrap=document.createElement('div');wrap.className='lista-wrap';
+  const filt=document.createElement('div');filt.className='lista-filters';
+  [{k:'todos',l:'Todos'},{k:'abertos',l:'Em andamento'},{k:'vendidos',l:'Vendidos'},{k:'perdidos',l:'Perdidos'}].forEach(c=>{
+    const el=document.createElement('div');el.className='filter-chip'+(G.mk.filtro===c.k?' on':'');el.textContent=c.l;
+    el.onclick=()=>{G.mk.filtro=c.k;renderMarketing()};filt.appendChild(el);
+  });
+  const selOrig=document.createElement('select');selOrig.className='select-sm';selOrig.style.minWidth='140px';
+  selOrig.innerHTML=`<option value="">🌐 Todas origens</option><optgroup label="📢 Marketing">${ORIGENS_MK.marketing.map(o=>`<option${G.mk.filtroOrigem===o?' selected':''}>${o}</option>`).join('')}</optgroup><optgroup label="🛒 Compra"><option${G.mk.filtroOrigem==='Compra'?' selected':''}>Compra</option></optgroup><optgroup label="🏪 Outros">${ORIGENS_MK.outros.map(o=>`<option${G.mk.filtroOrigem===o?' selected':''}>${o}</option>`).join('')}</optgroup>`;
+  selOrig.onchange=()=>{G.mk.filtroOrigem=selOrig.value;renderMarketing()};filt.appendChild(selOrig);
+  wrap.appendChild(filt);
+  const leads=mkLeadsFiltrados().sort((a,b)=>b.id.localeCompare(a.id));
+  const tw=document.createElement('div');tw.className='lista-table-wrap';
+  if(!leads.length){tw.innerHTML='<div class="lista-empty"><i class="ti ti-user-search"></i><p>Nenhum lead encontrado</p></div>';}
+  else{
+    const t=document.createElement('table');t.className='lista-table';
+    t.innerHTML='<thead><tr><th>ID</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Veículo</th><th>Origem</th><th>Vendedor</th><th>Etapa</th></tr></thead>';
+    const tb2=document.createElement('tbody');
+    leads.forEach(l=>{
+      const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><strong style="font-size:11px;color:var(--tx2)">${l.id}</strong></td><td style="font-size:12px;color:var(--tx3);white-space:nowrap">${l.dt||'-'}</td><td><strong>${l.clienteNome||'-'}</strong></td><td style="font-size:12px">${l.clienteTel||'-'}</td><td style="font-size:12px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.veiculo||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${l.origem||'-'}</span></td><td style="font-size:12px">${l.captador||l.by||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${col.emoji} ${col.label}</span></td>`;
+      tr.onclick=()=>abrirDetailLead(l.id);tb2.appendChild(tr);
+    });
+    t.appendChild(tb2);tw.appendChild(t);
+  }
+  wrap.appendChild(tw);cnt.appendChild(wrap);
+}
+
+function renderRelatoriosMk(cnt){
+  const wrap=document.createElement('div');wrap.className='rel-wrap';
+  const all=mkLeadsFiltrados();
+  const mkLeads=all.filter(l=>ORIGENS_MK.marketing.includes(l.origem));
+  const compraLeads=all.filter(l=>ORIGENS_MK.compra.includes(l.origem));
+  const outrosLeads=all.filter(l=>ORIGENS_MK.outros.includes(l.origem));
+  const qualifMk=all.filter(l=>l.st==='qualificado'&&ORIGENS_MK.marketing.includes(l.origem));
+  const qualifOutros=all.filter(l=>l.st==='qualificado'&&!ORIGENS_MK.marketing.includes(l.origem));
+  const emConversa=all.filter(l=>l.st==='em_conversa');
+  const aguardando=all.filter(l=>l.st==='aguardando');
+  const agendamentos=all.filter(l=>(l.historico||[]).some(h=>/agend/i.test(h.acao)));
+  const visitas=all.filter(l=>(l.historico||[]).some(h=>/visit/i.test(h.acao)));
+  const visitasCompra=visitas.filter(l=>ORIGENS_MK.compra.includes(l.origem));
+  const semVisitas=all.filter(l=>!['vendido','perdido'].includes(l.st)&&!(l.historico||[]).some(h=>/visit/i.test(h.acao)));
+  const vendas=all.filter(l=>l.st==='vendido');
+  const vendaCompra=vendas.filter(l=>ORIGENS_MK.compra.includes(l.origem));
+  // Reporte por canal de marketing
+  const porCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=all.filter(l=>l.origem===o).length;if(n>0)porCanal[o]=n;});
+  const porCap={};all.forEach(l=>{const c=l.captador||l.by||'?';porCap[c]=(porCap[c]||0)+1;});
+  const funil={};COLS_MK.forEach(col=>{funil[col.id]=all.filter(l=>l.st===col.id).length;});
+  wrap.innerHTML=`
+  <div class="rel-reporte">
+    <div class="rp-header"><i class="ti ti-clipboard-data"></i> Reporte de Leads <span class="rp-period">${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}</span></div>
+    <div class="rp-grid">
+      <div class="rp-section">
+        <div class="rp-sec-title">📢 Leads Canal de Marketing</div>
+        ${ORIGENS_MK.marketing.map(o=>`<div class="rp-row"><span>${o}</span><strong>${all.filter(l=>l.origem===o).length}</strong></div>`).join('')}
+        <div class="rp-row rp-total"><span>Total Marketing</span><strong>${mkLeads.length}</strong></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-sec-title">🏪 Leads Outros Canais</div>
+        <div class="rp-row"><span>Passante + Loja + Evento</span><strong>${all.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length}</strong></div>
+        <div class="rp-row"><span>My Business + Outra</span><strong>${all.filter(l=>['My Business','Outra'].includes(l.origem)).length}</strong></div>
+        <div class="rp-row"><span>Carteira + Prospecção + Indicação</span><strong>${all.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length}</strong></div>
+        <div class="rp-row rp-total"><span>Total Outros</span><strong>${outrosLeads.length}</strong></div>
+        <div class="rp-sec-title" style="margin-top:14px">🛒 Lead Compra</div>
+        <div class="rp-row rp-total"><span>Compra (Milena)</span><strong>${compraLeads.length}</strong></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-sec-title">⭐ Leads Qualificados</div>
+        <div class="rp-row"><span>Marketing qualificado</span><strong>${qualifMk.length}</strong></div>
+        <div class="rp-row"><span>Outros qualificado</span><strong>${qualifOutros.length}</strong></div>
+        <div class="rp-row rp-total"><span>Total qualificados</span><strong>${qualifMk.length+qualifOutros.length}</strong></div>
+        <div class="rp-sec-title" style="margin-top:14px">📲 Sem Retorno do Vendedor</div>
+        <div class="rp-row"><span>⏳ Aguardando retorno</span><strong style="color:#b8860b">${aguardando.length}</strong></div>
+        <div class="rp-row"><span>💬 Em conversa</span><strong style="color:#1e4d8c">${emConversa.length}</strong></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-sec-title">📅 Agendamentos</div>
+        <div class="rp-row"><span>Agend. compra ou vendedor</span><strong>${agendamentos.length}</strong></div>
+        <div class="rp-sec-title" style="margin-top:14px">🚗 Visitas</div>
+        <div class="rp-row"><span>Total de visitas</span><strong>${visitas.length}</strong></div>
+        <div class="rp-row"><span>Visitas compra</span><strong>${visitasCompra.length}</strong></div>
+        <div class="rp-row"><span>Relacionamento (0 visitas)</span><strong>${semVisitas.length}</strong></div>
+        <div class="rp-sec-title" style="margin-top:14px">✅ Vendas</div>
+        <div class="rp-row rp-total"><span>Vendas (total)</span><strong style="color:#1a6b3c">${vendas.length}</strong></div>
+        <div class="rp-row rp-total"><span>Compra (Milena)</span><strong style="color:#1a6b3c">${vendaCompra.length}</strong></div>
+      </div>
+    </div>
+  </div>
+  <div class="rel-row" style="margin-top:16px">
+    <div><div class="rel-section-title"><i class="ti ti-chart-bar"></i> Por Canal</div><div class="chart-box" id="ch-orig"></div></div>
+    <div><div class="rel-section-title"><i class="ti ti-user"></i> Por Vendedor</div><div class="chart-box" id="ch-cap"></div></div>
+  </div>
+  <div class="rel-section-title"><i class="ti ti-layout-kanban"></i> Funil</div>
+  <div class="chart-box" id="ch-funil" style="margin-bottom:22px"></div>`;
+  cnt.appendChild(wrap);
+  renderBarras(document.getElementById('ch-orig'),porCanal,'#1e4d8c');
+  renderBarras(document.getElementById('ch-cap'),porCap,'#e8431e');
+  const fn=document.getElementById('ch-funil');const tot=all.length||1;
+  fn.innerHTML=COLS_MK.map(col=>{const n=all.filter(l=>l.st===col.id).length;const pct=Math.max(Math.round(n/tot*100),n>0?8:0);
+    return`<div class="funnel-item"><span class="funnel-lbl">${col.emoji} ${col.label}</span><div class="funnel-track"><div class="funnel-fill" style="width:${pct}%;background:${col.cor}">${n>0?n:''}</div></div><span style="font-size:11px;color:var(--tx3);width:24px;text-align:right">${n}</span></div>`;
+  }).join('');
+}
+function renderBarras(el,data,cor){
+  const sorted=Object.entries(data).sort((a,b)=>b[1]-a[1]);const max=sorted[0]?.[1]||1;
+  if(!sorted.length){el.innerHTML='<div class="no-data">Sem dados</div>';return;}
+  el.innerHTML=sorted.map(([k,v])=>`<div class="bar-item"><span class="bar-lbl" title="${k}">${k}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%;background:${cor}"></div></div><span class="bar-val">${v}</span></div>`).join('');
+}
+</script>
+<script>
+/* ============================================================
+   MARKETING — CRUD
+   ============================================================ */
+function abrirModalLead(id=null,etapa=null){
+  G.mk.editandoId=id;const l=id?G.mk.leads.find(x=>x.id===id):null;
+  document.getElementById('mod-lead-titulo').textContent=id?'Editar Lead':'Novo Lead';
+  document.getElementById('btn-salvar-lead-txt').textContent=id?'Salvar Alterações':'Salvar Lead';
+  document.getElementById('f-nome').value=l?.clienteNome||'';document.getElementById('f-tel').value=l?.clienteTel||'';
+  document.getElementById('f-email').value=l?.clienteEmail||'';document.getElementById('f-origem').value=l?.origem||'';
+  document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';
+  document.getElementById('f-valor').value=l?.valor||'';document.getElementById('f-etapa').value=l?.st||etapa||'ia';
+  document.getElementById('f-obs').value=l?.obs||'';
+  document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
+}
+async function salvarLead(){
+  const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
+  if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!origem){toast('Selecione a origem','red');return;}
+  const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
+  let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
+  const dtISO=new Date().toISOString().split('T')[0];
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:document.getElementById('f-etapa').value||'aguardando',dtISO,obs:document.getElementById('f-obs').value.trim()};
+  try{
+    if(G.mk.editandoId){Object.assign(G.mk.leads.find(l=>l.id===G.mk.editandoId),data);await salvarCamposMk(G.mk.editandoId,data);toast('Lead atualizado!');}
+    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,dt:hoje(),convertido:false,dtVenda:'',motivoPerda:'',historico:[],...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,data.captador||G.user?.n||'');toast(`Lead ${id} criado!`);}
+    fecharModal('ov-lead');renderMarketing();
+  }catch(e){console.error(e);toast('Erro ao salvar','red');}
+  finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
+}
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon'];
+let _transferPopup=null;
+function abrirTransferirLead(id,e){
+  e.stopPropagation();
+  if(_transferPopup){_transferPopup.remove();_transferPopup=null;}
+  const popup=document.createElement('div');
+  popup.className='transfer-popup';
+  popup.innerHTML=`<div class="tp-title">Transferir para</div>${VENDEDORES_ATIVOS.map(v=>`<button onclick="confirmarTransferencia('${id}','${v}')">${v}</button>`).join('')}`;
+  document.body.appendChild(popup);
+  const btn=e.currentTarget;
+  const rect=btn.getBoundingClientRect();
+  popup.style.top=(rect.bottom+6)+'px';
+  popup.style.left=rect.left+'px';
+  _transferPopup=popup;
+  setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_transferPopup=null;},{once:true}),50);
+}
+async function confirmarTransferencia(id,vendedor){
+  if(_transferPopup){_transferPopup.remove();_transferPopup=null;}
+  const lead=G.mk.leads.find(l=>l.id===id);
+  if(!lead)return;
+  lead.captador=vendedor;
+  await salvarCamposMk(id,{captador:vendedor});
+  renderMarketing();
+  showToast(`Lead transferido para ${vendedor}`);
+}
+function abrirModalObs(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('obs-titulo').textContent=`Registrar — ${l?.clienteNome||id}`;document.getElementById('obs-tipo').value='📞 Contato realizado';document.getElementById('obs-texto').value='';document.getElementById('ov-obs').classList.remove('hidden');setTimeout(()=>document.getElementById('obs-texto').focus(),50);}
+async function salvarObs(){
+  const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const tipo=document.getElementById('obs-tipo').value,obs=document.getElementById('obs-texto').value.trim();
+  if(!obs){toast('Descreva o que aconteceu','red');return;}
+  const iconeMap={'📞':'gold','💬':'gold','📅':'purple','📄':'purple','🔄':'blue','🔕':'red','📝':'blue'};
+  const icone=iconeMap[tipo[0]]||'blue';
+  await regHistMk(lead,tipo,obs,G.user?.n||'',icone);
+  fecharModal('ov-obs');toast('Registrado!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+}
+function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
+async function confirmarVendido(){
+  const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const veiculo=document.getElementById('vend-veiculo').value.trim(),obs=document.getElementById('vend-obs').value.trim();
+  if(veiculo)lead.veiculo=veiculo;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();
+  await salvarCamposMk(id,{st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo});
+  await regHistMk(lead,'🎉 Vendido',obs||'Negócio fechado!',G.user?.n||'','green');
+  fecharModal('ov-vendido');toast('🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+}
+function abrirModalPerda(id){G.mk.detailId=id;document.getElementById('perda-motivo').value='';document.getElementById('perda-obs').value='';document.getElementById('ov-perda').classList.remove('hidden');}
+async function confirmarPerda(){
+  const id=G.mk.detailId,motivo=document.getElementById('perda-motivo').value,obs=document.getElementById('perda-obs').value.trim();
+  if(!motivo){toast('Selecione o motivo','red');return;}
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead.st='perdido';lead.motivoPerda=motivo;
+  await salvarCamposMk(id,{st:'perdido',motivoPerda:motivo});
+  await regHistMk(lead,'❌ Perdido',`Motivo: ${motivo}${obs?'. '+obs:''}`,G.user?.n||'','red');
+  fecharModal('ov-perda');toast('Lead registrado como perdido');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+}
+async function moverLead(id,novaCol){
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const oldLabel=COLS_MK.find(c=>c.id===lead.st)?.label;
+  const extras={};
+  if(novaCol==='agendamento'&&!lead.pendente_at){
+    lead.pendente_at=new Date().toISOString();extras.pendente_at=lead.pendente_at;
+  }
+  if((novaCol==='venda'||novaCol==='perdido')&&lead.pendente_at&&!lead.pendente_end){
+    lead.pendente_end=new Date().toISOString();extras.pendente_end=lead.pendente_end;
+  }
+  if(novaCol==='atendimento'&&!lead.atendimento_at){
+    lead.atendimento_at=new Date().toISOString();extras.atendimento_at=lead.atendimento_at;
+  }
+  if(novaCol!=='atendimento'&&lead.atendimento_at&&!lead.atendimento_end){
+    lead.atendimento_end=new Date().toISOString();extras.atendimento_end=lead.atendimento_end;
+  }
+  lead.st=novaCol;
+  await salvarCamposMk(id,Object.assign({st:novaCol},extras));
+  await regHistMk(lead,`${COLS_MK.find(c=>c.id===novaCol)?.emoji} Movido para ${COLS_MK.find(c=>c.id===novaCol)?.label}`,`Anterior: ${oldLabel}`,G.user?.n||'','blue');
+  toast(`Lead → ${COLS_MK.find(c=>c.id===novaCol)?.label}`);abrirDetailLead(id);renderMarketing();
+}
+async function regHistMk(lead,acao,obs,by,icone='blue'){if(!lead.historico)lead.historico=[];lead.historico.push({dt:hoje(),icone,acao,obs,by});await salvarCamposMk(lead.id,{historico:lead.historico});}
+async function salvarCamposMk(id,campos){if(G.mk.modoDemo)return;try{await fbUpdate('leads',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
+
+function abrirDetailLead(id){
+  G.mk.detailId=id;const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const col=COLS_MK.find(c=>c.id===lead.st)||COLS_MK[0];
+  document.getElementById('detail-ov').classList.remove('hidden');
+  const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
+  const hist=(lead.historico||[]).slice().reverse();
+  const histHtml=hist.length?hist.map(h=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
+    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`;
+  }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
+  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)).map(c=>`<button class="col-btn" onclick="moverLead('${id}','${c.id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`).join('');
+  const btnVend=lead.st!=='vendido'?`<button class="col-btn" onclick="abrirModalVendido('${id}')" style="border-color:var(--green);color:var(--green)">✅ Vendido</button>`:'';
+  const btnPerd=lead.st!=='perdido'?`<button class="col-btn" onclick="abrirModalPerda('${id}')" style="border-color:var(--red);color:var(--red)">❌ Perdido</button>`:'';
+  pnl.innerHTML=`
+    <div class="detail-head">
+      <span class="badge" style="background:${col.bg};color:${col.cor};font-size:12px">${col.emoji} ${col.label}</span>
+      ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>`:''}
+      <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="detail-body">
+      <h3 style="font-size:18px;font-weight:700;margin-bottom:12px">${lead.clienteNome||'—'}</h3>
+      <div class="d-section"><div class="d-section-title">Cliente</div>
+        <div class="d-grid">
+          <div class="d-field"><span class="lbl">Telefone</span><span class="val">${lead.clienteTel||'—'}</span></div>
+          <div class="d-field"><span class="lbl">E-mail</span><span class="val${!lead.clienteEmail?' empty':''}">${lead.clienteEmail||'—'}</span></div>
+        </div>
+      </div>
+      <div class="d-section"><div class="d-section-title">Lead</div>
+        <div class="d-grid">
+          <div class="d-field"><span class="lbl">ID</span><span class="val">${lead.id}</span></div>
+          <div class="d-field"><span class="lbl">Data</span><span class="val">${lead.dt||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Origem</span><span class="val">${lead.origem||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}</span></div>
+          <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
+          ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
+        </div>
+        ${lead.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px">${lead.obs}</div>`:''}
+      </div>
+      <div class="d-section"><div class="d-section-title">Mover etapa</div>
+        <div class="col-select">${movBtns}${btnVend}${btnPerd}</div>
+      </div>
+      <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
+    </div>
+    <div class="detail-foot">
+      <button class="btn btn-outline btn-sm" onclick="abrirModalLead('${id}')"><i class="ti ti-pencil"></i> Editar</button>
+      <button class="btn btn-red btn-sm" onclick="abrirModalObs('${id}')"><i class="ti ti-message-circle"></i> Registrar</button>
+    </div>`;
+}
+</script>
+<script>
+/* ============================================================
+   RELACIONAMENTO — INIT + RENDER + CRUD
+   ============================================================ */
+function initDemoRelacionamento(){
+  G.rel.modoDemo=true;
+  const d=(offset)=>{const dt=new Date();dt.setDate(dt.getDate()+offset);return dt.toISOString().split('T')[0];};
+  G.rel.clientes=[
+    mkCli('REL-001','Pedro Henrique Santos','(47) 99123-4567','pedro@email.com','1985-03-15','Honda HR-V EX 2023 Cinza','Janderson',d(-3),'nome','Cliente recém cadastrado.'),
+    mkCli('REL-002','Ana Lucia Costa','(47) 98765-4321','ana@email.com','1990-07-22','Jeep Compass Limited 2022','Anderson',d(-8),'d7','Ligou. Está ótimo com o veículo.'),
+    mkCli('REL-003','Carlos Mendes','(47) 97654-3210','','1978-11-30','Toyota Corolla Cross 2021','Guilherme',d(-92),'d90','Fim da garantia motor/câmbio próximo.'),
+    mkCli('REL-004','Fernanda Lima','(47) 96543-2109','fernanda@email.com','1995-04-10','Volkswagen T-Cross','Marco Caetano',d(-365),'d1ano','Cesta preparada para retirada.'),
+    mkCli('REL-005','Roberto Silva','(47) 95432-1098','','1982-07-28','Ford Bronco Sport 2022','Rafael',d(-400),'aniversario','Aniversário em julho.'),
+    mkCli('REL-006','Marcia Almeida','(47) 94321-0987','marcia@email.com','1975-09-05','Hyundai Creta Ultimate','Maicon',d(-730),'d2anos','Vitrificação agendada.'),
+    mkCli('REL-007','José Augusto','(47) 93210-9876','jose@email.com','1969-12-18','Nissan Kicks Advance','Carlos',d(-1095),'d3anos','Mensagem de 3 anos enviada.'),
+    mkCli('REL-008','Beatriz Souza','(47) 92109-8765','beatriz@email.com','1988-02-14','Volkswagen Golf GTI','Derivan',d(-1460),'d4anos','Pacote ofertado. Interessado.'),
+  ];
+  G.rel.clientes[0].historico=[{dt:hoje(),emoji:'📋',acao:'Cliente cadastrado',obs:'Comprou Honda HR-V EX.',by:'Janderson'}];
+  G.rel.clientes[5].historico=[{dt:hoje(-730),emoji:'📋',acao:'Cliente cadastrado',obs:'',by:'Maicon'},{dt:hoje(-10),emoji:'✨',acao:'Vitrificação agendada',obs:'Presente de 2 anos agendado.',by:'Maicon'}];
+}
+function mkCli(id,clienteNome,clienteTel,clienteEmail,dtNascimento,veiculo,responsavel,dtCompra,st,obs){
+  return{id,clienteNome,clienteTel,clienteEmail,dtNascimento,veiculo,responsavel,by:responsavel,uid:'demo',dtCompra,st,obs,valor:'',historico:[],d7Enviado:false,d7Recebido:false,d90Enviado:false,d3anosEnviado:false,visita1ano:'',visita2anos:'',visita4anos:''};
+}
+async function initRelacionamento(){
+  document.getElementById('tb').innerHTML='';
+  document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando clientes...</div>';
+  if(!fbOk()){initDemoRelacionamento();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
+  else{try{G.rel.clientes=await fbList('clientes_rel');}catch(e){console.error(e);toast('Erro ao carregar.','red');}}
+  renderRelacionamento();
+}
+function renderRelacionamento(){
+  if(G.modulo!=='relacionamento')return;
+  const tb=document.getElementById('tb');const view=G.rel.view;
+  tb.innerHTML=`
+    <div class="tb-title"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
+    <div class="tb-sep"></div>
+    <div class="tb-tabs">
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.rel.view='kanban';renderRelacionamento()"><i class="ti ti-layout-kanban"></i> Jornada</div>
+      <div class="tb-tab${view==='lista'?' on':''}" onclick="G.rel.view='lista';renderRelacionamento()"><i class="ti ti-list"></i> Lista</div>
+      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="G.rel.busca=this.value;renderRelacionamento()"></div>
+    <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
+  `;
+  const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  if(view==='kanban') renderKanbanRel(cnt);
+  else if(view==='dashboard') renderDashboardRel(cnt);
+  else renderListaRel(cnt);
+}
+function relClisFiltrados(){
+  let ls=[...G.rel.clientes];
+  if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b));}
+  return ls;
+}
+function renderKanbanRel(cnt){
+  const wrap=document.createElement('div');wrap.className='kanban-wrap';
+  COLS_REL.forEach(col=>{
+    const clis=relClisFiltrados().filter(c=>c.st===col.id);
+    const div=document.createElement('div');div.className='kb-col';
+    const head=document.createElement('div');head.className='kb-col-head';
+    head.innerHTML=`<span style="font-size:16px">${col.emoji}</span><span class="col-lbl" style="color:${col.cor}">${col.label}</span><span class="col-cnt" style="background:${col.bg};color:${col.cor}">${clis.length}</span>`;
+    const desc=document.createElement('div');desc.className='kb-col-desc';desc.style.borderBottomColor=col.cor;desc.textContent=col.desc;
+    const body=document.createElement('div');body.className='kb-col-body';body.dataset.col=col.id;
+    body.addEventListener('dragover',e=>{e.preventDefault();body.classList.add('drag-over')});
+    body.addEventListener('dragleave',()=>body.classList.remove('drag-over'));
+    body.addEventListener('drop',e=>{e.preventDefault();body.classList.remove('drag-over');dropCliente(col.id)});
+    function mkCardRel(c){
+      const card=document.createElement('div');card.className='ccard';card.style.borderLeftColor=col.cor;card.draggable=true;card.dataset.id=c.id;
+      card.addEventListener('dragstart',()=>{G.rel.dragId=c.id;card.classList.add('dragging')});
+      card.addEventListener('dragend',()=>{G.rel.dragId=null;card.classList.remove('dragging')});
+      card.onclick=e=>{if(!e.target.closest('.card-btn'))abrirDetailCliente(c.id)};
+      const dias=diasDesdeCompra(c.dtCompra);const aniv=aniversarioMes(c.dtNascimento);
+      card.innerHTML=`
+        ${aniv?'<span style="position:absolute;top:8px;right:8px;font-size:14px" title="Aniversário este mês!">🎂</span>':''}
+        <div class="card-id">${c.id}</div>
+        <div class="card-nome">${c.clienteNome||'(sem nome)'}</div>
+        <div class="card-sub"><i class="ti ti-car"></i>${c.veiculo||'Veículo não informado'}</div>
+        <div class="card-acao" style="background:${col.bg};color:${col.cor}"><i class="ti ti-bolt"></i>${col.acolabel}</div>
+        ${renderSubStatusRel(c,col)}
+        <div class="card-footer">
+          <span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span>
+          <div class="card-actions">
+            <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i></button>
+            ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-copy"></i></button>`:''}
+          </div>
+        </div>`;
+      return card;
+    }
+    if(col.subDiv){
+      const campo=col.subDiv.campo;
+      const [lblA,lblB]=col.subDiv.labels;
+      const grpA=clis.filter(c=>c[campo]!=='realizada');
+      const grpB=clis.filter(c=>c[campo]==='realizada');
+      function subHdr(lbl,n){
+        const h=document.createElement('div');
+        h.style.cssText='font-size:10px;font-weight:700;letter-spacing:1px;color:'+col.cor+';padding:8px 4px 4px;border-bottom:2px solid '+col.cor+';margin-bottom:6px;text-transform:uppercase;margin-top:4px';
+        h.textContent=lbl+' ('+n+')';return h;
+      }
+      body.appendChild(subHdr(lblA,grpA.length));
+      grpA.forEach(c=>body.appendChild(mkCardRel(c)));
+      body.appendChild(subHdr(lblB,grpB.length));
+      grpB.forEach(c=>body.appendChild(mkCardRel(c)));
+    } else {
+      clis.forEach(c=>body.appendChild(mkCardRel(c)));
+    }
+    const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Adicionar';add.onclick=()=>abrirModalCliente(null,col.id);
+    div.appendChild(head);div.appendChild(desc);div.appendChild(body);div.appendChild(add);wrap.appendChild(div);
+  });
+  cnt.appendChild(wrap);
+}
+
+// Sub-status helpers for Relacionamento kanban
+function renderSubStatusRel(c,col){
+  if(col.id==='d7'){
+    return `<div style="display:flex;gap:6px;margin:6px 0 2px;flex-wrap:wrap">
+      <button class="card-btn card-btn-label${c.d7Enviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d7Enviado',event)" style="${c.d7Enviado?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">
+        <i class="ti ti-send"></i> ${c.d7Enviado?'Enviado ✓':'Enviar'}
+      </button>
+      <button class="card-btn card-btn-label${c.d7Recebido?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d7Recebido',event)" style="${c.d7Recebido?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
+        <i class="ti ti-message-check"></i> ${c.d7Recebido?'Feedback ✓':'Recebido?'}
+      </button>
+    </div>`;
+  }
+  if(col.id==='d90'){
+    return `<div style="display:flex;gap:6px;margin:6px 0 2px">
+      <button class="card-btn card-btn-label${c.d90Enviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d90Enviado',event)" style="${c.d90Enviado?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">
+        <i class="ti ti-send"></i> ${c.d90Enviado?'Aviso enviado ✓':'Enviar aviso'}
+      </button>
+    </div>`;
+  }
+  if(col.id==='d1ano'){
+    return `<div style="margin:6px 0 2px">
+      <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🎁 Visita para retirar cesta:</div>
+      <div style="display:flex;gap:4px">
+        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita1ano','nao_realizada',event)" style="${c.visita1ano==='nao_realizada'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">
+          ${c.visita1ano==='nao_realizada'?'❌ Não veio':'Não realizada'}
+        </button>
+        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita1ano','realizada',event)" style="${c.visita1ano==='realizada'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
+          ${c.visita1ano==='realizada'?'✅ Retirou':'Realizada'}
+        </button>
+      </div>
+    </div>`;
+  }
+  if(col.id==='d2anos'){
+    return `<div style="margin:6px 0 2px">
+      <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">✨ Visita para vitrificação:</div>
+      <div style="display:flex;gap:4px">
+        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita2anos','nao_realizada',event)" style="${c.visita2anos==='nao_realizada'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">
+          ${c.visita2anos==='nao_realizada'?'❌ Não veio':'Não realizada'}
+        </button>
+        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita2anos','realizada',event)" style="${c.visita2anos==='realizada'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
+          ${c.visita2anos==='realizada'?'✅ Veio':'Realizada'}
+        </button>
+      </div>
+    </div>`;
+  }
+  if(col.id==='d3anos'){
+    return `<div style="display:flex;gap:6px;margin:6px 0 2px">
+      <button class="card-btn card-btn-label${c.d3anosEnviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d3anosEnviado',event)" style="${c.d3anosEnviado?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
+        <i class="ti ti-confetti"></i> ${c.d3anosEnviado?'Mensagem enviada ✓':'Enviar parabéns'}
+      </button>
+    </div>`;
+  }
+  if(col.id==='d4anos'){
+    return `<div style="margin:6px 0 2px">
+      <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">💎 Visita para pacote estética:</div>
+      <div style="display:flex;gap:4px">
+        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita4anos','nao_realizada',event)" style="${c.visita4anos==='nao_realizada'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">
+          ${c.visita4anos==='nao_realizada'?'❌ Não veio':'Não realizada'}
+        </button>
+        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita4anos','realizada',event)" style="${c.visita4anos==='realizada'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
+          ${c.visita4anos==='realizada'?'✅ Veio':'Realizada'}
+        </button>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+async function toggleCampoRel(id,campo,e){
+  e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c[campo]=!c[campo];
+  if(fbOk()) await salvarCamposRel(id,{[campo]:c[campo]});
+  renderRelacionamento();
+}
+async function setVisitaRel(id,campo,valor,e){
+  e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c[campo]=c[campo]===valor?'':valor; // toggle off if same value
+  if(fbOk()) await salvarCamposRel(id,{[campo]:c[campo]});
+  renderRelacionamento();
+}
+
+async function dropCliente(novaCol){
+  if(!G.rel.dragId)return;const c=G.rel.clientes.find(x=>x.id===G.rel.dragId);if(!c||c.st===novaCol)return;
+  const oldLabel=COLS_REL.find(x=>x.id===c.st)?.label;const newCol=COLS_REL.find(x=>x.id===novaCol);
+  c.st=novaCol;await salvarCamposRel(c.id,{st:novaCol});
+  await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldLabel}`,G.user?.n||'',newCol.emoji);
+  toast(`${c.clienteNome} → ${newCol.emoji} ${newCol.label}`);renderRelacionamento();
+}
+function renderListaRel(cnt){
+  const wrap=document.createElement('div');wrap.className='lista-wrap';
+  const clis=relClisFiltrados().sort((a,b)=>b.id.localeCompare(a.id));
+  const tw=document.createElement('div');tw.className='lista-table-wrap';
+  if(!clis.length){tw.innerHTML='<div class="lista-empty"><i class="ti ti-heart-handshake"></i><p>Nenhum cliente encontrado</p></div>';}
+  else{
+    const t=document.createElement('table');t.className='lista-table';
+    t.innerHTML='<thead><tr><th>ID</th><th>Cliente</th><th>Telefone</th><th>Veículo</th><th>Compra</th><th>Tempo</th><th>Etapa</th><th>Responsável</th></tr></thead>';
+    const tb2=document.createElement('tbody');
+    clis.forEach(c=>{
+      const col=COLS_REL.find(x=>x.id===c.st)||COLS_REL[0];const dias=diasDesdeCompra(c.dtCompra);
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><strong style="font-size:11px;color:var(--tx2)">${c.id}</strong></td><td><strong>${c.clienteNome||'-'}</strong></td><td style="font-size:12px">${c.clienteTel||'-'}</td><td style="font-size:12px;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.veiculo||'-'}</td><td style="font-size:12px;color:var(--tx3);white-space:nowrap">${isoParaBR(c.dtCompra)||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span></td><td><span style="font-size:16px">${col.emoji}</span> <span style="font-size:12px;font-weight:600;color:${col.cor}">${col.label}</span></td><td style="font-size:12px">${c.responsavel||c.by||'-'}</td>`;
+      tr.onclick=()=>abrirDetailCliente(c.id);tb2.appendChild(tr);
+    });
+    t.appendChild(tb2);tw.appendChild(t);
+  }
+  wrap.appendChild(tw);cnt.appendChild(wrap);
+}
+
+/* DASHBOARD RELACIONAMENTO */
+function renderDashboardRel(cnt){
+  cnt.style.cssText='flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px';
+  const clis=G.rel.clientes;
+  const total=clis.length;
+
+  // Por etapa
+  const porEtapa={};COLS_REL.forEach(c=>{porEtapa[c.id]=0;});
+  clis.forEach(c=>{if(porEtapa[c.st]!==undefined)porEtapa[c.st]++;});
+
+  // Por responsável
+  const porResp={};
+  clis.forEach(c=>{const r=c.responsavel||'—';porResp[r]=(porResp[r]||0)+1;});
+  const respSorted=Object.entries(porResp).sort((a,b)=>b[1]-a[1]);
+
+  // Métricas de acompanhamento por etapa
+  const d7total=clis.filter(c=>c.st==='d7').length;
+  const d7env=clis.filter(c=>c.d7Enviado).length;
+  const d7rec=clis.filter(c=>c.d7Recebido).length;
+  const d90total=clis.filter(c=>c.st==='d90').length;
+  const d90env=clis.filter(c=>c.d90Enviado).length;
+  const d3total=clis.filter(c=>c.st==='d3anos').length;
+  const d3env=clis.filter(c=>c.d3anosEnviado).length;
+
+  // Visitas
+  const v1real=clis.filter(c=>c.visita1ano==='realizada').length;
+  const v1nao=clis.filter(c=>c.visita1ano==='nao_realizada').length;
+  const v1total=clis.filter(c=>c.st==='d1ano').length;
+  const v2real=clis.filter(c=>c.visita2anos==='realizada').length;
+  const v2nao=clis.filter(c=>c.visita2anos==='nao_realizada').length;
+  const v2total=clis.filter(c=>c.st==='d2anos').length;
+  const v4real=clis.filter(c=>c.visita4anos==='realizada').length;
+  const v4nao=clis.filter(c=>c.visita4anos==='nao_realizada').length;
+  const v4total=clis.filter(c=>c.st==='d4anos').length;
+
+  // Aniversários próximos (30 dias)
+  const hoje=new Date();
+  const anivProximos=clis.filter(c=>{
+    if(!c.dtNascimento)return false;
+    const [,am,ad]=c.dtNascimento.split('-');
+    const aniv=new Date(hoje.getFullYear(),+am-1,+ad);
+    if(aniv<hoje)aniv.setFullYear(hoje.getFullYear()+1);
+    return(aniv-hoje)/(1000*60*60*24)<=30;
+  }).map(c=>{
+    const [,am,ad]=c.dtNascimento.split('-');
+    const aniv=new Date(hoje.getFullYear(),+am-1,+ad);
+    if(aniv<hoje)aniv.setFullYear(hoje.getFullYear()+1);
+    return{...c,_dias:Math.round((aniv-hoje)/(1000*60*60*24))};
+  }).sort((a,b)=>a._dias-b._dias);
+
+  // Urgentes (chegando na próxima etapa)
+  const urgentes=[];
+  clis.forEach(c=>{
+    if(!c.dtCompra)return;
+    const compra=new Date(c.dtCompra);
+    const dp=Math.round((hoje-compra)/(1000*60*60*24));
+    const th={nome:0,d7:7,d90:90,d1ano:365,d2anos:730,d3anos:1095,d4anos:1460};
+    const prox=COLS_REL.find(col=>col.id!=='aniversario'&&th[col.id]!==undefined&&th[col.id]>(th[c.st||'nome']||0)&&dp>=th[col.id]-3&&dp<=th[col.id]+7);
+    if(prox)urgentes.push({...c,_prox:prox,_dp:dp});
+  });
+
+  function barFill(n,total,color){
+    const pct=total?Math.round(n/total*100):0;
+    return `<div style="background:var(--bdr);border-radius:4px;height:8px;margin-top:4px;overflow:hidden"><div style="background:${color};height:100%;border-radius:4px;width:${pct}%;transition:width .3s"></div></div>`;
+  }
+  function kpiCard(val,label,color,bg){
+    return `<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:700;color:${color}">${val}</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
+    </div>`;
+  }
+  function visitaCard(emoji,label,total,real,nao,cor){
+    const pend=Math.max(0,total-real-nao);
+    return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:10px">${emoji} ${label}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:11px;background:#e8f5ee;color:#1a6b3c;padding:2px 8px;border-radius:20px">✅ Realizada: ${real}</span>
+        <span style="font-size:11px;background:#fff0ec;color:#e8431e;padding:2px 8px;border-radius:20px">❌ Não veio: ${nao}</span>
+        <span style="font-size:11px;background:var(--bg3);color:var(--tx3);padding:2px 8px;border-radius:20px">⏳ Pendente: ${pend}</span>
+      </div>
+      ${real+nao>0?barFill(real,real+nao,'#1a6b3c'):'<div style="font-size:11px;color:var(--tx3)">Sem registros ainda</div>'}
+    </div>`;
+  }
+
+  cnt.innerHTML=`
+    <!-- KPIs totais -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+      ${kpiCard(total,'Total de Clientes','var(--red)','')}
+      ${COLS_REL.filter(c=>c.id!=='aniversario').map(c=>kpiCard(porEtapa[c.id]||0,c.emoji+' '+c.label,c.cor,c.bg)).join('')}
+      ${kpiCard(anivProximos.length,'🎂 Aniv. 30 dias','#b8860b','#fff8e1')}
+    </div>
+
+    <!-- Acompanhamento de mensagens -->
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-chart-bar" style="color:var(--purple)"></i> Acompanhamento de Ações por Etapa
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+        <!-- 7 dias -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#1e4d8c;margin-bottom:8px">💬 7 dias (${d7total} clientes)</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>Mensagem enviada</span><span style="font-weight:600">${d7env}/${d7total}</span></div>
+          ${barFill(d7env,d7total,'#1e4d8c')}
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span>Feedback recebido</span><span style="font-weight:600">${d7rec}/${d7total}</span></div>
+          ${barFill(d7rec,d7total,'#1a6b3c')}
+        </div>
+        <!-- 90 dias -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#b8860b;margin-bottom:8px">🔧 90 dias (${d90total} clientes)</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>Aviso de garantia enviado</span><span style="font-weight:600">${d90env}/${d90total}</span></div>
+          ${barFill(d90env,d90total,'#b8860b')}
+        </div>
+        <!-- 3 anos -->
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#1a6b3c;margin-bottom:8px">🎊 3 anos (${d3total} clientes)</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>Parabéns enviado</span><span style="font-weight:600">${d3env}/${d3total}</span></div>
+          ${barFill(d3env,d3total,'#1a6b3c')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Visitas -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+      ${visitaCard('🎁','Cesta 1 ano',v1total,v1real,v1nao,'#6b3db8')}
+      ${visitaCard('✨','Vitrificação 2 anos',v2total,v2real,v2nao,'#0b7ba8')}
+      ${visitaCard('💎','Pacote Estética 4 anos',v4total,v4real,v4nao,'#6b3db8')}
+    </div>
+
+    <!-- Próximas Ações + Por Responsável -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+          <i class="ti ti-alert-triangle" style="color:#e8431e"></i> Próximas Ações
+        </div>
+        ${urgentes.length===0?'<div style="color:var(--tx3);font-size:12px">Nenhuma ação urgente no momento.</div>':
+          urgentes.slice(0,6).map(c=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr)">
+            <div style="width:32px;height:32px;border-radius:50%;background:${c._prox.bg};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${c._prox.emoji}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.clienteNome||'—'}</div>
+              <div style="font-size:11px;color:var(--tx3)">${c._prox.label} · ${c._dp}d desde compra</div>
+            </div>
+            <div style="font-size:11px;color:var(--tx3)">${c.responsavel||'—'}</div>
+          </div>`).join('')
+        }
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+          <i class="ti ti-users" style="color:var(--purple)"></i> Clientes por Responsável
+        </div>
+        ${respSorted.map(([r,n])=>`
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:500">${r}</span>
+            <span style="font-size:12px;color:var(--tx3)">${n}</span>
+          </div>
+          ${barFill(n,total,'var(--purple)')}
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Aniversários próximos -->
+    ${anivProximos.length?`
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-cake" style="color:#b8860b"></i> Aniversários nos próximos 30 dias
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
+        ${anivProximos.map(c=>`
+        <div style="background:${c._dias<=7?'#fff8e1':'var(--bg3)'};border:1px solid ${c._dias<=7?'#f0c040':'var(--bdr)'};border-radius:var(--r2);padding:10px 12px;display:flex;gap:10px;align-items:center">
+          <div style="font-size:22px">🎂</div>
+          <div>
+            <div style="font-size:12px;font-weight:500">${c.clienteNome||'—'}</div>
+            <div style="font-size:11px;color:var(--tx3)">${c._dias===0?'Hoje!':c._dias===1?'Amanhã':'Em '+c._dias+' dias'}</div>
+            <div style="font-size:11px;color:var(--tx3)">${c.responsavel||'—'}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+  `;
+}
+
+/* CRUD RELACIONAMENTO */
+function abrirModalCliente(id=null,etapa=null){
+  G.rel.editandoId=id;const c=id?G.rel.clientes.find(x=>x.id===id):null;
+  document.getElementById('mod-cliente-titulo').textContent=id?'Editar Cliente':'Novo Cliente';
+  document.getElementById('btn-salvar-cli-txt').textContent=id?'Salvar Alterações':'Salvar';
+  document.getElementById('rc-nome').value=c?.clienteNome||'';document.getElementById('rc-tel').value=c?.clienteTel||'';
+  document.getElementById('rc-email').value=c?.clienteEmail||'';document.getElementById('rc-nasc').value=c?.dtNascimento||'';
+  document.getElementById('rc-resp').value=c?.responsavel||c?.by||G.user?.n||'';document.getElementById('rc-veiculo').value=c?.veiculo||'';
+  document.getElementById('rc-dtcompra').value=c?.dtCompra||new Date().toISOString().split('T')[0];
+  document.getElementById('rc-valor').value=c?.valor||'';document.getElementById('rc-etapa').value=c?.st||etapa||'nome';
+  document.getElementById('rc-obs').value=c?.obs||'';
+  document.getElementById('ov-cliente').classList.remove('hidden');setTimeout(()=>document.getElementById('rc-nome').focus(),50);
+}
+async function salvarCliente(){
+  const nome=document.getElementById('rc-nome').value.trim(),tel=document.getElementById('rc-tel').value.trim(),veiculo=document.getElementById('rc-veiculo').value.trim(),dtCompra=document.getElementById('rc-dtcompra').value;
+  if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!veiculo){toast('Informe o veículo','red');return;}if(!dtCompra){toast('Informe a data da compra','red');return;}
+  const btn=document.getElementById('btn-salvar-cli');btn.disabled=true;document.getElementById('btn-salvar-cli-txt').innerHTML='<span class="spin"></span>';
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('rc-email').value.trim(),dtNascimento:document.getElementById('rc-nasc').value,responsavel:document.getElementById('rc-resp').value||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo,dtCompra,valor:document.getElementById('rc-valor').value.trim(),st:document.getElementById('rc-etapa').value||'nome',obs:document.getElementById('rc-obs').value.trim()};
+  try{
+    if(G.rel.editandoId){Object.assign(G.rel.clientes.find(x=>x.id===G.rel.editandoId),data);await salvarCamposRel(G.rel.editandoId,data);toast('Cliente atualizado!');}
+    else{const id=await proximoId('REL',G.rel.clientes,'rel_config/seq','relSeq');const c={id,historico:[],...data};G.rel.clientes.push(c);if(!G.rel.modoDemo)await fbCreate('clientes_rel',id,c);await regHistRel(c,'📋 Cliente cadastrado',`Veículo: ${veiculo}`,data.responsavel||G.user?.n||'','📋');toast(`${nome} cadastrado!`);}
+    fecharModal('ov-cliente');renderRelacionamento();
+  }catch(e){console.error(e);toast('Erro ao salvar','red');}
+  finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
+}
+function abrirModalInt(id){G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);document.getElementById('int-titulo').textContent=`Registrar — ${c?.clienteNome||id}`;document.getElementById('int-tipo').value='📞 Ligação realizada';document.getElementById('int-obs').value='';document.getElementById('ov-int').classList.remove('hidden');setTimeout(()=>document.getElementById('int-obs').focus(),50);}
+async function salvarInteracao(){
+  const id=G.rel.detailId,c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  const tipo=document.getElementById('int-tipo').value,obs=document.getElementById('int-obs').value.trim();
+  if(!obs){toast('Descreva a interação','red');return;}
+  await regHistRel(c,tipo,obs,G.user?.n||'',tipo.split(' ')[0]);
+  fecharModal('ov-int');toast('Registrado!');if(G.rel.detailId===id)abrirDetailCliente(id);renderRelacionamento();
+}
+function copiarMsg(id){
+  const c=G.rel.clientes.find(x=>x.id===id);const col=COLS_REL.find(x=>x.id===c?.st);
+  if(!col?.msg){toast('Etapa sem mensagem padrão','gold');return;}
+  const msg=col.msg.replace(/\[NOME\]/g,c.clienteNome.split(' ')[0]).replace(/\[VEICULO\]/g,c.veiculo);
+  navigator.clipboard.writeText(msg).then(()=>toast('Mensagem copiada! Cole no WhatsApp 💬')).catch(()=>prompt('Copie:',msg));
+}
+async function moverCliente(id,novaCol){
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  const oldLabel=COLS_REL.find(x=>x.id===c.st)?.label;const newCol=COLS_REL.find(x=>x.id===novaCol);
+  c.st=novaCol;await salvarCamposRel(id,{st:novaCol});
+  await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldLabel}`,G.user?.n||'',newCol.emoji);
+  toast(`${c.clienteNome} → ${newCol.emoji} ${newCol.label}`);abrirDetailCliente(id);renderRelacionamento();
+}
+async function regHistRel(c,acao,obs,by,emoji='📝'){if(!c.historico)c.historico=[];c.historico.push({dt:hoje(),emoji,acao,obs,by});await salvarCamposRel(c.id,{historico:c.historico});}
+async function salvarCamposRel(id,campos){if(G.rel.modoDemo)return;try{await fbUpdate('clientes_rel',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
+
+function abrirDetailCliente(id){
+  G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  const col=COLS_REL.find(x=>x.id===c.st)||COLS_REL[0];const dias=diasDesdeCompra(c.dtCompra);const aniv=aniversarioMes(c.dtNascimento);
+  document.getElementById('detail-ov').classList.remove('hidden');
+  const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
+  const hist=(c.historico||[]).slice().reverse();
+  const histHtml=hist.length?hist.map(h=>`<div class="hist-item"><div class="hist-dot" style="background:${col.bg};font-size:16px">${h.emoji||'📝'}</div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação.</div>';
+  const movBtns=COLS_REL.filter(x=>x.id!==c.st).map(x=>`<button class="col-btn" onclick="moverCliente('${id}','${x.id}')" style="border-color:${x.cor};color:${x.cor}">${x.emoji} ${x.label}</button>`).join('');
+  pnl.innerHTML=`
+    <div class="detail-head">
+      <span style="font-size:22px">${col.emoji}</span>
+      <h3>${c.clienteNome||'—'}</h3>
+      <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="detail-body">
+      ${col.msg?`<div class="milestone-box"><span class="m-emoji">${col.emoji}</span><div class="m-title">${col.label} — ${col.acolabel}</div><div class="m-desc">${col.acao}</div><button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="copiarMsg('${id}')"><i class="ti ti-copy"></i> Copiar mensagem WhatsApp</button></div>`:''}
+      ${aniv?`<div style="background:var(--redl);border:1px solid var(--red);border-radius:var(--r);padding:10px 12px;margin-bottom:16px;font-size:12px;color:var(--red);font-weight:600">🎂 Aniversário este mês!</div>`:''}
+      <div class="d-section"><div class="d-section-title">Cliente</div>
+        <div class="d-grid">
+          <div class="d-field" style="grid-column:1/-1"><span class="lbl">Nome</span><span class="val">${c.clienteNome}</span></div>
+          <div class="d-field"><span class="lbl">Telefone</span><span class="val">${c.clienteTel||'—'}</span></div>
+          <div class="d-field"><span class="lbl">E-mail</span><span class="val${!c.clienteEmail?' empty':''}">${c.clienteEmail||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Nascimento</span><span class="val">${isoParaBR(c.dtNascimento)||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Responsável</span><span class="val">${c.responsavel||c.by||'—'}</span></div>
+        </div>
+      </div>
+      <div class="d-section"><div class="d-section-title">Veículo</div>
+        <div class="d-grid">
+          <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${c.veiculo||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Data da compra</span><span class="val">${isoParaBR(c.dtCompra)||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Tempo de cliente</span><span class="val" style="color:${col.cor};font-weight:700">${labelDias(dias)} (${dias} dias)</span></div>
+          ${c.valor?`<div class="d-field"><span class="lbl">Valor</span><span class="val">${c.valor}</span></div>`:''}
+        </div>
+        ${c.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px">${c.obs}</div>`:''}
+      </div>
+      <div class="d-section"><div class="d-section-title">Mover na jornada</div><div class="col-select">${movBtns}</div></div>
+      <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
+    </div>
+    <div class="detail-foot">
+      <button class="btn btn-outline btn-sm" onclick="abrirModalCliente('${id}')"><i class="ti ti-pencil"></i> Editar</button>
+      <button class="btn btn-red btn-sm" onclick="abrirModalInt('${id}')"><i class="ti ti-message-circle"></i> Registrar</button>
+      ${col.msg?`<button class="btn btn-green btn-sm" onclick="copiarMsg('${id}')"><i class="ti ti-copy"></i> WhatsApp</button>`:''}
+    </div>`;
+}
+
+/* KEYBOARD */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){['ov-lead','ov-obs','ov-vendido','ov-perda','ov-cliente','ov-int','ov-evento','ov-convidado','ov-obs-ws'].forEach(id=>fecharModal(id));fecharDetail();}
+  if(e.key==='n'&&!e.ctrlKey&&!e.metaKey&&document.activeElement.tagName==='BODY'){G.modulo==='marketing'?abrirModalLead():abrirModalCliente();}
+});
+</script>
+
+<script>
+/* ============================================================
+   WORKSHOP — MÓDULO
+   ============================================================ */
+async function initWorkshop(){
+  // Reset state
+  G.ws.eventoAtualId=null;
+  G.ws.view='eventos';
+  // Imediatamente limpa e mostra workshop — antes de qualquer await
+  const cnt=document.getElementById('cnt');
+  cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  cnt.innerHTML='<div style="padding:40px;text-align:center;color:var(--tx3);flex:1"><i class="ti ti-loader-2"></i> Carregando Workshop...</div>';
+  const tb=document.getElementById('tb');
+  tb.innerHTML=`<div class="tb-title"><i class="ti ti-calendar-event" style="color:var(--purple)"></i> Workshop</div><div class="tb-sep"></div><div class="tb-tabs"><div class="tb-tab on">Eventos</div><div class="tb-tab">Dashboard</div></div>`;
+  if(!fbOk()){initDemoWorkshop();return;}
+  try{
+    G.ws.eventos=await fbList('eventos_ws');
+    G.ws.convidados=await fbList('convidados_ws');
+  }catch(e){
+    console.error('Workshop Firebase error:',e);
+    G.ws.modoDemo=true;
+    initDemoWorkshop();
+    return;
+  }
+  if(G.modulo==='workshop') renderWorkshop();
+}
+
+function initDemoWorkshop(){
+  G.ws.modoDemo=true;
+  G.ws.eventos=[{id:'EV-001',nome:'Workshop RT Car — Agosto',data:'2026-08-10',hora:'10:00',valor:'Gratuito',obs:'Evento presencial na loja',dt:'10/08/2026'}];
+  G.ws.convidados=[
+    {id:'CV-001',eventoId:'EV-001',nome:'João Silva',whatsapp:'(47) 99999-1111',st:'confirmado',obs:'Interessado no Civic'},
+    {id:'CV-002',eventoId:'EV-001',nome:'Maria Santos',whatsapp:'(47) 99999-2222',st:'convidado',obs:''},
+    {id:'CV-003',eventoId:'EV-001',nome:'Carlos Rocha',whatsapp:'(47) 99999-3333',st:'presente',obs:''},
+  ];
+  renderWorkshop();
+}
+
+function renderWorkshop(){
+  if(G.modulo!=='workshop')return;
+  const cnt=document.getElementById('cnt');
+  cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  const tb=document.getElementById('tb');
+  tb.innerHTML=`<div class="tb-title"><i class="ti ti-calendar-event" style="color:var(--purple)"></i> Workshop</div>
+    <div class="tb-sep"></div>
+    <div class="tb-tabs">
+      <div class="tb-tab${G.ws.view==='eventos'?' on':''}" onclick="G.ws.view='eventos';G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-calendar-event"></i> Eventos</div>
+      <div class="tb-tab${G.ws.view==='dashboard'?' on':''}" onclick="G.ws.view='dashboard';G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+    </div>
+    <div class="tb-sep"></div>
+    ${isManager()&&G.ws.view==='eventos'&&!G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}
+    ${isManager()&&G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalConvidado()"><i class="ti ti-user-plus"></i> Novo Convidado</button>`:''}`;
+  if(G.ws.eventoAtualId){
+    renderWsKanban(cnt);
+  } else if(G.ws.view==='dashboard'){
+    renderWsDashboard(cnt);
+  } else {
+    renderWsEventos(cnt);
+  }
+}
+
+function renderWsEventos(cnt){
+  const evs=G.ws.eventos;
+  cnt.innerHTML='';
+  // Header toolbar
+  const hd=document.createElement('div');
+  hd.style.cssText='padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between';
+  hd.innerHTML=`<div style="font-size:15px;font-weight:700">📅 Eventos</div>${isManager()?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}`;
+  cnt.appendChild(hd);
+  const grid=document.createElement('div');
+  grid.className='ws-eventos';
+  if(!evs.length){
+    grid.innerHTML='<div style="color:var(--tx3);font-size:13px;padding:20px">Nenhum evento cadastrado ainda.</div>';
+  } else {
+    evs.forEach(ev=>{
+      const convs=G.ws.convidados.filter(c=>c.eventoId===ev.id);
+      const total=convs.length;
+      const confirmados=convs.filter(c=>['confirmado','presente'].includes(c.st)).length;
+      const presentes=convs.filter(c=>c.st==='presente').length;
+      const taxa=total?Math.round(presentes/total*100):0;
+      const card=document.createElement('div');
+      card.className='ws-evento-card';
+      card.innerHTML=`
+        <div class="ws-ev-nome">${ev.nome}</div>
+        <div class="ws-ev-meta">
+          <span><i class="ti ti-calendar"></i> ${isoParaBR(ev.data)||ev.data||'—'} às ${ev.hora||'—'}</span>
+          <span><i class="ti ti-ticket"></i> ${ev.valor||'Gratuito'}</span>
+          ${ev.obs?`<span style="color:var(--tx2)">${ev.obs}</span>`:''}
+        </div>
+        <div class="ws-ev-stats">
+          <span class="ws-stat">👥 ${total} convidados</span>
+          <span class="ws-stat">✅ ${confirmados} confirm.</span>
+          <span class="ws-stat">🏆 ${presentes} presentes</span>
+          ${total?`<span class="ws-stat" style="background:var(--purplel);color:var(--purple)">${taxa}% comparec.</span>`:''}
+        </div>`;
+      card.onclick=()=>{G.ws.eventoAtualId=ev.id;renderWorkshop();};
+      grid.appendChild(card);
+    });
+  }
+  cnt.appendChild(grid);
+}
+
+function renderWsKanban(cnt){
+  const ev=G.ws.eventos.find(e=>e.id===G.ws.eventoAtualId);
+  if(!ev){G.ws.eventoAtualId=null;renderWorkshop();return;}
+  const convs=G.ws.convidados.filter(c=>c.eventoId===ev.id);
+  const total=convs.length;
+  const confirmados=convs.filter(c=>['confirmado','presente'].includes(c.st)).length;
+  const presentes=convs.filter(c=>c.st==='presente').length;
+  const taxa=total?Math.round(presentes/total*100):0;
+  cnt.innerHTML='';
+
+  // Back + event header
+  const hd=document.createElement('div');
+  hd.style.cssText='padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:12px;flex-wrap:wrap';
+  hd.innerHTML=`<span class="ws-back" onclick="G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-arrow-left"></i> Eventos</span>
+    <span style="color:var(--bdr)">|</span>
+    <span style="font-weight:700;font-size:14px">${ev.nome}</span>
+    <span style="font-size:11px;color:var(--tx3)">${isoParaBR(ev.data)||''} ${ev.hora?'às '+ev.hora:''}</span>
+    <div style="margin-left:auto"><button class="btn btn-red btn-sm" onclick="abrirModalConvidado()"><i class="ti ti-user-plus"></i> Novo Convidado</button></div>`;
+  cnt.appendChild(hd);
+
+  // Metrics
+  const met=document.createElement('div');
+  met.className='ws-metrics';
+  met.innerHTML=`
+    <div class="ws-metric"><div class="ws-metric-val">${total}</div><div class="ws-metric-lbl">Convidados</div></div>
+    <div class="ws-metric"><div class="ws-metric-val">${confirmados}</div><div class="ws-metric-lbl">Confirmados</div></div>
+    <div class="ws-metric"><div class="ws-metric-val">${presentes}</div><div class="ws-metric-lbl">Presentes</div></div>
+    <div class="ws-metric" style="background:var(--purplel)"><div class="ws-metric-val" style="color:var(--purple)">${taxa}%</div><div class="ws-metric-lbl">Compareceu</div></div>`;
+  cnt.appendChild(met);
+
+  // Kanban
+  const kb=document.createElement('div');
+  kb.className='ws-kb';
+  COLS_WS.forEach(col=>{
+    const cards=convs.filter(c=>c.st===col.id);
+    const colEl=document.createElement('div');
+    colEl.className='ws-col';
+    colEl.addEventListener('dragover',e=>e.preventDefault());
+    colEl.addEventListener('drop',()=>dropConvidado(col.id));
+    // header
+    const colHd=document.createElement('div');
+    colHd.className='ws-col-hd';
+    colHd.innerHTML=`<span class="ws-col-title" style="color:${col.cor}">${col.emoji} ${col.label}</span><span class="ws-col-cnt">${cards.length}</span>`;
+    colEl.appendChild(colHd);
+    // body — direct reference, no setTimeout
+    const body=document.createElement('div');
+    body.className='ws-col-body';
+    cards.forEach(c=>{
+      const card=document.createElement('div');
+      card.className='ws-card';
+      card.style.borderLeftColor=col.cor;
+      card.draggable=true;
+      card.addEventListener('dragstart',()=>{G.ws.dragId=c.id;card.classList.add('dragging')});
+      card.addEventListener('dragend',()=>{G.ws.dragId=null;card.classList.remove('dragging')});
+      const wha=c.whatsapp||'';
+      card.innerHTML=`
+        <div class="ws-card-nome">${c.nome||'(sem nome)'}</div>
+        <div class="ws-card-tel"><i class="ti ti-brand-whatsapp" style="color:#25D366;font-size:12px"></i> ${wha||'—'}</div>
+        ${c.obs?`<div class="ws-card-obs">${c.obs}</div>`:''}
+        <div class="ws-card-actions">
+          <button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirModalObsWs('${c.id}')"><i class="ti ti-message-circle"></i> Obs</button>
+          ${isManager()?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();editarConvidado('${c.id}')"><i class="ti ti-edit"></i> Editar</button>`:''}
+        </div>`;
+      if(wha){
+        const copyBtn=card.querySelector('.ws-card-tel');
+        copyBtn.innerHTML+=`<button class="card-btn" style="width:18px;height:18px;margin-left:4px" onclick="event.stopPropagation();navigator.clipboard.writeText('${wha}');toast('Copiado!')"><i class="ti ti-copy" style="font-size:10px"></i></button>`;
+      }
+      body.appendChild(card);
+    });
+    const addBtn=document.createElement('div');
+    addBtn.className='ws-add';
+    addBtn.innerHTML='<i class="ti ti-plus"></i> Adicionar';
+    addBtn.onclick=()=>abrirModalConvidado(col.id);
+    body.appendChild(addBtn);
+    colEl.appendChild(body);
+    kb.appendChild(colEl);
+  });
+  cnt.appendChild(kb);
+}
+
+async function dropConvidado(novaCol){
+  if(!G.ws.dragId)return;
+  const conv=G.ws.convidados.find(c=>c.id===G.ws.dragId);
+  if(!conv||conv.st===novaCol)return;
+  conv.st=novaCol;
+  if(!G.ws.modoDemo)await fbUpdate('convidados_ws',conv.id,{st:novaCol});
+  renderWorkshop();
+  const col=COLS_WS.find(c=>c.id===novaCol);
+  toast(`${conv.nome} → ${col?.emoji} ${col?.label}`);
+}
+
+/* ---- MODAL EVENTO ---- */
+function abrirModalEvento(){
+  document.getElementById('ov-evento').classList.remove('hidden');
+  ['wev-nome','wev-data','wev-hora','wev-valor','wev-obs'].forEach(id=>document.getElementById(id).value='');
+}
+async function salvarEvento(){
+  const nome=document.getElementById('wev-nome').value.trim();
+  if(!nome){alert('Informe o nome do evento');return;}
+  const data={nome,data:document.getElementById('wev-data').value,hora:document.getElementById('wev-hora').value,valor:document.getElementById('wev-valor').value.trim(),obs:document.getElementById('wev-obs').value.trim(),dt:hoje(),criadoPor:G.user?.n||''};
+  if(!G.ws.modoDemo){
+    const id=await gerarId('eventos_ws','ws_config','ws_seq','EV');
+    data.id=id;await fbCreate('eventos_ws',id,data);G.ws.eventos.push({...data});
+  } else {data.id='EV-'+(G.ws.eventos.length+1).toString().padStart(3,'0');G.ws.eventos.push(data);}
+  fecharModal('ov-evento');toast('Evento criado!');renderWorkshop();
+}
+
+/* ---- MODAL CONVIDADO ---- */
+function abrirModalConvidado(stInicial){
+  document.getElementById('ov-convidado').classList.remove('hidden');
+  document.getElementById('wcv-id').value='';
+  document.getElementById('wcv-nome').value='';
+  document.getElementById('wcv-whatsapp').value='';
+  document.getElementById('wcv-obs').value='';
+  document.getElementById('wcv-st').value=stInicial||'convidado';
+}
+function editarConvidado(id){
+  const c=G.ws.convidados.find(x=>x.id===id);if(!c)return;
+  document.getElementById('ov-convidado').classList.remove('hidden');
+  document.getElementById('wcv-id').value=c.id;
+  document.getElementById('wcv-nome').value=c.nome||'';
+  document.getElementById('wcv-whatsapp').value=c.whatsapp||'';
+  document.getElementById('wcv-obs').value=c.obs||'';
+  document.getElementById('wcv-st').value=c.st||'convidado';
+}
+async function salvarConvidado(){
+  const nome=document.getElementById('wcv-nome').value.trim();
+  if(!nome){alert('Informe o nome');return;}
+  const editId=document.getElementById('wcv-id').value;
+  const data={nome,whatsapp:document.getElementById('wcv-whatsapp').value.trim(),obs:document.getElementById('wcv-obs').value.trim(),st:document.getElementById('wcv-st').value||'convidado',eventoId:G.ws.eventoAtualId};
+  if(editId){
+    Object.assign(G.ws.convidados.find(c=>c.id===editId),data);
+    if(!G.ws.modoDemo)await fbUpdate('convidados_ws',editId,data);
+    toast('Convidado atualizado!');
+  } else {
+    if(!G.ws.modoDemo){
+      const id=await gerarId('convidados_ws','ws_config','wcv_seq','CV');
+      data.id=id;await fbCreate('convidados_ws',id,data);G.ws.convidados.push({...data});
+    } else {data.id='CV-'+(G.ws.convidados.length+1).toString().padStart(3,'0');G.ws.convidados.push(data);}
+    toast('Convidado adicionado!');
+  }
+  fecharModal('ov-convidado');renderWorkshop();
+}
+
+/* ---- MODAL OBS CONVIDADO ---- */
+function abrirModalObsWs(id){
+  document.getElementById('ov-obs-ws').classList.remove('hidden');
+  document.getElementById('wobs-id').value=id;
+  const c=G.ws.convidados.find(x=>x.id===id);
+  document.getElementById('wobs-nome').textContent=c?.nome||'';
+  document.getElementById('wobs-texto').value=c?.obs||'';
+}
+async function salvarObsWs(){
+  const id=document.getElementById('wobs-id').value;
+  const texto=document.getElementById('wobs-texto').value.trim();
+  if(!texto)return;
+  const c=G.ws.convidados.find(x=>x.id===id);if(!c)return;
+  c.obs=texto;
+  if(!G.ws.modoDemo)await fbUpdate('convidados_ws',id,{obs:texto});
+  fecharModal('ov-obs-ws');toast('Observação salva!');renderWorkshop();
+}
+
+/* ---- WORKSHOP DASHBOARD ---- */
+function renderWsDashboard(cnt){
+  cnt.innerHTML='';
+  const evs=G.ws.eventos;
+  const convs=G.ws.convidados;
+  const totalEvs=evs.length;
+  const totalConvs=convs.length;
+  const totalPresentes=convs.filter(c=>c.st==='presente').length;
+  const totalConfirmados=convs.filter(c=>['confirmado','presente'].includes(c.st)).length;
+  const taxaGeral=totalConvs?Math.round(totalPresentes/totalConvs*100):0;
+
+  const wrap=document.createElement('div');
+  wrap.style.cssText='padding:20px;overflow-y:auto;flex:1';
+
+  // KPIs
+  const kpis=document.createElement('div');
+  kpis.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px';
+  [
+    {label:'Total de Eventos',val:totalEvs,icon:'ti-calendar-event',cor:'var(--purple)',bg:'var(--purplel)'},
+    {label:'Total Convidados',val:totalConvs,icon:'ti-users',cor:'var(--blue)',bg:'var(--bluel)'},
+    {label:'Confirmados',val:totalConfirmados,icon:'ti-circle-check',cor:'var(--green)',bg:'var(--greenl)'},
+    {label:'Presentes',val:totalPresentes,icon:'ti-trophy',cor:'var(--gold)',bg:'var(--goldl)'},
+    {label:'Taxa Geral',val:taxaGeral+'%',icon:'ti-chart-pie',cor:'var(--purple)',bg:'var(--purplel)'},
+  ].forEach(k=>{
+    kpis.innerHTML+=`<div style="background:${k.bg};border-radius:var(--r2);padding:16px 18px;border:1px solid var(--bdr)">
+      <div style="font-size:24px;font-weight:700;color:${k.cor}">${k.val}</div>
+      <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px"><i class="ti ${k.icon}"></i> ${k.label}</div>
+    </div>`;
+  });
+  wrap.appendChild(kpis);
+
+  // Por evento
+  if(evs.length){
+    const tbl=document.createElement('div');
+    tbl.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">📊 Métricas por Evento</div>';
+    evs.forEach(ev=>{
+      const ec=convs.filter(c=>c.eventoId===ev.id);
+      const ep=ec.filter(c=>c.st==='presente').length;
+      const ec2=ec.filter(c=>['confirmado','presente'].includes(c.st)).length;
+      const taxa=ec.length?Math.round(ep/ec.length*100):0;
+      tbl.innerHTML+=`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="font-weight:700;font-size:13px">${ev.nome}</div>
+          <div style="font-size:11px;color:var(--tx3)">${isoParaBR(ev.data)||'—'} ${ev.hora?'às '+ev.hora:''}</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <span class="ws-stat">👥 ${ec.length}</span>
+          <span class="ws-stat">✅ ${ec2} confirm.</span>
+          <span class="ws-stat">🏆 ${ep} presentes</span>
+          <span class="ws-stat" style="background:var(--purplel);color:var(--purple)">${taxa}%</span>
+        </div>
+      </div>`;
+    });
+    wrap.appendChild(tbl);
+  }
+  cnt.appendChild(wrap);
+}
+
+/* ---- VISITAS DASHBOARD (no módulo Marketing) ---- */
+function renderVisitasDashboard(cnt,filtroIni,filtroFim){
+  cnt.innerHTML='';
+  const origemVisita=['Passante','Loja','Evento Externo'];
+  let leads=G.mk.leads.filter(l=>origemVisita.includes(l.origem));
+  if(filtroIni){const d=new Date(filtroIni+'T00:00:00');leads=leads.filter(l=>l.dtISO&&new Date(l.dtISO+'T00:00:00')>=d);}
+  if(filtroFim){const d=new Date(filtroFim+'T23:59:59');leads=leads.filter(l=>l.dtISO&&new Date(l.dtISO+'T00:00:00')<=d);}
+
+  const total=leads.length;
+  const vendidos=leads.filter(l=>l.st==='vendido').length;
+  const taxa=total?Math.round(vendidos/total*100):0;
+
+  // Group by date
+  const porDia={};
+  leads.forEach(l=>{const d=l.dtISO||'sem data';porDia[d]=(porDia[d]||0)+1;});
+  const dias=Object.entries(porDia).sort((a,b)=>b[0].localeCompare(a[0]));
+
+  // Group by origin
+  const porOrigem={};
+  leads.forEach(l=>{porOrigem[l.origem]=(porOrigem[l.origem]||0)+1;});
+
+  const wrap=document.createElement('div');
+  wrap.style.cssText='padding:20px;overflow-y:auto;flex:1';
+
+  // Filter bar
+  wrap.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:700;color:var(--tx2)">Período:</span>
+    <input type="date" class="select-sm" id="vis-ini" value="${filtroIni||''}" style="width:130px">
+    <input type="date" class="select-sm" id="vis-fim" value="${filtroFim||''}" style="width:130px">
+    <button class="btn btn-red btn-sm" onclick="renderVisitasDashboard(document.getElementById('cnt'),document.getElementById('vis-ini').value,document.getElementById('vis-fim').value)"><i class="ti ti-search"></i> Filtrar</button>
+    ${(filtroIni||filtroFim)?`<button class="btn btn-outline btn-sm" onclick="renderVisitasDashboard(document.getElementById('cnt'),'','')"><i class="ti ti-x"></i></button>`:''}
+  </div>`;
+
+  // KPIs
+  const kpis=document.createElement('div');
+  kpis.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px';
+  [
+    {label:'Total Visitas',val:total,cor:'var(--blue)',bg:'var(--bluel)'},
+    {label:'Vendidos',val:vendidos,cor:'var(--green)',bg:'var(--greenl)'},
+    {label:'Conversão',val:taxa+'%',cor:'var(--gold)',bg:'var(--goldl)'},
+    {label:'Em aberto',val:leads.filter(l=>!['vendido','perdido'].includes(l.st)).length,cor:'var(--purple)',bg:'var(--purplel)'},
+  ].forEach(k=>{
+    kpis.innerHTML+=`<div style="background:${k.bg};border-radius:var(--r2);padding:14px 16px;border:1px solid var(--bdr)">
+      <div style="font-size:24px;font-weight:700;color:${k.cor}">${k.val}</div>
+      <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">${k.label}</div>
+    </div>`;
+  });
+  wrap.appendChild(kpis);
+
+  // Por origem
+  if(Object.keys(porOrigem).length){
+    const orig=document.createElement('div');
+    orig.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Por origem</div>';
+    Object.entries(porOrigem).sort((a,b)=>b[1]-a[1]).forEach(([o,n])=>{
+      orig.innerHTML+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg3)">
+        <span style="flex:1;font-size:13px">${o}</span><strong>${n}</strong>
+      </div>`;
+    });
+    orig.style.cssText='background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px 18px;margin-bottom:16px';
+    wrap.appendChild(orig);
+  }
+
+  // Por dia
+  if(dias.length){
+    const diaEl=document.createElement('div');
+    diaEl.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Por dia</div>';
+    const maxVal=Math.max(...dias.map(d=>d[1]));
+    dias.slice(0,30).forEach(([d,n])=>{
+      const pct=Math.round(n/maxVal*100);
+      diaEl.innerHTML+=`<div style="padding:6px 0;border-bottom:1px solid var(--bg3)">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${isoParaBR(d)||d}</span><strong>${n}</strong></div>
+        <div style="height:5px;background:var(--bg3);border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--blue);border-radius:3px"></div></div>
+      </div>`;
+    });
+    diaEl.style.cssText='background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px 18px';
+    wrap.appendChild(diaEl);
+  }
+
+  if(!total){wrap.innerHTML+='<div style="color:var(--tx3);font-size:13px;padding:20px 0">Nenhuma visita encontrada no período.</div>';}
+  cnt.appendChild(wrap);
+}
+</script>
+<script>
+/* ============================================================
+   ANUNCIOS — MODULO
+   ============================================================ */
+
+const COLS_AN=[
+  {id:'ativo',    label:'Ativo',    emoji:'🟢', cor:'#1a6b3c', bg:'#e8f5ee', desc:'Anuncio rodando'},
+  {id:'ajuste',   label:'Ajuste',   emoji:'🔧', cor:'#b8860b', bg:'#faf6e8', desc:'Trocar video / ajustar'},
+  {id:'pausado',  label:'Pausado',  emoji:'⏸', cor:'#4a4a4a', bg:'#f0f0f0', desc:'Pausado temporariamente'},
+  {id:'encerrado',label:'Encerrado',emoji:'🔴', cor:'#e8431e', bg:'#fff0ec', desc:'Campanha finalizada'},
+];
+
+function gerarIdAn(){
+  const ids=G.an.anuncios.map(a=>+(a.id||'AN-000').replace('AN-',''));
+  return 'AN-'+(((Math.max(0,...ids))+1)+'').padStart(3,'0');
+}
+
+async function initAnuncios(){
+  G.an.view='kanban';
+  const cnt=document.getElementById('cnt');
+  const tb=document.getElementById('tb');
+  cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  cnt.innerHTML='<div style="padding:40px;text-align:center;color:var(--tx3)"><i class="ti ti-loader-2"></i> Carregando Anuncios...</div>';
+  tb.innerHTML='';
+  if(!fbOk()){initDemoAnuncios();return;}
+  try{
+    G.an.anuncios=await fbList('anuncios');
+  }catch(e){
+    console.error('Anuncios Firebase error:',e);
+    G.an.modoDemo=true;
+    initDemoAnuncios();
+    return;
+  }
+  if(G.modulo==='anuncios') renderAnuncios();
+}
+
+function initDemoAnuncios(){
+  G.an.modoDemo=true;
+  G.an.anuncios=[
+    {id:'AN-001',nome:'Nivus GTS 2026 Branco',st:'ativo',mensagens:14,respondidas:6,valorUsado:340,orcamentoMensal:360,inicio:'2026-06-20',fim:'',cpl:24.29,cac:0,sucesso:0,obs:'',by:'Aline'},
+    {id:'AN-002',nome:'Volvo XC40 2020 Branca',st:'ativo',mensagens:7,respondidas:6,valorUsado:220,orcamentoMensal:360,inicio:'2026-06-20',fim:'',cpl:31.43,cac:0,sucesso:0,obs:'',by:'Aline'},
+    {id:'AN-003',nome:'T-cross CLAUDE',st:'ajuste',mensagens:11,respondidas:6,valorUsado:215,orcamentoMensal:360,inicio:'2026-06-30',fim:'',cpl:19.55,cac:0,sucesso:0,obs:'TROCAR VIDEO',by:'Aline'},
+    {id:'AN-004',nome:'Eclipse Cross',st:'ativo',mensagens:23,respondidas:19,valorUsado:370,orcamentoMensal:420,inicio:'2026-06-21',fim:'',cpl:16.09,cac:0,sucesso:0,obs:'',by:'Aline'},
+    {id:'AN-005',nome:'BMW X1 CLAUDE',st:'encerrado',mensagens:25,respondidas:14,valorUsado:430,orcamentoMensal:480,inicio:'2026-06-21',fim:'2026-07-19',cpl:17.20,cac:430,sucesso:1,obs:'',by:'Aline'},
+    {id:'AN-006',nome:'Porsche Macan CLAUDE',st:'encerrado',mensagens:4,respondidas:3,valorUsado:250,orcamentoMensal:600,inicio:'2026-06-21',fim:'2026-07-03',cpl:62.50,cac:250,sucesso:1,obs:'',by:'Aline'},
+  ];
+  if(G.modulo==='anuncios') renderAnuncios();
+}
+
+function renderAnuncios(){
+  if(G.modulo!=='anuncios')return;
+  const view=G.an.view;
+  const tb=document.getElementById('tb');
+  tb.innerHTML=`
+    <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> Anuncios</div>
+    <div class="tb-sep"></div>
+    <div class="tb-tabs">
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.an.view='kanban';renderAnuncios()"><i class="ti ti-layout-kanban"></i> Kanban</div>
+      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.an.view='dashboard';renderAnuncios()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="G.an.busca=this.value;renderAnuncios()"></div>
+    <button class="btn btn-red btn-sm" onclick="abrirModalAn()"><i class="ti ti-plus"></i> Novo Anuncio</button>
+  `;
+  const cnt=document.getElementById('cnt');
+  cnt.innerHTML='';
+  cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  if(view==='kanban') renderKanbanAn(cnt);
+  else renderDashboardAn(cnt);
+}
+
+function anFiltrados(){
+  let ls=[...G.an.anuncios];
+  if(G.an.busca){const b=G.an.busca.toLowerCase();ls=ls.filter(a=>(a.nome||'').toLowerCase().includes(b));}
+  return ls;
+}
+
+function renderKanbanAn(cnt){
+  const wrap=document.createElement('div');wrap.className='kanban-wrap';
+  COLS_AN.forEach(col=>{
+    const ads=anFiltrados().filter(a=>a.st===col.id);
+    const div=document.createElement('div');div.className='kb-col';
+    const head=document.createElement('div');head.className='kb-col-head';
+    head.innerHTML='<span style="font-size:16px">'+col.emoji+'</span><span class="col-lbl" style="color:'+col.cor+'">'+col.label+'</span><span class="col-cnt" style="background:'+col.bg+';color:'+col.cor+'">'+ads.length+'</span>';
+    const desc=document.createElement('div');desc.className='kb-col-desc';desc.style.borderBottomColor=col.cor;desc.textContent=col.desc;
+    const body=document.createElement('div');body.className='kb-col-body';body.dataset.col=col.id;
+    body.addEventListener('dragover',e=>{e.preventDefault();body.classList.add('drag-over')});
+    body.addEventListener('dragleave',()=>body.classList.remove('drag-over'));
+    body.addEventListener('drop',e=>{e.preventDefault();body.classList.remove('drag-over');dropAnuncio(col.id)});
+    ads.forEach(a=>{
+      const cpl=a.cpl||(a.mensagens>0?+(+a.valorUsado/+a.mensagens).toFixed(2):0);
+      const taxa=a.mensagens>0?Math.round(+a.respondidas/+a.mensagens*100):0;
+      const taxaCor=taxa>=50?'#1a6b3c':taxa>=30?'#b8860b':'#e8431e';
+      const card=document.createElement('div');card.className='ccard';card.style.borderLeftColor=col.cor;card.draggable=true;card.dataset.id=a.id;
+      card.addEventListener('dragstart',()=>{G.an.dragId=a.id;card.classList.add('dragging')});
+      card.addEventListener('dragend',()=>{G.an.dragId=null;card.classList.remove('dragging')});
+      card.onclick=e=>{if(!e.target.closest('.card-btn'))abrirModalAn(a.id)};
+      const vUsado='R$ '+(+a.valorUsado).toLocaleString('pt-BR',{minimumFractionDigits:0});
+      const vOrc='R$ '+(+a.orcamentoMensal).toLocaleString('pt-BR',{minimumFractionDigits:0});
+      const cplStr='R$ '+cpl.toLocaleString('pt-BR',{minimumFractionDigits:2});
+      const cacStr=a.cac?'R$ '+a.cac:'—';
+      card.innerHTML=
+        (a.sucesso?'<span style="position:absolute;top:8px;right:8px;font-size:13px">🏆</span>':'')+
+        '<div class="card-id">'+a.id+'</div>'+
+        '<div class="card-nome" style="font-size:13px;font-weight:600;line-height:1.3;margin-bottom:8px">'+a.nome+'</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">'+
+          '<div style="background:var(--bg3);border-radius:6px;padding:5px 8px;font-size:11px"><div style="color:var(--tx3)">Mensagens</div><div style="font-weight:600;font-size:13px">'+a.mensagens+' <span style="font-size:10px;color:var(--tx3)">/ '+a.respondidas+' resp</span></div></div>'+
+          '<div style="background:var(--bg3);border-radius:6px;padding:5px 8px;font-size:11px"><div style="color:var(--tx3)">Taxa resp.</div><div style="font-weight:600;font-size:13px;color:'+taxaCor+'">'+taxa+'%</div></div>'+
+          '<div style="background:var(--bg3);border-radius:6px;padding:5px 8px;font-size:11px"><div style="color:var(--tx3)">Valor usado</div><div style="font-weight:600;font-size:12px">'+vUsado+'</div></div>'+
+          '<div style="background:var(--bg3);border-radius:6px;padding:5px 8px;font-size:11px"><div style="color:var(--tx3)">CPL</div><div style="font-weight:600;font-size:12px">'+cplStr+'</div></div>'+
+          '<div style="background:var(--bg3);border-radius:6px;padding:5px 8px;font-size:11px"><div style="color:var(--tx3)">CAC</div><div style="font-weight:600;font-size:12px">'+cacStr+'</div></div>'+
+          '<div style="background:var(--bg3);border-radius:6px;padding:5px 8px;font-size:11px"><div style="color:var(--tx3)">Orc. mensal</div><div style="font-weight:600;font-size:12px">'+vOrc+'</div></div>'+
+        '</div>'+
+        '<div style="font-size:10px;color:var(--tx3);display:flex;gap:8px;margin-bottom:6px">'+
+          '<span><i class="ti ti-calendar"></i> '+(a.inicio||'—')+'</span>'+
+          (a.fim?'<span>→ '+a.fim+'</span>':'<span style="color:#1a6b3c">Em andamento</span>')+
+        '</div>'+
+        (a.obs?'<div style="font-size:10px;color:#b8860b;background:#faf6e8;border-radius:4px;padding:3px 6px;margin-bottom:6px">⚠️ '+a.obs+'</div>':'')+
+        '<div class="card-footer">'+
+          '<span style="font-size:10px;color:var(--tx3)">Sucesso: '+(a.sucesso||0)+'</span>'+
+          '<div class="card-actions"><button class="card-btn card-btn-label" onclick="abrirModalAn(\''+a.id+'\')"><i class="ti ti-edit"></i> Editar</button></div>'+
+        '</div>';
+      body.appendChild(card);
+    });
+    const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Novo Anuncio';add.onclick=()=>{abrirModalAn();setTimeout(()=>{const s=document.getElementById('an-st');if(s)s.value=col.id;},50);};
+    div.appendChild(head);div.appendChild(desc);div.appendChild(body);div.appendChild(add);wrap.appendChild(div);
+  });
+  cnt.appendChild(wrap);
+}
+
+async function dropAnuncio(novaCol){
+  if(!G.an.dragId)return;
+  const a=G.an.anuncios.find(x=>x.id===G.an.dragId);if(!a||a.st===novaCol)return;
+  a.st=novaCol;
+  if(fbOk()) await salvarCamposAn(a.id,{st:novaCol});
+  const col=COLS_AN.find(c=>c.id===novaCol);
+  toast(a.nome+' → '+(col?col.label:novaCol));
+  renderAnuncios();
+}
+
+function renderDashboardAn(cnt){
+  cnt.style.cssText='flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px';
+  const ads=G.an.anuncios;
+  const ativos=ads.filter(a=>a.st==='ativo');
+  const totalInvestido=ads.reduce((s,a)=>s+(+a.valorUsado||0),0);
+  const totalMensagens=ads.reduce((s,a)=>s+(+a.mensagens||0),0);
+  const totalRespondidas=ads.reduce((s,a)=>s+(+a.respondidas||0),0);
+  const totalSucesso=ads.reduce((s,a)=>s+(+a.sucesso||0),0);
+  const cplMedio=totalMensagens>0?+(totalInvestido/totalMensagens).toFixed(2):0;
+  const taxaResp=totalMensagens>0?Math.round(totalRespondidas/totalMensagens*100):0;
+  const taxaCor=taxaResp>=50?'#1a6b3c':taxaResp>=30?'#b8860b':'#e8431e';
+  const orcAtivo=ativos.reduce((s,a)=>s+(+a.orcamentoMensal||0),0);
+  const R=v=>'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:0});
+  const R2=v=>'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2});
+  function kpi(val,label,cor,bg){
+    return '<div style="background:'+(bg||'var(--bg2)')+';border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;text-align:center">'+
+      '<div style="font-size:22px;font-weight:700;color:'+cor+'">'+val+'</div>'+
+      '<div style="font-size:11px;color:var(--tx3);margin-top:3px">'+label+'</div></div>';
+  }
+  const sorted=ads.slice().sort((a,b)=>{const o={ativo:0,ajuste:1,pausado:2,encerrado:3};return(o[a.st]||0)-(o[b.st]||0);});
+  const rows=sorted.map(a=>{
+    const col=COLS_AN.find(c=>c.id===a.st)||COLS_AN[0];
+    const cpl=a.cpl||(a.mensagens>0?+(+a.valorUsado/+a.mensagens).toFixed(2):0);
+    const taxa=a.mensagens>0?Math.round(+a.respondidas/+a.mensagens*100):0;
+    const tc=taxa>=50?'#1a6b3c':taxa>=30?'#b8860b':'#e8431e';
+    return '<tr style="border-bottom:1px solid var(--bdr)">'+
+      '<td style="padding:8px;font-weight:500">'+a.nome+'</td>'+
+      '<td style="padding:8px;text-align:center"><span style="background:'+col.bg+';color:'+col.cor+';padding:2px 8px;border-radius:20px;font-size:10px">'+col.emoji+' '+col.label+'</span></td>'+
+      '<td style="padding:8px;text-align:right">'+a.mensagens+'</td>'+
+      '<td style="padding:8px;text-align:right">'+a.respondidas+' <span style="color:'+tc+';font-size:10px">('+taxa+'%)</span></td>'+
+      '<td style="padding:8px;text-align:right">'+R(a.valorUsado)+'</td>'+
+      '<td style="padding:8px;text-align:right">'+R2(cpl)+'</td>'+
+      '<td style="padding:8px;text-align:right">'+(a.cac?R(a.cac):'—')+'</td>'+
+      '<td style="padding:8px;text-align:right">'+R(a.orcamentoMensal)+'</td>'+
+      '<td style="padding:8px;text-align:center">'+(a.sucesso?'🏆 '+a.sucesso:'—')+'</td>'+
+      '<td style="padding:8px;font-size:11px;color:var(--tx3)">'+(a.inicio||'—')+(a.fim?' → '+a.fim:' (ativo)')+'</td>'+
+    '</tr>';
+  }).join('');
+  cnt.innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
+      kpi(ativos.length,'Anuncios ativos','#1a6b3c','#e8f5ee')+
+      kpi(R(totalInvestido),'Total investido','var(--red)','')+
+      kpi(R(orcAtivo),'Orc. mensal ativo','#1e4d8c','#e8f0fb')+
+      kpi(totalMensagens,'Leads gerados','#6b3db8','#f3e8fb')+
+      kpi(totalRespondidas,'Respondidos','#0b7ba8','#e8f8fb')+
+      kpi(taxaResp+'%','Taxa de resposta',taxaCor,'')+
+      kpi(R2(cplMedio),'CPL medio','#b8860b','#faf6e8')+
+      kpi(totalSucesso,'Sucessos','#1a6b3c','#e8f5ee')+
+    '</div>'+
+    '<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;overflow-x:auto">'+
+      '<div style="font-size:13px;font-weight:600;margin-bottom:12px">📊 Performance por Anuncio</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr style="border-bottom:2px solid var(--bdr)">'+
+          '<th style="text-align:left;padding:6px 8px;color:var(--tx3)">Anuncio</th>'+
+          '<th style="text-align:center;padding:6px 8px;color:var(--tx3)">Status</th>'+
+          '<th style="text-align:right;padding:6px 8px;color:var(--tx3)">Mensagens</th>'+
+          '<th style="text-align:right;padding:6px 8px;color:var(--tx3)">Respondidas</th>'+
+          '<th style="text-align:right;padding:6px 8px;color:var(--tx3)">Valor usado</th>'+
+          '<th style="text-align:right;padding:6px 8px;color:var(--tx3)">CPL</th>'+
+          '<th style="text-align:right;padding:6px 8px;color:var(--tx3)">CAC</th>'+
+          '<th style="text-align:right;padding:6px 8px;color:var(--tx3)">Orc. mensal</th>'+
+          '<th style="text-align:center;padding:6px 8px;color:var(--tx3)">Sucesso</th>'+
+          '<th style="text-align:left;padding:6px 8px;color:var(--tx3)">Periodo</th>'+
+        '</tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+      '</table>'+
+    '</div>';
+}
+
+/* ---- CRUD ANUNCIOS ---- */
+function abrirModalAn(id){
+  const a=id?G.an.anuncios.find(x=>x.id===id):null;
+  const titulo=a?'Editar Anuncio':'Novo Anuncio';
+  const st=a?a.st:'ativo';
+  const opts=COLS_AN.map(c=>'<option value="'+c.id+'"'+(st===c.id?' selected':'')+'>'+c.emoji+' '+c.label+'</option>').join('');
+  document.getElementById('ov-an').classList.remove('hidden');
+  document.getElementById('mod-an').innerHTML=
+    '<div class="mod-head"><span>'+titulo+'</span><button class="mod-close" onclick="fecharModal(\'ov-an\')"><i class="ti ti-x"></i></button></div>'+
+    '<div class="mod-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
+      '<div style="grid-column:1/-1"><label class="lbl">Nome do Anuncio</label><input class="inp" id="an-nome" value="'+(a?a.nome:'')+'" placeholder="Ex: Nivus GTS 2026 Branco"></div>'+
+      '<div><label class="lbl">Status</label><select class="inp" id="an-st">'+opts+'</select></div>'+
+      '<div><label class="lbl">Sucesso (vendas)</label><input class="inp" id="an-sucesso" type="number" min="0" value="'+(a?a.sucesso:0)+'"></div>'+
+      '<div><label class="lbl">Mensagens recebidas</label><input class="inp" id="an-mensagens" type="number" min="0" value="'+(a?a.mensagens:0)+'"></div>'+
+      '<div><label class="lbl">Respondidas</label><input class="inp" id="an-respondidas" type="number" min="0" value="'+(a?a.respondidas:0)+'"></div>'+
+      '<div><label class="lbl">Valor usado (R$)</label><input class="inp" id="an-valor" type="number" min="0" step="0.01" value="'+(a?a.valorUsado:0)+'"></div>'+
+      '<div><label class="lbl">Orcamento mensal (R$)</label><input class="inp" id="an-orcamento" type="number" min="0" value="'+(a?a.orcamentoMensal:0)+'"></div>'+
+      '<div><label class="lbl">CPL (opcional)</label><input class="inp" id="an-cpl" type="number" min="0" step="0.01" value="'+(a?a.cpl:0)+'" placeholder="Calculado automaticamente"></div>'+
+      '<div><label class="lbl">CAC (R$)</label><input class="inp" id="an-cac" type="number" min="0" step="0.01" value="'+(a?a.cac:0)+'"></div>'+
+      '<div><label class="lbl">Inicio</label><input class="inp" id="an-inicio" type="date" value="'+(a?a.inicio:'')+'"></div>'+
+      '<div><label class="lbl">Fim</label><input class="inp" id="an-fim" type="date" value="'+(a?a.fim:'')+'"></div>'+
+      '<div style="grid-column:1/-1"><label class="lbl">Observacao</label><input class="inp" id="an-obs" value="'+(a?a.obs:'')+'" placeholder="Ex: TROCAR VIDEO, ajustar orcamento..."></div>'+
+    '</div>'+
+    '<div class="mod-foot">'+
+      (a?'<button class="btn btn-ghost btn-sm" onclick="excluirAn(\''+a.id+'\')"><i class="ti ti-trash"></i> Excluir</button>':'<span></span>')+
+      '<button class="btn btn-red" onclick="salvarAn(\''+(a?a.id:'')+'\')" ><i class="ti ti-check"></i> Salvar</button>'+
+    '</div>';
+}
+
+async function salvarAn(id){
+  const nome=(document.getElementById('an-nome').value||'').trim();
+  if(!nome){toast('Nome obrigatorio','red');return;}
+  const dados={
+    nome,
+    st:document.getElementById('an-st').value,
+    mensagens:+document.getElementById('an-mensagens').value||0,
+    respondidas:+document.getElementById('an-respondidas').value||0,
+    valorUsado:+document.getElementById('an-valor').value||0,
+    orcamentoMensal:+document.getElementById('an-orcamento').value||0,
+    cpl:+document.getElementById('an-cpl').value||0,
+    cac:+document.getElementById('an-cac').value||0,
+    sucesso:+document.getElementById('an-sucesso').value||0,
+    inicio:document.getElementById('an-inicio').value,
+    fim:document.getElementById('an-fim').value,
+    obs:(document.getElementById('an-obs').value||'').trim(),
+    by:G.user?G.user.n:'',uid:G.user?G.user.uid:''
+  };
+  try{
+    if(id){
+      const a=G.an.anuncios.find(x=>x.id===id);if(a)Object.assign(a,dados);
+      if(fbOk()) await salvarCamposAn(id,dados);
+      toast('Anuncio atualizado!');
+    } else {
+      const nid=gerarIdAn();
+      const novo=Object.assign({id:nid},dados);
+      G.an.anuncios.push(novo);
+      if(fbOk()){await fbSet('anuncios',nid,novo);}
+      toast('Anuncio '+nid+' criado!');
+    }
+    fecharModal('ov-an');renderAnuncios();
+  }catch(e){console.error(e);toast('Erro ao salvar','red');}
+}
+
+async function excluirAn(id){
+  if(!confirm('Excluir este anuncio?'))return;
+  G.an.anuncios=G.an.anuncios.filter(x=>x.id!==id);
+  if(fbOk()){try{await fbDel('anuncios',id);}catch(e){}}
+  fecharModal('ov-an');toast('Anuncio removido');renderAnuncios();
+}
+
+async function salvarCamposAn(id,campos){
+  if(!fbOk())return;
+  const fields={};
+  Object.entries(campos).forEach(function(e){fields[e[0]]=toFV(e[1]);});
+  const keys=Object.keys(campos).join('&updateMask.fieldPaths=');
+  await fetch(FB_URL+'/anuncios/'+id+'?key='+FB.apiKey+'&updateMask.fieldPaths='+keys,
+    {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})});
+}
+</script>
+
+<!-- OVERLAY ANUNCIOS -->
+<div class="ov hidden" id="ov-an"><div class="mod" id="mod-an" style="max-width:560px"></div></div>
+
+</body>
+</html>
