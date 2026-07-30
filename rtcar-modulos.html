@@ -297,7 +297,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
       <p>Acesso rápido:</p>
       <button class="btn-acesso" onclick="preenchLogin('contato@rtcar.com.br','rtcar2024')">▸ Aline (Master)</button>
       <button class="btn-acesso" onclick="preenchLogin('milena@rtcar.com.br','rtcar2024')">▸ Milena (Relacionamento)</button>
-      <button class="btn-acesso" onclick="preenchLogin('maicon.meske@rtcar.com.br','rtcar2024')">▸ Maicon (Vendedor)</button>
+      <button class="btn-acesso" onclick="preenchLogin('rubens@rtcar.com.br','Rubens@2026')">▸ Rubens (Desenvolvedor)</button>
     </div>
   </div>
 </div>
@@ -317,7 +317,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
       <div class="ni" id="ni-an" onclick="trocarModulo('anuncios')"><i class="ti ti-speakerphone"></i> Anúncios</div>
       <div class="ni-sep"></div>
       <div class="ni-lbl">Sistema</div>
-      <div class="ni" onclick="window.open('https://marcelartcar.github.io/rtcar/','_blank')"><i class="ti ti-external-link"></i> Sistema Principal</div>
+      <div class="ni ni-sistema-principal" onclick="window.open('https://marcelartcar.github.io/rtcar/','_blank')"><i class="ti ti-external-link"></i> Sistema Principal</div>
     </nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -574,6 +574,7 @@ const USUARIOS=[
   {id:'u10',n:'Carlos',  e:'carlos@rtcar.com.br',           r:'seller',  senha:'rtcar2024'},
   {id:'u11',n:'Derivan', e:'derivan@rtcar.com.br',          r:'seller',  senha:'rtcar2024'},
   {id:'u12',n:'Tiago',   e:'tiago@rtcar.com.br',            r:'master',  senha:'rtcar2024'},
+  {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev',     senha:'Rubens@2026'},
 ];
 
 /* COLUNAS MARKETING */
@@ -709,7 +710,8 @@ function fazerLogin(){
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   document.getElementById('sb-name').textContent=u.n;
-  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora'}[u.r]||u.r);
+  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor'}[u.r]||u.r);
+  document.querySelectorAll('.ni-sistema-principal').forEach(el=>el.style.display=(u.r==='dev'?'none':''));
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
   ['ni-rel','ni-ws','ni-an'].forEach(id=>{
@@ -854,7 +856,7 @@ function renderMarketing(){
 }
 
 function isSeller(){return G.user?.r==='seller';}
-function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora';}
+function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora'||G.user?.r==='dev';}
 function isMaster(){return G.user?.r==='master';}
 function podeVerModulo(mod){
   const r=G.user?.r||'seller';
