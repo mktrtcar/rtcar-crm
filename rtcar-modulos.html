@@ -352,7 +352,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
           <div class="field"><label>Origem *</label>
             <select id="f-origem"><option value="">Selecione...</option><optgroup label="📢 Marketing"><option>Facebook</option><option>Instagram</option><option>Google + Site</option><option>Telefone</option><option>Mercado Livre</option><option>iCarros</option><option>Na Pista</option><option>Webmotors</option><option>Litoral Car</option><option>Mobiauto</option><option>OLX</option><option>Estética</option><option>Relacionamento</option><option>Compra</option></optgroup><optgroup label="🏪 Outros"><option>Passante</option><option>Loja</option><option>Evento Externo</option><option>My Business</option><option>Outra</option><option>Carteira</option><option>Prospecção</option><option>Indicação</option></optgroup></select>
           </div>
-          <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Selecione...</option></select></div>
+          <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Automático (rodízio)</option></select></div>
         </div>
         <div class="field"><label>Veículo de interesse</label><input type="text" id="f-veiculo" placeholder="Ex: Honda HR-V 2022"></div>
         <div class="field-row">
@@ -417,6 +417,21 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     <div class="mod-foot">
       <button class="btn btn-outline" onclick="fecharModal('ov-perda')">Cancelar</button>
       <button class="btn btn-red" onclick="confirmarPerda()"><i class="ti ti-x"></i> Registrar Perda</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-resgate" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-resgate')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>🔄 Tentativa de Resgate</h3><button class="mod-close" onclick="fecharModal('ov-resgate')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.6">Registre a estratégia para tentar recuperar este cliente perdido.</p>
+      <div class="field"><label>Motivo da nova abordagem *</label><textarea id="resgate-motivo" placeholder="Ex: Nova promoção, veículo similar chegou no estoque..."></textarea></div>
+      <div class="field"><label>Data prevista do contato</label><input type="date" id="resgate-data"></div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-resgate')">Cancelar</button>
+      <button class="btn" style="background:var(--purple);color:#fff" onclick="confirmarResgate()"><i class="ti ti-refresh"></i> Iniciar Resgate</button>
     </div>
   </div>
 </div>
@@ -734,7 +749,7 @@ function popularSelects(){
   const vendedores=USUARIOS.filter(u=>['seller','manager','master'].includes(u.r));
   // vendedor do lead
   const selCap=document.getElementById('f-captador');
-  if(selCap){selCap.innerHTML='<option value="">Selecione...</option><option value="Marcela">Marcela</option><option value="Rafael">Rafael</option><option value="Aline">Aline</option><option value="Milena">Milena</option><option value="Janderson">Janderson</option><option value="Maicon">Maicon</option>';}
+  if(selCap){selCap.innerHTML='<option value="">Automático (rodízio)</option><option value="Marcela">Marcela</option><option value="Rafael">Rafael</option><option value="Aline">Aline</option><option value="Milena">Milena</option><option value="Janderson">Janderson</option><option value="Maicon">Maicon</option>';}
   // responsável no relacionamento
   const selResp=document.getElementById('rc-resp');
   if(selResp){
@@ -911,6 +926,7 @@ function renderKanbanMk(cnt){
         <div class="card-footer">
           <div class="card-actions">
             <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
+            ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
           </div>
@@ -932,6 +948,10 @@ async function dropLead(novaCol){
   if(!lead||lead.st===novaCol)return;
   if(novaCol==='venda'){abrirModalVendido(G.mk.dragId);return;}
   if(novaCol==='perdido'){abrirModalPerda(G.mk.dragId);return;}
+  if(novaCol==='resgate'){
+    if(lead.optOutContato){toast('Cliente pediu para não ser mais contatado (LGPD)','red');return;}
+    abrirModalResgate(G.mk.dragId);return;
+  }
   await moverLead(G.mk.dragId,novaCol);
 }
 
@@ -984,6 +1004,10 @@ function renderRelatoriosMk(cnt){
   const porCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=all.filter(l=>l.origem===o).length;if(n>0)porCanal[o]=n;});
   const porCap={};all.forEach(l=>{const c=l.captador||l.by||'?';porCap[c]=(porCap[c]||0)+1;});
   const funil={};COLS_MK.forEach(col=>{funil[col.id]=all.filter(l=>l.st===col.id).length;});
+  const convPorOrigem={};all.forEach(l=>{const k=l.origem||'—';if(!convPorOrigem[k])convPorOrigem[k]={total:0,vendidos:0};convPorOrigem[k].total++;if(l.st==='vendido')convPorOrigem[k].vendidos++;});
+  const convPorCap={};all.forEach(l=>{const k=l.captador||l.by||'—';if(!convPorCap[k])convPorCap[k]={total:0,vendidos:0};convPorCap[k].total++;if(l.st==='vendido')convPorCap[k].vendidos++;});
+  const motivosPerda={};all.filter(l=>l.st==='perdido'&&l.motivoPerda).forEach(l=>{motivosPerda[l.motivoPerda]=(motivosPerda[l.motivoPerda]||0)+1;});
+  const vendasRecuperadas=all.filter(l=>l.vendaRecuperada).length;
   wrap.innerHTML=`
   <div class="rel-reporte">
     <div class="rp-header"><i class="ti ti-clipboard-data"></i> Reporte de Leads <span class="rp-period">${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}</span></div>
@@ -1029,10 +1053,23 @@ function renderRelatoriosMk(cnt){
     <div><div class="rel-section-title"><i class="ti ti-user"></i> Por Vendedor</div><div class="chart-box" id="ch-cap"></div></div>
   </div>
   <div class="rel-section-title"><i class="ti ti-layout-kanban"></i> Funil</div>
-  <div class="chart-box" id="ch-funil" style="margin-bottom:22px"></div>`;
+  <div class="chart-box" id="ch-funil" style="margin-bottom:22px"></div>
+  <div class="rel-row" style="margin-top:16px">
+    <div><div class="rel-section-title"><i class="ti ti-percentage"></i> Conversão por Origem</div><div class="chart-box" id="ch-conv-orig"></div></div>
+    <div><div class="rel-section-title"><i class="ti ti-percentage"></i> Conversão por Vendedor</div><div class="chart-box" id="ch-conv-cap"></div></div>
+  </div>
+  <div class="rel-row" style="margin-top:16px">
+    <div><div class="rel-section-title"><i class="ti ti-mood-sad"></i> Motivos de Perda</div><div class="chart-box" id="ch-perda"></div></div>
+    <div><div class="rel-section-title"><i class="ti ti-refresh"></i> Recuperação</div><div class="chart-box" style="padding:16px 14px">
+      <div class="rp-row rp-total"><span>Vendas recuperadas (via Resgate)</span><strong style="color:var(--purple)">${vendasRecuperadas}</strong></div>
+    </div></div>
+  </div>`;
   cnt.appendChild(wrap);
   renderBarras(document.getElementById('ch-orig'),porCanal,'#1e4d8c');
   renderBarras(document.getElementById('ch-cap'),porCap,'#e8431e');
+  renderConversao(document.getElementById('ch-conv-orig'),convPorOrigem);
+  renderConversao(document.getElementById('ch-conv-cap'),convPorCap);
+  renderBarras(document.getElementById('ch-perda'),motivosPerda,'#e8431e');
   const fn=document.getElementById('ch-funil');const tot=all.length||1;
   fn.innerHTML=COLS_MK.map(col=>{const n=all.filter(l=>l.st===col.id).length;const pct=Math.max(Math.round(n/tot*100),n>0?8:0);
     return`<div class="funnel-item"><span class="funnel-lbl">${col.emoji} ${col.label}</span><div class="funnel-track"><div class="funnel-fill" style="width:${pct}%;background:${col.cor}">${n>0?n:''}</div></div><span style="font-size:11px;color:var(--tx3);width:24px;text-align:right">${n}</span></div>`;
@@ -1042,6 +1079,13 @@ function renderBarras(el,data,cor){
   const sorted=Object.entries(data).sort((a,b)=>b[1]-a[1]);const max=sorted[0]?.[1]||1;
   if(!sorted.length){el.innerHTML='<div class="no-data">Sem dados</div>';return;}
   el.innerHTML=sorted.map(([k,v])=>`<div class="bar-item"><span class="bar-lbl" title="${k}">${k}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%;background:${cor}"></div></div><span class="bar-val">${v}</span></div>`).join('');
+}
+function renderConversao(el,data){
+  const entries=Object.entries(data).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total);
+  if(!entries.length){el.innerHTML='<div class="no-data">Sem dados</div>';return;}
+  el.innerHTML=entries.map(([k,v])=>{const pct=v.total?Math.round(v.vendidos/v.total*100):0;
+    return`<div class="bar-item"><span class="bar-lbl" title="${k}">${k}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--green)"></div></div><span class="bar-val">${v.vendidos}/${v.total} (${pct}%)</span></div>`;
+  }).join('');
 }
 </script>
 <script>
@@ -1059,11 +1103,38 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('f-obs').value=l?.obs||'';
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
 }
+/* RODÍZIO DE VENDEDORES — lead sem vendedor definido cai automaticamente no próximo da fila.
+   Para incluir mais alguém no rodízio, basta acrescentar o nome no array abaixo. */
+const RODIZIO_VENDEDORES=['Janderson','Maicon'];
+async function proximoVendedorRodizio(){
+  if(!RODIZIO_VENDEDORES.length)return'';
+  if(G.mk.modoDemo){
+    const i=(G.mk._rodizioIdx||0)%RODIZIO_VENDEDORES.length;
+    G.mk._rodizioIdx=i+1;
+    return RODIZIO_VENDEDORES[i];
+  }
+  try{
+    const r=await fetch(`${FB_URL}/leads_config/rodizio?key=${FB.apiKey}`);
+    const j=await r.json();
+    const idx=(fromFV((j.fields||{}).idx)||0)%RODIZIO_VENDEDORES.length;
+    await fbUpdate('leads_config','rodizio',{idx:idx+1});
+    return RODIZIO_VENDEDORES[idx];
+  }catch{
+    await fbCreate('leads_config','rodizio',{idx:1});
+    return RODIZIO_VENDEDORES[0];
+  }
+}
 async function salvarLead(){
   const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
   if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!origem){toast('Selecione a origem','red');return;}
+  if(!G.mk.editandoId){
+    const telDigits=tel.replace(/\D/g,'');
+    const dup=G.mk.leads.find(l=>l.clienteTel&&l.clienteTel.replace(/\D/g,'')===telDigits&&!['vendido','perdido'].includes(l.st));
+    if(dup){toast(`Já existe um lead em aberto com esse telefone: ${dup.id} — ${dup.clienteNome} (${dup.st})`,'red',5000);return;}
+  }
   const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
+  if(!captador&&!G.mk.editandoId)captador=await proximoVendedorRodizio();
   const dtISO=new Date().toISOString().split('T')[0];
   const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:document.getElementById('f-etapa').value||'aguardando',dtISO,obs:document.getElementById('f-obs').value.trim()};
   try{
@@ -1109,13 +1180,32 @@ async function salvarObs(){
   fecharModal('ov-obs');toast('Registrado!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
 function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
+async function vincularClienteRelacionamento(lead){
+  const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
+  if(!telDigits)return;
+  try{
+    let clientes=G.rel.clientes;
+    if(!G.rel.modoDemo&&(!clientes||!clientes.length))clientes=await fbList('clientes_rel');
+    clientes=clientes||[];
+    if(clientes.some(c=>(c.clienteTel||'').replace(/\D/g,'')===telDigits))return;
+    const data={clienteNome:lead.clienteNome||'',clienteTel:lead.clienteTel||'',clienteEmail:lead.clienteEmail||'',dtNascimento:'',responsavel:lead.captador||lead.by||'',by:lead.captador||lead.by||'',uid:lead.uid||'',veiculo:lead.veiculo||'',dtCompra:new Date().toISOString().split('T')[0],valor:lead.valor||'',st:'nome',obs:`Convertido automaticamente do lead ${lead.id}`};
+    const id=await proximoId('REL',clientes,'rel_config/seq','relSeq');
+    const cliente={id,historico:[],...data};
+    if(!G.rel.modoDemo)await fbCreate('clientes_rel',id,cliente);
+    if(Array.isArray(G.rel.clientes))G.rel.clientes.push(cliente);
+    await regHistRel(cliente,'📋 Cliente cadastrado',`Convertido automaticamente do lead ${lead.id} ao fechar venda`,data.responsavel,'📋');
+  }catch(e){console.error('Erro ao vincular cliente em Relacionamento',e);}
+}
 async function confirmarVendido(){
   const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   const veiculo=document.getElementById('vend-veiculo').value.trim(),obs=document.getElementById('vend-obs').value.trim();
   if(veiculo)lead.veiculo=veiculo;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();
-  await salvarCamposMk(id,{st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo});
-  await regHistMk(lead,'🎉 Vendido',obs||'Negócio fechado!',G.user?.n||'','green');
-  fecharModal('ov-vendido');toast('🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo};
+  if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
+  await salvarCamposMk(id,camposVenda);
+  await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',obs||'Negócio fechado!',G.user?.n||'','green');
+  await vincularClienteRelacionamento(lead);
+  fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
 function abrirModalPerda(id){G.mk.detailId=id;document.getElementById('perda-motivo').value='';document.getElementById('perda-obs').value='';document.getElementById('ov-perda').classList.remove('hidden');}
 async function confirmarPerda(){
@@ -1126,6 +1216,24 @@ async function confirmarPerda(){
   await salvarCamposMk(id,{st:'perdido',motivoPerda:motivo});
   await regHistMk(lead,'❌ Perdido',`Motivo: ${motivo}${obs?'. '+obs:''}`,G.user?.n||'','red');
   fecharModal('ov-perda');toast('Lead registrado como perdido');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+}
+function abrirModalResgate(id){G.mk.detailId=id;document.getElementById('resgate-motivo').value='';document.getElementById('resgate-data').value='';document.getElementById('ov-resgate').classList.remove('hidden');}
+async function confirmarResgate(){
+  const id=G.mk.detailId,motivo=document.getElementById('resgate-motivo').value.trim(),data=document.getElementById('resgate-data').value;
+  if(!motivo){toast('Descreva a estratégia de resgate','red');return;}
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead.st='resgate';lead.resgatado=true;lead.resgateMotivo=motivo;lead.resgateData=data;
+  await salvarCamposMk(id,{st:'resgate',resgatado:true,resgateMotivo:motivo,resgateData:data});
+  await regHistMk(lead,'🔄 Tentativa de resgate',motivo+(data?`. Contato previsto: ${isoParaBR(data)}`:''),G.user?.n||'','purple');
+  fecharModal('ov-resgate');toast('Lead movido para Resgate');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+}
+async function confirmarOptOut(id){
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  if(!confirm(`Confirma que ${lead.clienteNome||id} pediu para não ser mais contatado? Isso impede novas tentativas de resgate.`))return;
+  lead.optOutContato=true;
+  await salvarCamposMk(id,{optOutContato:true});
+  await regHistMk(lead,'🔕 Opt-out (LGPD)','Cliente solicitou não receber mais contato',G.user?.n||'','red');
+  toast('Preferência registrada');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
 async function moverLead(id,novaCol){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
@@ -1148,6 +1256,15 @@ async function moverLead(id,novaCol){
   await regHistMk(lead,`${COLS_MK.find(c=>c.id===novaCol)?.emoji} Movido para ${COLS_MK.find(c=>c.id===novaCol)?.label}`,`Anterior: ${oldLabel}`,G.user?.n||'','blue');
   toast(`Lead → ${COLS_MK.find(c=>c.id===novaCol)?.label}`);abrirDetailLead(id);renderMarketing();
 }
+function abrirWhatsappLead(id){
+  const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
+  const tel=(l.clienteTel||'').replace(/\D/g,'');
+  if(!tel){toast('Lead sem telefone','red');return;}
+  const numero=tel.length<=11?`55${tel}`:tel;
+  const primeiroNome=(l.clienteNome||'').split(' ')[0];
+  const msg=`Olá, ${primeiroNome}! 😊 Aqui é da RT Car. Vi seu interesse${l.veiculo?` no ${l.veiculo}`:''} e quero te ajudar a encontrar a melhor condição. Podemos conversar?`;
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,'_blank');
+}
 async function regHistMk(lead,acao,obs,by,icone='blue'){if(!lead.historico)lead.historico=[];lead.historico.push({dt:hoje(),icone,acao,obs,by});await salvarCamposMk(lead.id,{historico:lead.historico});}
 async function salvarCamposMk(id,campos){if(G.mk.modoDemo)return;try{await fbUpdate('leads',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
 
@@ -1160,20 +1277,26 @@ function abrirDetailLead(id){
   const histHtml=hist.length?hist.map(h=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
     return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
-  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)).map(c=>`<button class="col-btn" onclick="moverLead('${id}','${c.id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`).join('');
+  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)).map(c=>c.id==='resgate'?
+    `<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`:
+    `<button class="col-btn" onclick="moverLead('${id}','${c.id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`).join('');
   const btnVend=lead.st!=='vendido'?`<button class="col-btn" onclick="abrirModalVendido('${id}')" style="border-color:var(--green);color:var(--green)">✅ Vendido</button>`:'';
   const btnPerd=lead.st!=='perdido'?`<button class="col-btn" onclick="abrirModalPerda('${id}')" style="border-color:var(--red);color:var(--red)">❌ Perdido</button>`:'';
+  const btnRetomou=lead.st==='resgate'?`<button class="col-btn" onclick="moverLead('${id}','atendimento')" style="border-color:var(--green);color:var(--green)">✅ Retomou interesse</button>`:'';
+  const btnOptOut=(lead.st==='perdido'&&!lead.optOutContato)?`<button class="col-btn" onclick="confirmarOptOut('${id}')" style="border-color:var(--tx3);color:var(--tx3)">🔕 Não quer mais contato</button>`:'';
   pnl.innerHTML=`
     <div class="detail-head">
       <span class="badge" style="background:${col.bg};color:${col.cor};font-size:12px">${col.emoji} ${col.label}</span>
       ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>`:''}
+      ${lead.vendaRecuperada?`<span class="tag-conv" style="background:var(--purplel);color:var(--purple)"><i class="ti ti-refresh"></i> Venda recuperada</span>`:''}
+      ${lead.optOutContato?`<span class="tag-conv" style="background:var(--bg3);color:var(--tx3)"><i class="ti ti-bell-off"></i> Não contatar (LGPD)</span>`:''}
       <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
     </div>
     <div class="detail-body">
       <h3 style="font-size:18px;font-weight:700;margin-bottom:12px">${lead.clienteNome||'—'}</h3>
       <div class="d-section"><div class="d-section-title">Cliente</div>
         <div class="d-grid">
-          <div class="d-field"><span class="lbl">Telefone</span><span class="val">${lead.clienteTel||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Telefone</span><span class="val">${lead.clienteTel||'—'}${lead.clienteTel?` <button class="card-btn" style="display:inline-flex;margin-left:6px" onclick="abrirWhatsappLead('${lead.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i></button>`:''}</span></div>
           <div class="d-field"><span class="lbl">E-mail</span><span class="val${!lead.clienteEmail?' empty':''}">${lead.clienteEmail||'—'}</span></div>
         </div>
       </div>
@@ -1185,11 +1308,12 @@ function abrirDetailLead(id){
           <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}</span></div>
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
           ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
+          ${lead.resgateMotivo?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Estratégia de resgate</span><span class="val" style="color:var(--purple)">${lead.resgateMotivo}${lead.resgateData?` · Contato previsto: ${isoParaBR(lead.resgateData)}`:''}</span></div>`:''}
         </div>
         ${lead.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px">${lead.obs}</div>`:''}
       </div>
       <div class="d-section"><div class="d-section-title">Mover etapa</div>
-        <div class="col-select">${movBtns}${btnVend}${btnPerd}</div>
+        <div class="col-select">${movBtns}${btnVend}${btnPerd}${btnRetomou}${btnOptOut}</div>
       </div>
       <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
     </div>
