@@ -1,0 +1,9 @@
+{
+  "functions": [
+    {
+      "source": "webhook-autoconf",
+      "codebase": "default",
+      "runtime": "nodejs22"
+    }
+  ]
+}
