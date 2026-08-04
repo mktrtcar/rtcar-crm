@@ -749,7 +749,7 @@ function popularSelects(){
   const vendedores=USUARIOS.filter(u=>['seller','manager','master'].includes(u.r));
   // vendedor do lead
   const selCap=document.getElementById('f-captador');
-  if(selCap){selCap.innerHTML='<option value="">Automático (rodízio)</option><option value="Marcela">Marcela</option><option value="Rafael">Rafael</option><option value="Aline">Aline</option><option value="Milena">Milena</option><option value="Janderson">Janderson</option><option value="Maicon">Maicon</option>';}
+  if(selCap){selCap.innerHTML='<option value="">Automático (rodízio)</option><option value="Marcela">Marcela</option><option value="Rafael">Rafael</option><option value="Aline">Aline</option><option value="Milena">Milena</option><option value="Janderson">Janderson</option><option value="Maicon">Maicon</option><option value="Rubens">Rubens</option>';}
   // responsável no relacionamento
   const selResp=document.getElementById('rc-resp');
   if(selResp){
@@ -1144,7 +1144,7 @@ async function salvarLead(){
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
 }
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens'];
 let _transferPopup=null;
 function abrirTransferirLead(id,e){
   e.stopPropagation();
