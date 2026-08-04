@@ -465,9 +465,9 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
             <option value="nome">📋 Nome — Cadastrado</option>
             <option value="d7">💬 7 dias — Feedback</option>
             <option value="d90">🔧 90 dias — Garantia</option>
-            <option value="d1ano">🎁 1 ano — Cesta</option>
+            <option value="d1ano">🎁 1 ano — Cesta (enviado)</option>
             <option value="aniversario">🎂 Aniversário</option>
-            <option value="d2anos">✨ 2 anos — Vitrificação</option>
+            <option value="d2anos">✨ 2 anos — Vitrificação (enviado)</option>
             <option value="d3anos">🎊 3 anos — Parabéns</option>
             <option value="d4anos">💎 4 anos — Pacote estética</option>
           </select>
@@ -620,12 +620,14 @@ const COLS_REL=[
    msg:'Olá, [NOME]! 😊 Já faz 7 dias que você levou seu [VEICULO] aqui da RT Car. Como está sendo a experiência? Tem alguma dúvida ou feedback para nos dar? Estamos felizes em ajudar! 🚗'},
   {id:'d90',label:'90 dias',emoji:'🔧',desc:'90 dias após a compra',acao:'Avisar fim da garantia motor/câmbio + bateria estendida por mais 3 meses',acolabel:'Avisar garantia',cor:'#b8860b',bg:'#faf6e8',
    msg:'Olá, [NOME]! A garantia de motor e câmbio do seu [VEICULO] vence em breve (90 dias). Mas fique tranquilo(a): a RT Car oferece garantia estendida da bateria por mais 3 meses, sem custo! Qualquer dúvida, estamos à disposição. 🔧'},
-  {id:'d1ano',label:'1 ano',emoji:'🎁',desc:'1 ano após a compra',subDiv:{campo:'visita1ano',labels:['Convite','Visita']},acao:'Presentear com cesta especial — cliente deve buscar na loja',acolabel:'Entregar cesta',cor:'#6b3db8',bg:'#f3e8fb',
+  {id:'d1ano_enviado',label:'1 ano enviado',emoji:'🎁',desc:'1 ano após a compra — convite enviado',baseId:'d1ano',campo:'visita1ano',valorAtivo:false,acao:'Presentear com cesta especial — cliente deve buscar na loja',acolabel:'Entregar cesta',cor:'#6b3db8',bg:'#f3e8fb',
    msg:'Olá, [NOME]! 🎉 Faz 1 ano que você faz parte da família RT Car com seu [VEICULO]! Preparamos uma surpresa especial para você — passe na nossa loja em Brusque para retirar seu presente! 🎁'},
+  {id:'d1ano_retirado',label:'1 ano retirado',emoji:'✅',desc:'Já retirou o presente de 1 ano',baseId:'d1ano',campo:'visita1ano',valorAtivo:true,acao:'Presente já retirado',acolabel:'Retirado',cor:'#1a6b3c',bg:'#e8f5ee'},
   {id:'aniversario',label:'Aniversário',emoji:'🎂',desc:'Entre 1 e 2 anos — aniversário do cliente',acao:'Enviar mensagem de Feliz Aniversário personalizada',acolabel:'Parabenizar',cor:'#e8431e',bg:'#fff0ec',
    msg:'Feliz Aniversário, [NOME]! 🎂🎉 A equipe RT Car deseja um dia muito especial! Que este novo ano seja repleto de conquistas e muitas estradas com seu [VEICULO]. Abraço carinhoso! ❤️'},
-  {id:'d2anos',label:'2 anos',emoji:'✨',desc:'2 anos após a compra',subDiv:{campo:'visita2anos',labels:['Convite','Visita']},acao:'Presentear com vitrificação completa — sem custo',acolabel:'Vitrificação',cor:'#0b7ba8',bg:'#e8f8fb',
+  {id:'d2anos_enviado',label:'2 anos enviado',emoji:'✨',desc:'2 anos após a compra — convite enviado',baseId:'d2anos',campo:'visita2anos',valorAtivo:false,acao:'Presentear com vitrificação completa — sem custo',acolabel:'Vitrificação',cor:'#0b7ba8',bg:'#e8f8fb',
    msg:'Olá, [NOME]! ✨ Dois anos juntos! Seu [VEICULO] merece brilhar: temos um presente especial — vitrificação completa, sem custo! Agende pelo WhatsApp e venha renovar o visual do seu carro. 😊'},
+  {id:'d2anos_retirado',label:'2 anos retirado',emoji:'✅',desc:'Já retirou a vitrificação de 2 anos',baseId:'d2anos',campo:'visita2anos',valorAtivo:true,acao:'Vitrificação já retirada',acolabel:'Retirado',cor:'#1a6b3c',bg:'#e8f5ee'},
   {id:'d3anos',label:'3 anos',emoji:'🎊',desc:'Entre 2 e 3 anos — aniversário do cliente',acao:'Enviar parabéns pelos 3 anos como cliente RT Car',acolabel:'Parabenizar',cor:'#1a6b3c',bg:'#e8f5ee',
    msg:'Olá, [NOME]! 🎊 Três anos de parceria com a RT Car! É uma satisfação tê-lo(a) como cliente com seu [VEICULO]. Obrigado pela confiança! Com carinho, equipe RT Car ❤️'},
   {id:'d4anos',label:'4 anos',emoji:'💎',desc:'4 anos após a compra',acao:'Oferecer pacote completo de estética com desconto especial R$1.299',acolabel:'Oferecer pacote',cor:'#6b3db8',bg:'#f3e8fb',
@@ -647,7 +649,7 @@ const COLS_WS=[
 const G={
   user:null, modulo:'marketing',
   mk:{leads:[],_timerInterval:null,view:'kanban',busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
-  rel:{clientes:[],view:'kanban',busca:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
+  rel:{clientes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
 };
@@ -893,6 +895,7 @@ function mkLeadsFiltrados(){
   if(isManager()&&G.mk.filtroCaptador)ls=ls.filter(l=>l.captador===G.mk.filtroCaptador||l.by===G.mk.filtroCaptador);
   if(G.mk.filtroDataInicio){const di=new Date(G.mk.filtroDataInicio+'T00:00:00');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')>=di;});}
   if(G.mk.filtroDataFim){const df=new Date(G.mk.filtroDataFim+'T23:59:59');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')<=df;});}
+  ls.sort((a,b)=>ordemDiaMes(a.dtISO)-ordemDiaMes(b.dtISO));
   return ls;
 }
 
@@ -1365,6 +1368,11 @@ function renderRelacionamento(){
       <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
     </div>
     <div class="tb-spacer"></div>
+    <div class="tb-filters-inline">
+      <input type="date" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="G.rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
+      <input type="date" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="G.rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
+      ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.rel.filtroDataInicio=\'\';G.rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
+    </div>
     <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="G.rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
   `;
@@ -1373,15 +1381,26 @@ function renderRelacionamento(){
   else if(view==='dashboard') renderDashboardRel(cnt);
   else renderListaRel(cnt);
 }
+function ordemDiaMes(dtISO){
+  if(!dtISO)return 9999;
+  const[,m,d]=dtISO.split('-');
+  return parseInt(m)*100+parseInt(d);
+}
+function colAtualRel(c){
+  return COLS_REL.find(col=>col.baseId?(col.baseId===c.st&&(c[col.campo]==='realizada')===col.valorAtivo):col.id===c.st)||COLS_REL[0];
+}
 function relClisFiltrados(){
   let ls=[...G.rel.clientes];
   if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b));}
+  if(G.rel.filtroDataInicio){const di=new Date(G.rel.filtroDataInicio+'T00:00:00');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')>=di;});}
+  if(G.rel.filtroDataFim){const df=new Date(G.rel.filtroDataFim+'T23:59:59');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')<=df;});}
+  ls.sort((a,b)=>ordemDiaMes(a.dtCompra)-ordemDiaMes(b.dtCompra));
   return ls;
 }
 function renderKanbanRel(cnt){
   const wrap=document.createElement('div');wrap.className='kanban-wrap';
   COLS_REL.forEach(col=>{
-    const clis=relClisFiltrados().filter(c=>c.st===col.id);
+    const clis=relClisFiltrados().filter(c=>col.baseId?(c.st===col.baseId&&(c[col.campo]==='realizada')===col.valorAtivo):c.st===col.id);
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
     head.innerHTML=`<span style="font-size:16px">${col.emoji}</span><span class="col-lbl" style="color:${col.cor}">${col.label}</span><span class="col-cnt" style="background:${col.bg};color:${col.cor}">${clis.length}</span>`;
@@ -1412,25 +1431,13 @@ function renderKanbanRel(cnt){
         </div>`;
       return card;
     }
-    if(col.subDiv){
-      const campo=col.subDiv.campo;
-      const [lblA,lblB]=col.subDiv.labels;
-      const grpA=clis.filter(c=>c[campo]!=='realizada');
-      const grpB=clis.filter(c=>c[campo]==='realizada');
-      function subHdr(lbl,n){
-        const h=document.createElement('div');
-        h.style.cssText='font-size:10px;font-weight:700;letter-spacing:1px;color:'+col.cor+';padding:8px 4px 4px;border-bottom:2px solid '+col.cor+';margin-bottom:6px;text-transform:uppercase;margin-top:4px';
-        h.textContent=lbl+' ('+n+')';return h;
-      }
-      body.appendChild(subHdr(lblA,grpA.length));
-      grpA.forEach(c=>body.appendChild(mkCardRel(c)));
-      body.appendChild(subHdr(lblB,grpB.length));
-      grpB.forEach(c=>body.appendChild(mkCardRel(c)));
-    } else {
-      clis.forEach(c=>body.appendChild(mkCardRel(c)));
+    clis.forEach(c=>body.appendChild(mkCardRel(c)));
+    div.appendChild(head);div.appendChild(desc);div.appendChild(body);
+    if(!col.valorAtivo){
+      const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Adicionar';add.onclick=()=>abrirModalCliente(null,col.baseId||col.id);
+      div.appendChild(add);
     }
-    const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Adicionar';add.onclick=()=>abrirModalCliente(null,col.id);
-    div.appendChild(head);div.appendChild(desc);div.appendChild(body);div.appendChild(add);wrap.appendChild(div);
+    wrap.appendChild(div);
   });
   cnt.appendChild(wrap);
 }
@@ -1454,38 +1461,30 @@ function renderSubStatusRel(c,col){
       </button>
     </div>`;
   }
-  if(col.id==='d1ano'){
+  if(col.id==='d1ano_enviado'){
     return `<div style="margin:6px 0 2px">
       <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🎁 Visita para retirar cesta:</div>
-      <div style="display:flex;gap:4px">
-        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita1ano','nao_realizada',event)" style="${c.visita1ano==='nao_realizada'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">
-          ${c.visita1ano==='nao_realizada'?'❌ Não veio':'Não realizada'}
-        </button>
-        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita1ano','realizada',event)" style="${c.visita1ano==='realizada'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
-          ${c.visita1ano==='realizada'?'✅ Retirou':'Realizada'}
-        </button>
-      </div>
-    </div>`;
+      <button class="card-btn card-btn-label" onclick="marcarRetiradoRel('${c.id}','d1ano_retirado',event)"><i class="ti ti-check"></i> Marcar como retirado</button>
+    </div>${toggleSimNaoRel(c,'indicacao1ano','Indicação','🤝')}${toggleSimNaoRel(c,'feedback1ano','Feedback','💬')}`;
   }
-  if(col.id==='d2anos'){
+  if(col.id==='d1ano_retirado'){
+    return `${toggleSimNaoRel(c,'indicacao1ano','Indicação','🤝')}${toggleSimNaoRel(c,'feedback1ano','Feedback','💬')}`;
+  }
+  if(col.id==='d2anos_enviado'){
     return `<div style="margin:6px 0 2px">
       <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">✨ Visita para vitrificação:</div>
-      <div style="display:flex;gap:4px">
-        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita2anos','nao_realizada',event)" style="${c.visita2anos==='nao_realizada'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">
-          ${c.visita2anos==='nao_realizada'?'❌ Não veio':'Não realizada'}
-        </button>
-        <button class="card-btn card-btn-label" onclick="setVisitaRel('${c.id}','visita2anos','realizada',event)" style="${c.visita2anos==='realizada'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
-          ${c.visita2anos==='realizada'?'✅ Veio':'Realizada'}
-        </button>
-      </div>
-    </div>`;
+      <button class="card-btn card-btn-label" onclick="marcarRetiradoRel('${c.id}','d2anos_retirado',event)"><i class="ti ti-check"></i> Marcar como retirado</button>
+    </div>${toggleSimNaoRel(c,'indicacao2anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback2anos','Feedback','💬')}`;
+  }
+  if(col.id==='d2anos_retirado'){
+    return `${toggleSimNaoRel(c,'indicacao2anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback2anos','Feedback','💬')}`;
   }
   if(col.id==='d3anos'){
     return `<div style="display:flex;gap:6px;margin:6px 0 2px">
       <button class="card-btn card-btn-label${c.d3anosEnviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d3anosEnviado',event)" style="${c.d3anosEnviado?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
         <i class="ti ti-confetti"></i> ${c.d3anosEnviado?'Mensagem enviada ✓':'Enviar parabéns'}
       </button>
-    </div>`;
+    </div>${toggleSimNaoRel(c,'indicacao3anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback3anos','Feedback','💬')}`;
   }
   if(col.id==='d4anos'){
     return `<div style="margin:6px 0 2px">
@@ -1498,9 +1497,31 @@ function renderSubStatusRel(c,col){
           ${c.visita4anos==='realizada'?'✅ Veio':'Realizada'}
         </button>
       </div>
-    </div>`;
+    </div>${toggleSimNaoRel(c,'indicacao4anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback4anos','Feedback','💬')}`;
   }
   return '';
+}
+function toggleSimNaoRel(c,campo,label,icone){
+  const val=c[campo];
+  return `<div style="margin:6px 0 2px">
+    <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">${icone} ${label}:</div>
+    <div style="display:flex;gap:4px">
+      <button class="card-btn card-btn-label" onclick="setSimNaoRel('${c.id}','${campo}','sim',event)" style="${val==='sim'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">${val==='sim'?'✅ Sim':'Sim'}</button>
+      <button class="card-btn card-btn-label" onclick="setSimNaoRel('${c.id}','${campo}','nao',event)" style="${val==='nao'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">${val==='nao'?'❌ Não':'Não'}</button>
+    </div>
+  </div>`;
+}
+async function setSimNaoRel(id,campo,valor,e){
+  e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c[campo]=c[campo]===valor?'':valor;
+  if(fbOk())await salvarCamposRel(id,{[campo]:c[campo]});
+  renderRelacionamento();
+}
+async function marcarRetiradoRel(id,novaColId,e){
+  e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  await moverClienteParaCol(c,novaColId);renderRelacionamento();
 }
 async function toggleCampoRel(id,campo,e){
   e.stopPropagation();
@@ -1517,12 +1538,19 @@ async function setVisitaRel(id,campo,valor,e){
   renderRelacionamento();
 }
 
+async function moverClienteParaCol(c,novaColId){
+  const newCol=COLS_REL.find(x=>x.id===novaColId);if(!newCol)return;
+  const oldCol=colAtualRel(c);if(oldCol.id===newCol.id)return;
+  const campos={};
+  if(newCol.baseId){c.st=newCol.baseId;campos.st=newCol.baseId;c[newCol.campo]=newCol.valorAtivo?'realizada':'';campos[newCol.campo]=c[newCol.campo];}
+  else{c.st=newCol.id;campos.st=newCol.id;}
+  await salvarCamposRel(c.id,campos);
+  await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldCol.label}`,G.user?.n||'',newCol.emoji);
+  toast(`${c.clienteNome} → ${newCol.emoji} ${newCol.label}`);
+}
 async function dropCliente(novaCol){
-  if(!G.rel.dragId)return;const c=G.rel.clientes.find(x=>x.id===G.rel.dragId);if(!c||c.st===novaCol)return;
-  const oldLabel=COLS_REL.find(x=>x.id===c.st)?.label;const newCol=COLS_REL.find(x=>x.id===novaCol);
-  c.st=novaCol;await salvarCamposRel(c.id,{st:novaCol});
-  await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldLabel}`,G.user?.n||'',newCol.emoji);
-  toast(`${c.clienteNome} → ${newCol.emoji} ${newCol.label}`);renderRelacionamento();
+  if(!G.rel.dragId)return;const c=G.rel.clientes.find(x=>x.id===G.rel.dragId);if(!c)return;
+  await moverClienteParaCol(c,novaCol);renderRelacionamento();
 }
 function renderListaRel(cnt){
   const wrap=document.createElement('div');wrap.className='lista-wrap';
@@ -1534,7 +1562,7 @@ function renderListaRel(cnt){
     t.innerHTML='<thead><tr><th>ID</th><th>Cliente</th><th>Telefone</th><th>Veículo</th><th>Compra</th><th>Tempo</th><th>Etapa</th><th>Responsável</th></tr></thead>';
     const tb2=document.createElement('tbody');
     clis.forEach(c=>{
-      const col=COLS_REL.find(x=>x.id===c.st)||COLS_REL[0];const dias=diasDesdeCompra(c.dtCompra);
+      const col=colAtualRel(c);const dias=diasDesdeCompra(c.dtCompra);
       const tr=document.createElement('tr');
       tr.innerHTML=`<td><strong style="font-size:11px;color:var(--tx2)">${c.id}</strong></td><td><strong>${c.clienteNome||'-'}</strong></td><td style="font-size:12px">${c.clienteTel||'-'}</td><td style="font-size:12px;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.veiculo||'-'}</td><td style="font-size:12px;color:var(--tx3);white-space:nowrap">${isoParaBR(c.dtCompra)||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span></td><td><span style="font-size:16px">${col.emoji}</span> <span style="font-size:12px;font-weight:600;color:${col.cor}">${col.label}</span></td><td style="font-size:12px">${c.responsavel||c.by||'-'}</td>`;
       tr.onclick=()=>abrirDetailCliente(c.id);tb2.appendChild(tr);
@@ -1547,12 +1575,12 @@ function renderListaRel(cnt){
 /* DASHBOARD RELACIONAMENTO */
 function renderDashboardRel(cnt){
   cnt.style.cssText='flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px';
-  const clis=G.rel.clientes;
+  const clis=relClisFiltrados();
   const total=clis.length;
 
   // Por etapa
   const porEtapa={};COLS_REL.forEach(c=>{porEtapa[c.id]=0;});
-  clis.forEach(c=>{if(porEtapa[c.st]!==undefined)porEtapa[c.st]++;});
+  clis.forEach(c=>{const colId=colAtualRel(c).id;if(porEtapa[colId]!==undefined)porEtapa[colId]++;});
 
   // Por responsável
   const porResp={};
@@ -1601,7 +1629,7 @@ function renderDashboardRel(cnt){
     const compra=new Date(c.dtCompra);
     const dp=Math.round((hoje-compra)/(1000*60*60*24));
     const th={nome:0,d7:7,d90:90,d1ano:365,d2anos:730,d3anos:1095,d4anos:1460};
-    const prox=COLS_REL.find(col=>col.id!=='aniversario'&&th[col.id]!==undefined&&th[col.id]>(th[c.st||'nome']||0)&&dp>=th[col.id]-3&&dp<=th[col.id]+7);
+    const prox=COLS_REL.find(col=>col.id!=='aniversario'&&!col.valorAtivo&&th[col.baseId||col.id]!==undefined&&th[col.baseId||col.id]>(th[c.st||'nome']||0)&&dp>=th[col.baseId||col.id]-3&&dp<=th[col.baseId||col.id]+7);
     if(prox)urgentes.push({...c,_prox:prox,_dp:dp});
   });
 
@@ -1627,6 +1655,20 @@ function renderDashboardRel(cnt){
       ${real+nao>0?barFill(real,real+nao,'#1a6b3c'):'<div style="font-size:11px;color:var(--tx3)">Sem registros ainda</div>'}
     </div>`;
   }
+  function contarSimNao(campo){return{sim:clis.filter(c=>c[campo]==='sim').length,nao:clis.filter(c=>c[campo]==='nao').length};}
+  function simNaoCard(label,sim,nao){
+    return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px">
+      <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--tx2)">${label}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;background:#e8f5ee;color:#1a6b3c;padding:2px 8px;border-radius:20px">✅ Sim: ${sim}</span>
+        <span style="font-size:11px;background:#fff0ec;color:#e8431e;padding:2px 8px;border-radius:20px">❌ Não: ${nao}</span>
+      </div>
+    </div>`;
+  }
+  const ind1=contarSimNao('indicacao1ano'),fb1=contarSimNao('feedback1ano');
+  const ind2=contarSimNao('indicacao2anos'),fb2=contarSimNao('feedback2anos');
+  const ind3=contarSimNao('indicacao3anos'),fb3=contarSimNao('feedback3anos');
+  const ind4=contarSimNao('indicacao4anos'),fb4=contarSimNao('feedback4anos');
 
   cnt.innerHTML=`
     <!-- KPIs totais -->
@@ -1670,6 +1712,23 @@ function renderDashboardRel(cnt){
       ${visitaCard('🎁','Cesta 1 ano',v1total,v1real,v1nao,'#6b3db8')}
       ${visitaCard('✨','Vitrificação 2 anos',v2total,v2real,v2nao,'#0b7ba8')}
       ${visitaCard('💎','Pacote Estética 4 anos',v4total,v4real,v4nao,'#6b3db8')}
+    </div>
+
+    <!-- Indicações e Feedback (KPIs Milena) -->
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-thumb-up" style="color:var(--purple)"></i> Indicações e Feedback por Marco
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+        ${simNaoCard('🤝 Indicação · 1 ano',ind1.sim,ind1.nao)}
+        ${simNaoCard('💬 Feedback · 1 ano',fb1.sim,fb1.nao)}
+        ${simNaoCard('🤝 Indicação · 2 anos',ind2.sim,ind2.nao)}
+        ${simNaoCard('💬 Feedback · 2 anos',fb2.sim,fb2.nao)}
+        ${simNaoCard('🤝 Indicação · 3 anos',ind3.sim,ind3.nao)}
+        ${simNaoCard('💬 Feedback · 3 anos',fb3.sim,fb3.nao)}
+        ${simNaoCard('🤝 Indicação · 4 anos',ind4.sim,ind4.nao)}
+        ${simNaoCard('💬 Feedback · 4 anos',fb4.sim,fb4.nao)}
+      </div>
     </div>
 
     <!-- Próximas Ações + Por Responsável -->
@@ -1760,29 +1819,26 @@ async function salvarInteracao(){
   fecharModal('ov-int');toast('Registrado!');if(G.rel.detailId===id)abrirDetailCliente(id);renderRelacionamento();
 }
 function copiarMsg(id){
-  const c=G.rel.clientes.find(x=>x.id===id);const col=COLS_REL.find(x=>x.id===c?.st);
+  const c=G.rel.clientes.find(x=>x.id===id);const col=c?colAtualRel(c):null;
   if(!col?.msg){toast('Etapa sem mensagem padrão','gold');return;}
   const msg=col.msg.replace(/\[NOME\]/g,c.clienteNome.split(' ')[0]).replace(/\[VEICULO\]/g,c.veiculo);
   navigator.clipboard.writeText(msg).then(()=>toast('Mensagem copiada! Cole no WhatsApp 💬')).catch(()=>prompt('Copie:',msg));
 }
 async function moverCliente(id,novaCol){
   const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
-  const oldLabel=COLS_REL.find(x=>x.id===c.st)?.label;const newCol=COLS_REL.find(x=>x.id===novaCol);
-  c.st=novaCol;await salvarCamposRel(id,{st:novaCol});
-  await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldLabel}`,G.user?.n||'',newCol.emoji);
-  toast(`${c.clienteNome} → ${newCol.emoji} ${newCol.label}`);abrirDetailCliente(id);renderRelacionamento();
+  await moverClienteParaCol(c,novaCol);abrirDetailCliente(id);renderRelacionamento();
 }
 async function regHistRel(c,acao,obs,by,emoji='📝'){if(!c.historico)c.historico=[];c.historico.push({dt:hoje(),emoji,acao,obs,by});await salvarCamposRel(c.id,{historico:c.historico});}
 async function salvarCamposRel(id,campos){if(G.rel.modoDemo)return;try{await fbUpdate('clientes_rel',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
 
 function abrirDetailCliente(id){
   G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
-  const col=COLS_REL.find(x=>x.id===c.st)||COLS_REL[0];const dias=diasDesdeCompra(c.dtCompra);const aniv=aniversarioMes(c.dtNascimento);
+  const col=colAtualRel(c);const dias=diasDesdeCompra(c.dtCompra);const aniv=aniversarioMes(c.dtNascimento);
   document.getElementById('detail-ov').classList.remove('hidden');
   const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
   const hist=(c.historico||[]).slice().reverse();
   const histHtml=hist.length?hist.map(h=>`<div class="hist-item"><div class="hist-dot" style="background:${col.bg};font-size:16px">${h.emoji||'📝'}</div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação.</div>';
-  const movBtns=COLS_REL.filter(x=>x.id!==c.st).map(x=>`<button class="col-btn" onclick="moverCliente('${id}','${x.id}')" style="border-color:${x.cor};color:${x.cor}">${x.emoji} ${x.label}</button>`).join('');
+  const movBtns=COLS_REL.filter(x=>x.id!==col.id).map(x=>`<button class="col-btn" onclick="moverCliente('${id}','${x.id}')" style="border-color:${x.cor};color:${x.cor}">${x.emoji} ${x.label}</button>`).join('');
   pnl.innerHTML=`
     <div class="detail-head">
       <span style="font-size:22px">${col.emoji}</span>
