@@ -4,6 +4,12 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 const db = admin.firestore();
 
+/* Mesma fila e mesmo documento de controle usados pelo rodizio manual do CRM
+   (rtcar-modulos.html), para que as duas origens de lead dividam a mesma
+   sequencia de forma justa. Se a lista de vendedores do rodizio mudar no CRM,
+   atualize aqui tambem. */
+const RODIZIO_VENDEDORES=['Janderson','Maicon'];
+
 function pad3(n){return String(n).padStart(3,'0');}
 function hojeBR(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
 function hojeISO(){return new Date().toISOString().slice(0,10);}
@@ -35,12 +41,18 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
 
     const origem=(body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra';
 
-    const novoId=await db.runTransaction(async tx=>{
-      const ref=db.collection('leads_config').doc('mk');
-      const snap=await tx.get(ref);
-      const seq=((snap.exists&&snap.data().leadSeq)||0)+1;
-      tx.set(ref,{leadSeq:seq},{merge:true});
-      return `LEAD-${pad3(seq)}`;
+    const {novoId,captador}=await db.runTransaction(async tx=>{
+      const refSeq=db.collection('leads_config').doc('mk');
+      const refRodizio=db.collection('leads_config').doc('rodizio');
+      const [snapSeq,snapRodizio]=await Promise.all([tx.get(refSeq),tx.get(refRodizio)]);
+
+      const seq=((snapSeq.exists&&snapSeq.data().leadSeq)||0)+1;
+      tx.set(refSeq,{leadSeq:seq},{merge:true});
+
+      const idx=((snapRodizio.exists&&snapRodizio.data().idx)||0)%RODIZIO_VENDEDORES.length;
+      tx.set(refRodizio,{idx:idx+1},{merge:true});
+
+      return {novoId:`LEAD-${pad3(seq)}`,captador:RODIZIO_VENDEDORES[idx]};
     });
 
     const lead={
@@ -49,7 +61,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       dtISO:hojeISO(),
       st:'ia',
       by:'',
-      captador:'',
+      captador,
       uid:'',
       origem,
       clienteNome:body.name||'',
@@ -61,7 +73,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       convertido:false,
       dtVenda:'',
       motivoPerda:'',
-      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:`Via Autoconf (${origem})`,by:'Autoconf'}],
+      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:`Via Autoconf (${origem}) — atribuído a ${captador} pelo rodízio`,by:'Autoconf'}],
       pendente_at:'',
       pendente_end:'',
       atendimento_at:'',
