@@ -1374,6 +1374,10 @@ function renderRelacionamento(){
       <input type="date" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="G.rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
       ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.rel.filtroDataInicio=\'\';G.rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
+    <div class="tb-filters-inline">
+      <select id="rel-export-col" class="select-sm" style="min-width:160px"><option value="">📤 Exportar coluna...</option>${COLS_REL.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}</select>
+      <button class="btn btn-outline btn-sm" onclick="exportarClientesCSV()"><i class="ti ti-download"></i> Exportar</button>
+    </div>
     <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="G.rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
   `;
@@ -1395,7 +1399,7 @@ function relClisFiltrados(){
   if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b));}
   if(G.rel.filtroDataInicio){const di=new Date(G.rel.filtroDataInicio+'T00:00:00');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')>=di;});}
   if(G.rel.filtroDataFim){const df=new Date(G.rel.filtroDataFim+'T23:59:59');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')<=df;});}
-  ls.sort((a,b)=>ordemDiaMes(a.dtCompra)-ordemDiaMes(b.dtCompra));
+  ls.sort((a,b)=>diasDesdeCompra(b.dtCompra)-diasDesdeCompra(a.dtCompra));
   return ls;
 }
 function renderKanbanRel(cnt){
@@ -1445,47 +1449,24 @@ function renderKanbanRel(cnt){
 
 // Sub-status helpers for Relacionamento kanban
 function renderSubStatusRel(c,col){
-  if(col.id==='d7'){
-    return `<div style="display:flex;gap:6px;margin:6px 0 2px;flex-wrap:wrap">
-      <button class="card-btn card-btn-label${c.d7Enviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d7Enviado',event)" style="${c.d7Enviado?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">
-        <i class="ti ti-send"></i> ${c.d7Enviado?'Enviado ✓':'Enviar'}
-      </button>
-      <button class="card-btn card-btn-label${c.d7Recebido?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d7Recebido',event)" style="${c.d7Recebido?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
-        <i class="ti ti-message-check"></i> ${c.d7Recebido?'Feedback ✓':'Recebido?'}
-      </button>
-    </div>`;
-  }
-  if(col.id==='d90'){
-    return `<div style="display:flex;gap:6px;margin:6px 0 2px">
-      <button class="card-btn card-btn-label${c.d90Enviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d90Enviado',event)" style="${c.d90Enviado?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">
-        <i class="ti ti-send"></i> ${c.d90Enviado?'Aviso enviado ✓':'Enviar aviso'}
-      </button>
-    </div>`;
-  }
   if(col.id==='d1ano_enviado'){
     return `<div style="margin:6px 0 2px">
       <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🎁 Visita para retirar cesta:</div>
       <button class="card-btn card-btn-label" onclick="marcarRetiradoRel('${c.id}','d1ano_retirado',event)"><i class="ti ti-check"></i> Marcar como retirado</button>
-    </div>${toggleSimNaoRel(c,'indicacao1ano','Indicação','🤝')}${toggleSimNaoRel(c,'feedback1ano','Feedback','💬')}`;
-  }
-  if(col.id==='d1ano_retirado'){
-    return `${toggleSimNaoRel(c,'indicacao1ano','Indicação','🤝')}${toggleSimNaoRel(c,'feedback1ano','Feedback','💬')}`;
+    </div>`;
   }
   if(col.id==='d2anos_enviado'){
     return `<div style="margin:6px 0 2px">
       <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">✨ Visita para vitrificação:</div>
       <button class="card-btn card-btn-label" onclick="marcarRetiradoRel('${c.id}','d2anos_retirado',event)"><i class="ti ti-check"></i> Marcar como retirado</button>
-    </div>${toggleSimNaoRel(c,'indicacao2anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback2anos','Feedback','💬')}`;
-  }
-  if(col.id==='d2anos_retirado'){
-    return `${toggleSimNaoRel(c,'indicacao2anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback2anos','Feedback','💬')}`;
+    </div>`;
   }
   if(col.id==='d3anos'){
     return `<div style="display:flex;gap:6px;margin:6px 0 2px">
       <button class="card-btn card-btn-label${c.d3anosEnviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d3anosEnviado',event)" style="${c.d3anosEnviado?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
         <i class="ti ti-confetti"></i> ${c.d3anosEnviado?'Mensagem enviada ✓':'Enviar parabéns'}
       </button>
-    </div>${toggleSimNaoRel(c,'indicacao3anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback3anos','Feedback','💬')}`;
+    </div>`;
   }
   if(col.id==='d4anos'){
     return `<div style="margin:6px 0 2px">
@@ -1498,7 +1479,7 @@ function renderSubStatusRel(c,col){
           ${c.visita4anos==='realizada'?'✅ Veio':'Realizada'}
         </button>
       </div>
-    </div>${toggleSimNaoRel(c,'indicacao4anos','Indicação','🤝')}${toggleSimNaoRel(c,'feedback4anos','Feedback','💬')}`;
+    </div>`;
   }
   return '';
 }
@@ -1523,6 +1504,30 @@ async function marcarRetiradoRel(id,novaColId,e){
   e.stopPropagation();
   const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
   await moverClienteParaCol(c,novaColId);renderRelacionamento();
+}
+function exportarClientesCSV(){
+  const colId=document.getElementById('rel-export-col').value;
+  if(!colId){toast('Selecione uma coluna','red');return;}
+  const col=COLS_REL.find(x=>x.id===colId);
+  const clis=relClisFiltrados().filter(c=>colAtualRel(c).id===colId);
+  if(!clis.length){toast('Nenhum cliente nessa coluna','gold');return;}
+  const linhas=[['Nome','Data da compra','Data de nascimento','Carro','Telefone']];
+  clis.forEach(c=>linhas.push([c.clienteNome||'',isoParaBR(c.dtCompra),isoParaBR(c.dtNascimento),c.veiculo||'',c.clienteTel||'']));
+  const csv=linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const bom=String.fromCharCode(0xFEFF);
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`relacionamento_${col.label.replace(/\s+/g,'_')}.csv`;document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+  toast(`${clis.length} cliente(s) exportado(s)!`);
+}
+function camposIndicFeedbackRel(col){
+  const base=col.baseId||col.id;
+  if(base==='d1ano')return{ind:'indicacao1ano',fb:'feedback1ano'};
+  if(base==='d2anos')return{ind:'indicacao2anos',fb:'feedback2anos'};
+  if(base==='d3anos')return{ind:'indicacao3anos',fb:'feedback3anos'};
+  if(base==='d4anos')return{ind:'indicacao4anos',fb:'feedback4anos'};
+  return{ind:'indicacaoGeral',fb:'feedbackGeral'};
 }
 async function toggleCampoRel(id,campo,e){
   e.stopPropagation();
@@ -1670,6 +1675,7 @@ function renderDashboardRel(cnt){
   const ind2=contarSimNao('indicacao2anos'),fb2=contarSimNao('feedback2anos');
   const ind3=contarSimNao('indicacao3anos'),fb3=contarSimNao('feedback3anos');
   const ind4=contarSimNao('indicacao4anos'),fb4=contarSimNao('feedback4anos');
+  const indG=contarSimNao('indicacaoGeral'),fbG=contarSimNao('feedbackGeral');
 
   cnt.innerHTML=`
     <!-- KPIs totais -->
@@ -1729,6 +1735,8 @@ function renderDashboardRel(cnt){
         ${simNaoCard('💬 Feedback · 3 anos',fb3.sim,fb3.nao)}
         ${simNaoCard('🤝 Indicação · 4 anos',ind4.sim,ind4.nao)}
         ${simNaoCard('💬 Feedback · 4 anos',fb4.sim,fb4.nao)}
+        ${simNaoCard('🤝 Indicação · Geral',indG.sim,indG.nao)}
+        ${simNaoCard('💬 Feedback · Geral',fbG.sim,fbG.nao)}
       </div>
     </div>
 
@@ -1867,6 +1875,7 @@ function abrirDetailCliente(id){
         </div>
         ${c.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px">${c.obs}</div>`:''}
       </div>
+      ${col.id!=='perdido'?`<div class="d-section"><div class="d-section-title">Indicação e Feedback</div>${toggleSimNaoRel(c,camposIndicFeedbackRel(col).ind,'Indicação','🤝')}${toggleSimNaoRel(c,camposIndicFeedbackRel(col).fb,'Feedback','💬')}</div>`:''}
       <div class="d-section"><div class="d-section-title">Mover na jornada</div><div class="col-select">${movBtns}</div></div>
       <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
     </div>
