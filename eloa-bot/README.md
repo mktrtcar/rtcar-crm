@@ -9,14 +9,15 @@ Assim que um lead entra no CRM na coluna "I.A." (via webhook do Autoconf ou cada
 
 Os dois são lidos a cada conversa — edite e o próximo atendimento já usa a versão nova (não precisa reiniciar o processo pra isso).
 
-## Chave de IA (Google AI / Gemini)
+## Chaves e configuração — arquivo .env
 
-Precisa da variável de ambiente `GOOGLE_AI_API_KEY`, criada em [aistudio.google.com](https://aistudio.google.com/apikey) (conta/cobrança do próprio Rubens). Sem ela, a Eloá manda a saudação inicial normalmente, mas não consegue continuar a conversa depois — nenhuma chave fica salva neste repositório.
+Todas as chaves ficam num arquivo `.env` dentro desta pasta (nunca é enviado pro GitHub — está no `.gitignore`):
 
-```
-set GOOGLE_AI_API_KEY=sua_chave_aqui
-node index.js
-```
+1. Copie `.env.example` para um novo arquivo chamado `.env`, na mesma pasta.
+2. Abra o `.env` e cole suas chaves reais.
+3. Salve. Não precisa fazer mais nada — o `index.js` já lê esse arquivo automaticamente ao iniciar.
+
+**GOOGLE_AI_API_KEY** — obrigatória pra Eloá conversar. Crie em [aistudio.google.com](https://aistudio.google.com/apikey) (conta/cobrança do próprio Rubens). Sem ela, a Eloá manda a saudação inicial normalmente, mas não consegue continuar a conversa depois.
 
 ## Trava de segurança sobre preço
 

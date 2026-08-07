@@ -22,7 +22,9 @@
    IMPORTANTE — chave de IA: precisa da variável de ambiente
    GOOGLE_AI_API_KEY (ver README.md) pra conversa por IA funcionar. Sem ela,
    a Eloá manda a saudação inicial normalmente, mas não consegue responder
-   depois que o cliente escreve algo. */
+   depois que o cliente escreve algo. As chaves ficam num arquivo .env
+   nesta pasta (nunca commitado) — ver .env.example. */
+require('dotenv').config();
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
