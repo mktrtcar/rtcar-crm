@@ -288,7 +288,8 @@ async function start() {
     const telDigits = jidTel.split('@')[0].replace(/\D/g, '');
     const leadId = telParaLeadId.get(telDigits) || telParaLeadId.get(telDigits.replace(/^55/, ''));
     if (!leadId) return; // não é um número que a Eloá cumprimentou
-    const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '(mensagem sem texto)';
+    const texto = msg.message.conversation || msg.message.extendedTextMessage?.text;
+    if (!texto) return; // figurinha, áudio, reação, mensagem automática de ausência etc. — não é fala real do cliente
     responderComIA(jid, leadId, texto).catch(console.error);
   });
 }
