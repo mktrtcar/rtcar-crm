@@ -1,0 +1,17 @@
+{
+  "name": "eloa-bot",
+  "version": "1.0.0",
+  "description": "Atendimento automático via WhatsApp para leads novos (I.A.) do CRM RT Car",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4"
+  }
+}
