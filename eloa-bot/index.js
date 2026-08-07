@@ -1,9 +1,12 @@
 /* Eloá — atendimento automático a leads novos (coluna "I.A." do kanban).
    Assim que um lead chega (via webhook do Autoconf ou cadastro manual), a Eloá
-   manda uma saudação, uma foto real do veículo de interesse (sem preço, sem
-   link — pedido da Aline) e pergunta se pode passar o contato do cliente para
-   um consultor. Quando o cliente responde qualquer coisa, o lead é movido
-   automaticamente para "Atendimento".
+   manda uma saudação e uma foto real do veículo de interesse. A partir da
+   primeira resposta do cliente, a conversa passa a ser conduzida por IA
+   (Gemini, ver gemini.js) usando o perfil em persona.md e a base de
+   conhecimento em base-conhecimento.md — não é mais mensagem fixa. A IA
+   decide quando encaminhar pra um consultor humano (preço, financiamento,
+   ou pedido explícito do cliente); até lá, o lead permanece em "I.A." e a
+   Eloá continua a conversa sozinha.
 
    IMPORTANTE — hospedagem: isso usa WhatsApp via Baileys, que precisa de uma
    conexão permanente (não é uma Cloud Function como o webhook-autoconf). Não
@@ -14,20 +17,32 @@
    IMPORTANTE — número de WhatsApp: use uma linha própria para a Eloá,
    diferente da que a Cora/agente de resgate usa. As duas usam a mesma
    biblioteca (Baileys) e não podem compartilhar a mesma pasta ./auth — foi
-   exatamente esse conflito que causou bugs recorrentes durante os testes. */
+   exatamente esse conflito que causou bugs recorrentes durante os testes.
+
+   IMPORTANTE — chave de IA: precisa da variável de ambiente
+   GOOGLE_AI_API_KEY (ver README.md) pra conversa por IA funcionar. Sem ela,
+   a Eloá manda a saudação inicial normalmente, mas não consegue responder
+   depois que o cliente escreve algo. */
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
 const { fbList, fbUpdate } = require('./firestore');
+const { gerarResposta } = require('./gemini');
 const ESTOQUE_RTCAR = require('./estoque.json');
 
 const INTERVALO_POLL_MS = 20000; // checa leads novos a cada 20s
+const NOTIFICACAO_PESSOAL = '5551998050105@s.whatsapp.net'; // avisa o Rubens quando um consultor humano precisa assumir
 
-/* --- Os dois pontos abaixo ficaram em aberto na reunião de 07/08/2026 com
-   Aline/Rafa. Enquanto não forem decididos, o comportamento é o mais simples
-   e seguro: sem timeout, sem mensagem extra. Ajustar aqui quando decidido. */
-const TIMEOUT_SEM_RESPOSTA_HORAS = null; // TODO (decisão pendente): null = nunca escalar/reenviar sozinha
-const MENSAGEM_PONTE_CONTINUACAO = null; // TODO (decisão pendente): null = Eloá fica em silêncio após a 1a resposta
+/* Segunda barreira, além da instrução em persona.md: se por algum motivo a
+   IA mesmo assim escrever algo que pareça preço (ex: "R$ 45.000"), a
+   mensagem NÃO é enviada — cai direto pro encaminhamento humano. Preço é
+   informação sensível demais pra confiar só no comportamento do modelo. */
+const PADRAO_PRECO = /r\$\s?\d|\b\d{1,3}(\.\d{3})+\s*reais\b|\bfinanciamento\b|\bparcela(s)?\b|\bentrada de\b/i;
+
+/* Ponto que ficou em aberto na reunião de 07/08/2026 com Aline/Rafa. Enquanto
+   não for decidido, o comportamento é o mais simples: nunca escalar/reenviar
+   sozinha se o lead não responder. Ajustar aqui quando decidido. */
+const TIMEOUT_SEM_RESPOSTA_HORAS = null; // TODO (decisão pendente)
 
 function normalizarTxt(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -64,6 +79,19 @@ async function getLeadsNovos() {
 
 let sock = null;
 const telParaLeadId = new Map();
+
+/* Reconstroi o mapa telefone->lead a partir do Firestore ao iniciar, pra
+   sobreviver a reinicios do processo (o Map em memoria some ao reiniciar) —
+   mesmo problema já visto e corrigido no agente de resgate (Cora). */
+async function reconstruirTelParaLeadId() {
+  const leads = await fbList('leads');
+  leads
+    .filter((l) => l.st === 'ia' && l.eloaEnviadoEm && l.eloaEnviadoEm !== 'NUMERO_INVALIDO' && l.clienteTel)
+    .forEach((l) => {
+      const digitos = (l.clienteTel || '').replace(/\D/g, '');
+      if (digitos) telParaLeadId.set(digitos, l.id);
+    });
+}
 
 async function cumprimentarLead(lead) {
   const jidTentativa = paraJid(lead.clienteTel);
@@ -105,16 +133,54 @@ async function cumprimentarLead(lead) {
   }
 }
 
-async function moverParaAtendimento(leadId, textoResposta) {
+async function encaminharParaConsultor(lead, motivoResumo) {
+  const historico = [...(lead.historico || []), { dt: hoje(), icone: 'green', acao: '✅ Encaminhado para esteira (Eloá)', obs: motivoResumo, by: 'Eloá' }];
+  await fbUpdate('leads', lead.id, { st: 'atendimento', atendimento_at: new Date().toISOString(), historico });
+  console.log(`✅ Lead ${lead.id} movido de "I.A." para "Atendimento" — ${motivoResumo}`);
   try {
-    const leads = await fbList('leads');
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead || lead.st !== 'ia') return; // já não está mais em I.A. (evita reprocessar)
-    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'green', acao: '✅ Encaminhado para esteira automaticamente (Eloá)', obs: `Cliente respondeu: "${textoResposta}" — lead movido de I.A. para Atendimento`, by: 'Eloá' }];
-    await fbUpdate('leads', leadId, { st: 'atendimento', atendimento_at: new Date().toISOString(), historico });
-    console.log(`✅ Lead ${leadId} movido de "I.A." para "Atendimento".`);
+    await sock.sendMessage(NOTIFICACAO_PESSOAL, { text: `🔔 A Eloá encaminhou ${lead.clienteNome || lead.id} pra atendimento humano.\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}` });
   } catch (e) {
-    console.error(`Erro ao mover lead ${leadId} para Atendimento:`, e.message);
+    console.error('Erro ao notificar Rubens sobre encaminhamento:', e.message);
+  }
+}
+
+async function responderComIA(jid, leadId, mensagemCliente) {
+  const leads = await fbList('leads');
+  const lead = leads.find((l) => l.id === leadId);
+  if (!lead || lead.st !== 'ia') return; // já não está mais em I.A. (evita reprocessar)
+
+  const conversa = lead.conversaEloa || [];
+
+  let resultado;
+  try {
+    resultado = await gerarResposta(lead, conversa, mensagemCliente);
+  } catch (e) {
+    console.error(`Erro ao gerar resposta da IA para ${leadId}:`, e.message);
+    await encaminharParaConsultor(lead, `A Eloá não conseguiu responder por IA (${e.message}) — encaminhado direto pra não deixar o cliente sem retorno.`);
+    return;
+  }
+
+  let { resposta, encaminharConsultor } = resultado;
+  if (PADRAO_PRECO.test(resposta)) {
+    console.warn(`⚠️ Resposta da IA pro lead ${leadId} continha preço/financiamento — bloqueada e encaminhada. Texto original: "${resposta}"`);
+    resposta = 'Essa parte de valores e condições eu prefiro confirmar com um consultor pra te passar certinho — já vou te conectar com alguém.';
+    encaminharConsultor = true;
+  }
+
+  try {
+    await sock.sendMessage(jid, { text: resposta });
+  } catch (e) {
+    console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
+    return;
+  }
+
+  const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: resposta }];
+  const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${resposta}"`, by: 'Eloá' }];
+  await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico });
+
+  if (encaminharConsultor) {
+    const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico };
+    await encaminharParaConsultor(leadAtualizado, 'Assunto exigia consultor humano (preço/financiamento/pedido do cliente) ou conversa já madura.');
   }
 }
 
@@ -129,6 +195,7 @@ async function cicloPoll() {
 }
 
 async function start() {
+  await reconstruirTelParaLeadId();
   const { state, saveCreds } = await useMultiFileAuthState('./auth');
   sock = makeWASocket({ auth: state, logger: P, printQRInTerminal: false });
   sock.ev.on('creds.update', saveCreds);
@@ -155,12 +222,13 @@ async function start() {
   sock.ev.on('messages.upsert', (m) => {
     const msg = m.messages[0];
     if (!msg.message || msg.key.fromMe) return;
+    const jid = msg.key.remoteJid;
     const jidTel = msg.key.remoteJidAlt || msg.key.remoteJid;
     const telDigits = jidTel.split('@')[0].replace(/\D/g, '');
     const leadId = telParaLeadId.get(telDigits) || telParaLeadId.get(telDigits.replace(/^55/, ''));
     if (!leadId) return; // não é um número que a Eloá cumprimentou
     const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '(mensagem sem texto)';
-    moverParaAtendimento(leadId, texto).catch(console.error);
+    responderComIA(jid, leadId, texto).catch(console.error);
   });
 }
 

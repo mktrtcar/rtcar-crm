@@ -1,6 +1,30 @@
-# Eloá — atendimento automático a leads novos
+# Eloá — atendimento automático e humanizado a leads novos
 
-Assim que um lead entra no CRM na coluna "I.A." (via webhook do Autoconf ou cadastro manual), a Eloá manda pelo WhatsApp: saudação, uma foto real do veículo de interesse e a pergunta se pode passar o contato para um consultor. Quando o cliente responde qualquer coisa, o lead é movido automaticamente para "Atendimento".
+Assim que um lead entra no CRM na coluna "I.A." (via webhook do Autoconf ou cadastro manual), a Eloá manda pelo WhatsApp uma saudação e uma foto real do veículo de interesse. A partir da primeira resposta do cliente, a conversa passa a ser conduzida por IA (Gemini) — ela conversa de verdade, não é mais um roteiro fixo de mensagens prontas. A IA decide quando encaminhar pra um consultor humano (preço, financiamento, ou pedido do cliente); até lá, ela continua a conversa sozinha.
+
+## Personalidade e conhecimento (editáveis)
+
+- `persona.md` — quem é a Eloá, como ela fala, e as regras do que ela pode/não pode fazer sozinha (hoje: nunca falar preço nem prometer financiamento).
+- `base-conhecimento.md` — informações da RT Car que você quiser que ela saiba (diferenciais, políticas, FAQ). Edite livremente, é texto puro.
+
+Os dois são lidos a cada conversa — edite e o próximo atendimento já usa a versão nova (não precisa reiniciar o processo pra isso).
+
+## Chave de IA (Google AI / Gemini)
+
+Precisa da variável de ambiente `GOOGLE_AI_API_KEY`, criada em [aistudio.google.com](https://aistudio.google.com/apikey) (conta/cobrança do próprio Rubens). Sem ela, a Eloá manda a saudação inicial normalmente, mas não consegue continuar a conversa depois — nenhuma chave fica salva neste repositório.
+
+```
+set GOOGLE_AI_API_KEY=sua_chave_aqui
+node index.js
+```
+
+## Trava de segurança sobre preço
+
+Além da regra em `persona.md`, o código (`index.js`, `PADRAO_PRECO`) verifica toda resposta da IA antes de mandar pro cliente — se aparecer algo como "R$", "financiamento" ou "parcela", a mensagem é bloqueada e o lead é encaminhado direto pra um consultor humano, mesmo que a IA não tenha sinalizado isso sozinha.
+
+## Voz (ainda não implementada)
+
+A ideia de usar a voz nativa do Gemini (voz "Kore") pra mensagens de áudio ainda não foi construída — hoje a Eloá só manda texto e uma foto.
 
 ## Isto NÃO é uma Cloud Function
 
@@ -19,12 +43,13 @@ node index.js
 
 Na primeira vez, vai aparecer um QR code em `./qr.png` para conectar o número de WhatsApp da Eloá.
 
-## Decisões ainda pendentes (reunião 07/08/2026 com Aline/Rafa)
+## Decisão ainda pendente (reunião 07/08/2026 com Aline/Rafa)
 
-Marcadas como `TODO` no topo do `index.js`:
+Marcada como `TODO` no topo do `index.js`:
 
-1. **Lead não responde** — hoje: nada, fica esperando pra sempre, sem timeout nem segunda tentativa.
-2. **Cliente continua a conversa depois do "posso passar seu contato?"** — hoje: a Eloá fica em silêncio, sem responder mais nada.
+- **Lead não responde nada** — hoje: fica esperando pra sempre, sem timeout nem segunda tentativa automática.
+
+(O ponto "cliente continua a conversa depois do consentimento" foi resolvido pela conversa por IA — agora ela continua respondendo de verdade, em vez de ficar em silêncio.)
 
 ## Limitação atual da mensagem
 
