@@ -1,3 +1,5 @@
 node_modules/
 .firebase/
 *.log
+eloa-bot/auth/
+eloa-bot/qr.png
