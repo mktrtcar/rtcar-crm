@@ -25,9 +25,11 @@ Veículo de interesse: ${lead.veiculo || 'não informado'}
 ## Formato da resposta
 
 Responda SEMPRE em JSON válido, sem markdown, no formato:
-{"resposta": "texto que a Eloá vai mandar no WhatsApp", "encaminharConsultor": true ou false}
+{"mensagens": ["primeira mensagem curta", "segunda mensagem curta"], "encaminharConsultor": true ou false}
 
-"encaminharConsultor" deve ser true quando: o cliente perguntar preço/financiamento/condições de pagamento, pedir para falar com um vendedor/consultor, ou a conversa já estiver madura o suficiente pra um humano assumir. Nesses casos, a "resposta" ainda deve ser uma mensagem natural avisando que vai chamar alguém — nunca deixe "resposta" vazia.`;
+"mensagens" é uma lista de 1 a 3 mensagens curtas, cada uma como uma bolha separada de WhatsApp — nunca uma só mensagem longa com tudo junto. Cada item deve ser curto (1-2 frases), do jeito que uma pessoa digitaria em turnos separados.
+
+"encaminharConsultor" deve ser true quando: o cliente perguntar preço/financiamento/condições de pagamento, pedir para falar com um vendedor/consultor, ou a conversa já estiver madura o suficiente pra um humano assumir. Nesses casos, "mensagens" ainda deve conter uma mensagem natural avisando que vai chamar alguém — nunca deixe "mensagens" vazia.`;
 }
 
 /* historico: array de {role: 'user'|'model', texto: string}, mais antigo primeiro.
@@ -59,8 +61,9 @@ async function gerarResposta(lead, historico, mensagemCliente) {
   if (!texto) throw new Error('Gemini não retornou texto na resposta: ' + JSON.stringify(json));
 
   const parsed = JSON.parse(texto);
-  if (!parsed.resposta) throw new Error('Resposta do Gemini sem campo "resposta": ' + texto);
-  return { resposta: parsed.resposta, encaminharConsultor: !!parsed.encaminharConsultor };
+  const mensagens = Array.isArray(parsed.mensagens) ? parsed.mensagens.filter(Boolean) : [];
+  if (!mensagens.length) throw new Error('Resposta do Gemini sem "mensagens": ' + texto);
+  return { mensagens, encaminharConsultor: !!parsed.encaminharConsultor };
 }
 
 module.exports = { gerarResposta };

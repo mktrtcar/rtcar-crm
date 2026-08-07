@@ -168,32 +168,36 @@ async function responderComIA(jid, leadId, mensagemCliente) {
     return;
   }
 
-  let { resposta, encaminharConsultor } = resultado;
-  if (PADRAO_PRECO.test(resposta)) {
-    console.warn(`⚠️ Resposta da IA pro lead ${leadId} continha preço/financiamento — bloqueada e encaminhada. Texto original: "${resposta}"`);
-    resposta = 'Essa parte de valores e condições eu prefiro confirmar com um consultor pra te passar certinho — já vou te conectar com alguém.';
+  let { mensagens, encaminharConsultor } = resultado;
+  if (mensagens.some((m) => PADRAO_PRECO.test(m))) {
+    console.warn(`⚠️ Resposta da IA pro lead ${leadId} continha preço/financiamento — bloqueada e encaminhada. Texto original: ${JSON.stringify(mensagens)}`);
+    mensagens = ['Essa parte de valores e condições eu prefiro confirmar com um consultor pra te passar certinho — já vou te conectar com alguém.'];
     encaminharConsultor = true;
   }
 
   try {
-    if (MODO_VOZ) {
-      try {
-        const audio = await gerarNotaDeVoz(resposta);
-        await sock.sendMessage(jid, { audio, mimetype: 'audio/ogg; codecs=opus', ptt: true });
-      } catch (e) {
-        console.error(`Nota de voz falhou pro lead ${leadId}, mandando texto:`, e.message);
-        await sock.sendMessage(jid, { text: resposta });
+    for (let i = 0; i < mensagens.length; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
+      if (MODO_VOZ) {
+        try {
+          const audio = await gerarNotaDeVoz(mensagens[i]);
+          await sock.sendMessage(jid, { audio, mimetype: 'audio/ogg; codecs=opus', ptt: true });
+        } catch (e) {
+          console.error(`Nota de voz falhou pro lead ${leadId}, mandando texto:`, e.message);
+          await sock.sendMessage(jid, { text: mensagens[i] });
+        }
+      } else {
+        await sock.sendMessage(jid, { text: mensagens[i] });
       }
-    } else {
-      await sock.sendMessage(jid, { text: resposta });
     }
   } catch (e) {
     console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
     return;
   }
 
-  const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: resposta }];
-  const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${resposta}"`, by: 'Eloá' }];
+  const respostaCompleta = mensagens.join(' ');
+  const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
+  const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
   await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico });
 
   if (encaminharConsultor) {
