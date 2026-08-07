@@ -28,10 +28,16 @@ const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
 const { fbList, fbUpdate } = require('./firestore');
 const { gerarResposta } = require('./gemini');
+const { gerarNotaDeVoz } = require('./voz');
 const ESTOQUE_RTCAR = require('./estoque.json');
 
 const INTERVALO_POLL_MS = 20000; // checa leads novos a cada 20s
 const NOTIFICACAO_PESSOAL = '5551998050105@s.whatsapp.net'; // avisa o Rubens quando um consultor humano precisa assumir
+
+/* Liga/desliga nota de voz nas respostas da conversa (não na saudação
+   inicial). Escolha do provedor em voz.js via ELOA_VOZ_PROVEDOR. Ainda não
+   testado de ponta a ponta — ver aviso no topo de voz.js. */
+const MODO_VOZ = (process.env.ELOA_MODO_VOZ || '').toLowerCase() === 'true';
 
 /* Segunda barreira, além da instrução em persona.md: se por algum motivo a
    IA mesmo assim escrever algo que pareça preço (ex: "R$ 45.000"), a
@@ -168,7 +174,17 @@ async function responderComIA(jid, leadId, mensagemCliente) {
   }
 
   try {
-    await sock.sendMessage(jid, { text: resposta });
+    if (MODO_VOZ) {
+      try {
+        const audio = await gerarNotaDeVoz(resposta);
+        await sock.sendMessage(jid, { audio, mimetype: 'audio/ogg; codecs=opus', ptt: true });
+      } catch (e) {
+        console.error(`Nota de voz falhou pro lead ${leadId}, mandando texto:`, e.message);
+        await sock.sendMessage(jid, { text: resposta });
+      }
+    } else {
+      await sock.sendMessage(jid, { text: resposta });
+    }
   } catch (e) {
     console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
     return;
