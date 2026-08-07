@@ -25,6 +25,8 @@
    depois que o cliente escreve algo. As chaves ficam num arquivo .env
    nesta pasta (nunca commitado) — ver .env.example. */
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
@@ -80,9 +82,33 @@ function paraJid(tel) {
   return `${comDDI}@s.whatsapp.net`;
 }
 
+/* Checkpoint persistido em disco pra nunca mais varrer o backlog inteiro de
+   leads antigos "I.A." — incidente real em 07/08/2026: sem isso, a Eloá
+   cumprimentou 36 leads reais e antigos na primeira vez que conectou com um
+   número de WhatsApp válido. Na primeira execução (arquivo não existe), o
+   checkpoint começa em "agora", então nada anterior a isso é processado. */
+const CHECKPOINT_PATH = path.join(__dirname, 'ultimo-check.json');
+const MAX_SAUDACOES_POR_CICLO = 3; // trava extra: nunca mandar mais que isso de uma vez
+
+function lerCheckpoint() {
+  try { return JSON.parse(fs.readFileSync(CHECKPOINT_PATH, 'utf8')).ultimoCheck; } catch { return null; }
+}
+function salvarCheckpoint(iso) {
+  fs.writeFileSync(CHECKPOINT_PATH, JSON.stringify({ ultimoCheck: iso }));
+}
+let checkpoint = lerCheckpoint();
+if (!checkpoint) {
+  checkpoint = new Date().toISOString();
+  salvarCheckpoint(checkpoint);
+  console.log(`Primeira execução — checkpoint iniciado em ${checkpoint}. Leads criados antes disso não serão cumprimentados.`);
+}
+
 async function getLeadsNovos() {
   const leads = await fbList('leads');
-  return leads.filter((l) => l.st === 'ia' && !l.eloaEnviadoEm && l.clienteTel && l.origem !== 'Teste');
+  return leads
+    .filter((l) => l.st === 'ia' && !l.eloaEnviadoEm && l.clienteTel && l.origem !== 'Teste' && l._criadoEm && l._criadoEm > checkpoint)
+    .sort((a, b) => a._criadoEm.localeCompare(b._criadoEm))
+    .slice(0, MAX_SAUDACOES_POR_CICLO);
 }
 
 let sock = null;
@@ -207,13 +233,26 @@ async function responderComIA(jid, leadId, mensagemCliente) {
 }
 
 async function cicloPoll() {
+  const inicioDoCiclo = new Date().toISOString();
   try {
     const novos = await getLeadsNovos();
+    if (novos.length) console.log(`${novos.length} lead(s) novo(s) — cumprimentando (máx. ${MAX_SAUDACOES_POR_CICLO} por ciclo).`);
     for (const lead of novos) await cumprimentarLead(lead);
   } catch (e) {
     console.error('Erro no ciclo de checagem de leads novos:', e.message);
   }
+  // Avança o checkpoint só depois de processar, e só até o início deste ciclo
+  // (nunca além de "agora"), pra não pular um lead que chegou durante o ciclo.
+  checkpoint = inicioDoCiclo;
+  salvarCheckpoint(checkpoint);
   setTimeout(cicloPoll, INTERVALO_POLL_MS);
+}
+
+let pollJaIniciado = false;
+function iniciarPollUmaVez() {
+  if (pollJaIniciado) return;
+  pollJaIniciado = true;
+  cicloPoll();
 }
 
 async function start() {
@@ -237,7 +276,7 @@ async function start() {
     } else if (connection === 'open') {
       console.log(`\n✅ ELOÁ CONECTADA — ${sock.user?.id}`);
       console.log(`Checando leads novos a cada ${INTERVALO_POLL_MS / 1000}s.\n`);
-      cicloPoll();
+      iniciarPollUmaVez();
     }
   });
 

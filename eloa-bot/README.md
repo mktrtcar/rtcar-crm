@@ -67,6 +67,18 @@ Marcada como `TODO` no topo do `index.js`:
 
 (O ponto "cliente continua a conversa depois do consentimento" foi resolvido pela conversa por IA — agora ela continua respondendo de verdade, em vez de ficar em silêncio.)
 
+## ⚠️ Incidente real (07/08/2026) e a trava que existe hoje por causa dele
+
+Na primeira conexão de teste com um número de WhatsApp válido, a Eloá cumprimentou **36 leads reais**, muitos deles antigos (parados em "I.A." há dias/semanas) — não só leads novos. Causa: `getLeadsNovos()` não tinha nenhum filtro de tempo, só checava "está em I.A. e nunca recebeu saudação".
+
+**Corrigido com duas camadas:**
+1. Um checkpoint persistido em `ultimo-check.json` (não vai pro GitHub) — só processa leads cujo documento no Firestore foi **criado** depois do checkpoint. Na primeira execução, o checkpoint começa em "agora", então nada do passado é varrido.
+2. `MAX_SAUDACOES_POR_CICLO = 3` — mesmo que algo dê errado de novo, no máximo 3 saudações saem por ciclo de 20s, não uma centena de uma vez.
+
+Também corrigido: cada reconexão do WhatsApp criava um novo ciclo de verificação por cima do anterior (sem cancelar), o que multiplicava tentativas repetidas. Agora o ciclo só é iniciado uma vez, não de novo a cada reconexão.
+
+**Se algum dia apagar `ultimo-check.json` de propósito ou por acidente, ele reinicia em "agora" — nunca reprocessa o passado.** Isso é intencional.
+
 ## Limitação atual da mensagem
 
 A foto e o texto usados vêm do `estoque.json` (marca, modelo, uma foto) — não tem preço, ano, km ou outras fotos, porque essa fonte de dados não tem esses campos. Pra enriquecer isso (como foi feito manualmente na demo, puxando do site rtcar.com.br para um único veículo), seria preciso uma integração nova com o Autoconf — não existe hoje de forma automática/genérica para qualquer veículo.

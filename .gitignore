@@ -4,3 +4,4 @@ node_modules/
 eloa-bot/auth/
 eloa-bot/qr.png
 eloa-bot/.env
+eloa-bot/ultimo-check.json
