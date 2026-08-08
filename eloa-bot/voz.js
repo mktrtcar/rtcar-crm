@@ -1,9 +1,10 @@
 /* Gera nota de voz da Eloá a partir de texto, com duas APIs possíveis —
-   escolha em ELOA_VOZ_PROVEDOR ('cartesia' ou 'gemini'). NÃO TESTADO DE
-   PONTA A PONTA ainda: falta chave de qualquer uma das duas APIs pra
-   confirmar que a conversão de áudio e o envio como nota de voz no
-   WhatsApp funcionam como esperado. Testar com cuidado antes de confiar
-   nisso em produção. */
+   escolha em ELOA_VOZ_PROVEDOR ('cartesia' ou 'gemini'). Geração de áudio
+   (Gemini/Kore) e conversão pra ogg/opus testadas e confirmadas em
+   2026-08-08 (tom aprovado pelo Rubens) — ainda falta testar o envio real
+   como nota de voz pelo WhatsApp (só geração de arquivo até agora). */
+const fs = require('fs');
+const path = require('path');
 const { execFile } = require('child_process');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 
@@ -11,6 +12,19 @@ const CARTESIA_MODEL_ID = 'sonic-3.5';
 const CARTESIA_VERSION = '2026-03-01';
 const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 const GEMINI_VOZ = 'Kore';
+
+/* Troca grafia por pronúncia fonética SÓ pra fala — nunca no texto do
+   WhatsApp, historico ou CRM, que continuam com a grafia oficial. Edite
+   pronuncias.json pra adicionar mais marcas/modelos. */
+function aplicarPronuncias(texto) {
+  let dicionario;
+  try { dicionario = JSON.parse(fs.readFileSync(path.join(__dirname, 'pronuncias.json'), 'utf8')); } catch { return texto; }
+  let resultado = texto;
+  for (const [escrito, pronuncia] of Object.entries(dicionario)) {
+    resultado = resultado.replace(new RegExp(`\\b${escrito}\\b`, 'gi'), pronuncia);
+  }
+  return resultado;
+}
 
 async function gerarAudioCartesia(texto) {
   const apiKey = process.env.CARTESIA_API_KEY;
@@ -101,9 +115,10 @@ function converterAudio(bufferWav, extensao) {
 }
 
 async function gerarAudioBruto(texto) {
+  const textoFalado = aplicarPronuncias(texto);
   const provedor = (process.env.ELOA_VOZ_PROVEDOR || '').toLowerCase();
-  if (provedor === 'cartesia') return gerarAudioCartesia(texto);
-  if (provedor === 'gemini') return gerarAudioGemini(texto);
+  if (provedor === 'cartesia') return gerarAudioCartesia(textoFalado);
+  if (provedor === 'gemini') return gerarAudioGemini(textoFalado);
   throw new Error(`ELOA_VOZ_PROVEDOR inválido ou não definido ("${provedor}") — use "cartesia" ou "gemini"`);
 }
 
