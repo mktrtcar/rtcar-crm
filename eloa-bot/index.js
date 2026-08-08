@@ -1,12 +1,13 @@
 /* Eloá — atendimento automático a leads novos (coluna "I.A." do kanban).
    Assim que um lead chega (via webhook do Autoconf ou cadastro manual), a Eloá
-   manda uma saudação e uma foto real do veículo de interesse. A partir da
-   primeira resposta do cliente, a conversa passa a ser conduzida por IA
-   (Gemini, ver gemini.js) usando o perfil em persona.md e a base de
-   conhecimento em base-conhecimento.md — não é mais mensagem fixa. A IA
-   decide quando encaminhar pra um consultor humano (preço, financiamento,
-   ou pedido explícito do cliente); até lá, o lead permanece em "I.A." e a
-   Eloá continua a conversa sozinha.
+   já inicia o primeiro contato por IA (Gemini, ver gemini.js), seguindo o
+   perfil em persona.md e a base de conhecimento em base-conhecimento.md —
+   não existe mais mensagem fixa, nem pra saudação nem pra conversa. Depois
+   da mensagem de abertura ainda manda uma foto real do veículo de interesse.
+   A IA decide quando encaminhar pra um consultor humano (visita agendada,
+   pergunta comercial, pedido explícito do cliente); até lá, o lead permanece
+   em "I.A." e a Eloá conduz a conversa sozinha, objetivo principal sendo
+   agendar uma visita à loja.
 
    IMPORTANTE — hospedagem: isso usa WhatsApp via Baileys, que precisa de uma
    conexão permanente (não é uma Cloud Function como o webhook-autoconf). Não
@@ -70,7 +71,6 @@ function buscarVeiculoEstoque(veiculoTexto) {
   });
   return melhorScore > 0 ? melhor : null;
 }
-function primeiroNomeDe(nome) { return (nome || 'Cliente').trim().split(' ')[0]; }
 function hoje() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -134,6 +134,37 @@ async function reconstruirTelParaLeadId() {
     });
 }
 
+/* Envia cada mensagem como bolha separada (texto ou nota de voz, conforme
+   MODO_VOZ), com uma pequena pausa entre elas pra imitar cadência humana. */
+async function enviarMensagens(jid, mensagens) {
+  for (let i = 0; i < mensagens.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
+    if (MODO_VOZ) {
+      try {
+        const audio = await gerarNotaDeVoz(mensagens[i]);
+        await sock.sendMessage(jid, { audio, mimetype: 'audio/ogg; codecs=opus', ptt: true });
+        continue;
+      } catch (e) {
+        console.error('Nota de voz falhou, mandando texto:', e.message);
+      }
+    }
+    await sock.sendMessage(jid, { text: mensagens[i] });
+  }
+}
+
+/* Segunda barreira, além da instrução em persona.md: se a resposta da IA
+   mesmo assim citar preço/financiamento, ela é substituída e o lead é
+   forçado a encaminhar pro consultor — preço é sensível demais pra confiar
+   só no comportamento do modelo. */
+function garantirSemPreco(mensagens) {
+  if (!mensagens.some((m) => PADRAO_PRECO.test(m))) return { mensagens, forcarEncaminhar: false };
+  console.warn(`⚠️ Resposta da IA continha preço/financiamento — bloqueada e encaminhada. Texto original: ${JSON.stringify(mensagens)}`);
+  return {
+    mensagens: ['Essa parte de valores e condições eu prefiro confirmar com um consultor pra te passar certinho — já vou te conectar com alguém.'],
+    forcarEncaminhar: true,
+  };
+}
+
 async function cumprimentarLead(lead) {
   const jidTentativa = paraJid(lead.clienteTel);
   if (!jidTentativa) return;
@@ -151,23 +182,36 @@ async function cumprimentarLead(lead) {
     console.error('Erro ao validar número, tentando mesmo assim:', e.message);
   }
 
-  const nome = primeiroNomeDe(lead.clienteNome);
   const veiculo = buscarVeiculoEstoque(lead.veiculo);
 
+  let resultado;
   try {
-    await sock.sendMessage(jid, { text: `Olá! Eu sou a Eloá, da RT Car. Vi que você se interessou por esse carro, posso te mandar mais detalhes?` });
+    resultado = await gerarResposta(
+      { ...lead, _primeiroContato: true },
+      [],
+      '(sem mensagem do cliente ainda — inicie o primeiro contato, conduzindo para o agendamento de visita)',
+    );
+  } catch (e) {
+    console.error(`Erro ao gerar saudação por IA para ${lead.clienteNome}:`, e.message);
+    return; // não manda nada fixo — melhor tentar de novo no próximo ciclo do que mandar mensagem genérica
+  }
+
+  const { mensagens } = garantirSemPreco(resultado.mensagens);
+
+  try {
+    await enviarMensagens(jid, mensagens);
     if (veiculo?.foto) {
       await new Promise((r) => setTimeout(r, 1200));
       await sock.sendMessage(jid, { image: { url: veiculo.foto }, caption: `${veiculo.b} ${veiculo.m}` });
     }
-    await new Promise((r) => setTimeout(r, 1200));
-    await sock.sendMessage(jid, { text: 'Gostou? Posso passar teu contato para um dos nossos consultores para tirar todas as dúvidas?' });
 
     telParaLeadId.set(chaveTel(jid.split('@')[0]), lead.id);
     telParaLeadId.set(chaveTel(lead.clienteTel), lead.id);
 
-    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: '🤖 Saudação automática (Eloá)', obs: 'Mensagem de boas-vindas enviada ao lead novo', by: 'Eloá' }];
-    await fbUpdate('leads', lead.id, { eloaEnviadoEm: new Date().toISOString(), historico });
+    const respostaCompleta = mensagens.join(' ');
+    const conversaEloa = [{ role: 'model', texto: respostaCompleta }];
+    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: '🤖 Primeiro contato (Eloá)', obs: respostaCompleta, by: 'Eloá' }];
+    await fbUpdate('leads', lead.id, { eloaEnviadoEm: new Date().toISOString(), conversaEloa, historico });
     console.log(`✅ Eloá cumprimentou ${lead.clienteNome} (${lead.id}).`);
   } catch (e) {
     console.error(`Erro ao cumprimentar ${lead.clienteNome}:`, e.message);
@@ -201,28 +245,12 @@ async function responderComIA(jid, leadId, mensagemCliente) {
     return;
   }
 
-  let { mensagens, encaminharConsultor } = resultado;
-  if (mensagens.some((m) => PADRAO_PRECO.test(m))) {
-    console.warn(`⚠️ Resposta da IA pro lead ${leadId} continha preço/financiamento — bloqueada e encaminhada. Texto original: ${JSON.stringify(mensagens)}`);
-    mensagens = ['Essa parte de valores e condições eu prefiro confirmar com um consultor pra te passar certinho — já vou te conectar com alguém.'];
-    encaminharConsultor = true;
-  }
+  const seguro = garantirSemPreco(resultado.mensagens);
+  const mensagens = seguro.mensagens;
+  const encaminharConsultor = resultado.encaminharConsultor || seguro.forcarEncaminhar;
 
   try {
-    for (let i = 0; i < mensagens.length; i++) {
-      if (i > 0) await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
-      if (MODO_VOZ) {
-        try {
-          const audio = await gerarNotaDeVoz(mensagens[i]);
-          await sock.sendMessage(jid, { audio, mimetype: 'audio/ogg; codecs=opus', ptt: true });
-        } catch (e) {
-          console.error(`Nota de voz falhou pro lead ${leadId}, mandando texto:`, e.message);
-          await sock.sendMessage(jid, { text: mensagens[i] });
-        }
-      } else {
-        await sock.sendMessage(jid, { text: mensagens[i] });
-      }
-    }
+    await enviarMensagens(jid, mensagens);
   } catch (e) {
     console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
     return;

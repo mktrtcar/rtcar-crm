@@ -1,8 +1,10 @@
 /* Simula uma conversa contínua com a Eloá sem precisar de WhatsApp/celular.
    Uso:
-     node simular.js "mensagem do cliente"
-     node simular.js --reset            (começa uma conversa nova)
-     node simular.js --veiculo "BYD Song Plus" "mensagem do cliente"  (define o veículo do lead simulado)
+     node simular.js --primeiro                                        (simula o primeiro contato, como se fosse um lead novo)
+     node simular.js "mensagem do cliente"                             (continua a conversa)
+     node simular.js --reset                                           (começa uma conversa nova)
+     node simular.js --veiculo "BYD Song Plus" "mensagem do cliente"   (define o veículo do lead simulado)
+     node simular.js --origem "Webmotors" --primeiro                   (define a plataforma de origem)
 
    O histórico fica salvo em simulacao.json (nesta pasta) entre chamadas, então
    cada execução continua a mesma conversa até você rodar --reset. */
@@ -15,7 +17,7 @@ const ARQ = path.join(__dirname, 'simulacao.json');
 const PADRAO_PRECO = /r\$\s?\d|\b\d{1,3}(\.\d{3})+\s*reais\b|\bfinanciamento\b|\bparcela(s)?\b|\bentrada de\b/i;
 
 function carregar() {
-  try { return JSON.parse(fs.readFileSync(ARQ, 'utf8')); } catch { return { lead: { clienteNome: 'Cliente Simulado', veiculo: 'BYD Song Plus' }, historico: [] }; }
+  try { return JSON.parse(fs.readFileSync(ARQ, 'utf8')); } catch { return { lead: { clienteNome: 'Cliente Simulado', veiculo: 'BYD Song Plus', origem: 'Webmotors' }, historico: [] }; }
 }
 function salvar(estado) {
   fs.writeFileSync(ARQ, JSON.stringify(estado, null, 2));
@@ -37,17 +39,28 @@ async function main() {
     estado.lead.veiculo = args[iVeiculo + 1];
     args.splice(iVeiculo, 2);
   }
+  const iOrigem = args.indexOf('--origem');
+  if (iOrigem !== -1) {
+    estado.lead.origem = args[iOrigem + 1];
+    args.splice(iOrigem, 2);
+  }
 
-  const mensagemCliente = args.join(' ').trim();
+  const primeiroContato = args.includes('--primeiro');
+  if (primeiroContato) args.splice(args.indexOf('--primeiro'), 1);
+
+  const mensagemCliente = primeiroContato
+    ? '(sem mensagem do cliente ainda — inicie o primeiro contato, conduzindo para o agendamento de visita)'
+    : args.join(' ').trim();
   if (!mensagemCliente) {
-    console.log('Uso: node simular.js "mensagem do cliente"  (ou --reset pra começar de novo)');
-    console.log(`Conversa atual: ${estado.historico.length} mensagem(ns) — veículo simulado: ${estado.lead.veiculo}`);
+    console.log('Uso: node simular.js "mensagem do cliente"  (ou --primeiro / --reset)');
+    console.log(`Conversa atual: ${estado.historico.length} mensagem(ns) — veículo: ${estado.lead.veiculo} — origem: ${estado.lead.origem}`);
     return;
   }
 
   let resultado;
   try {
-    resultado = await gerarResposta(estado.lead, estado.historico, mensagemCliente);
+    const lead = primeiroContato ? { ...estado.lead, _primeiroContato: true } : estado.lead;
+    resultado = await gerarResposta(lead, estado.historico, mensagemCliente);
   } catch (e) {
     console.error('Erro ao gerar resposta:', e.message);
     return;
@@ -60,11 +73,12 @@ async function main() {
     encaminharConsultor = true;
   }
 
-  console.log(`\nCliente: ${mensagemCliente}`);
+  console.log(primeiroContato ? '\n[Primeiro contato — lead novo, ainda sem resposta]' : `\nCliente: ${mensagemCliente}`);
   mensagens.forEach((m) => console.log(`Eloá: ${m}`));
   if (encaminharConsultor) console.log('\n🔔 [encaminharia para consultor humano agora]');
 
-  estado.historico.push({ role: 'user', texto: mensagemCliente }, { role: 'model', texto: mensagens.join(' ') });
+  if (primeiroContato) estado.historico.push({ role: 'model', texto: mensagens.join(' ') });
+  else estado.historico.push({ role: 'user', texto: mensagemCliente }, { role: 'model', texto: mensagens.join(' ') });
   salvar(estado);
 }
 

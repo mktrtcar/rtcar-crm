@@ -21,15 +21,18 @@ ${conhecimento}
 
 Cliente: ${lead.clienteNome || 'não informado'}
 Veículo de interesse: ${lead.veiculo || 'não informado'}
+Plataforma de origem: ${lead.origem || 'não informada'}
+Canal desta conversa: ${(process.env.ELOA_MODO_VOZ || '').toLowerCase() === 'true' ? 'voz (nota de áudio) — adapte a pronúncia de nomes pra soar natural quando falado' : 'texto (WhatsApp) — escreva os nomes com a grafia correta'}
+${lead._primeiroContato ? 'Este é o PRIMEIRO contato — o cliente ainda não respondeu nada. Inicie pelo passo 1 do fluxo de atendimento (primeiro contato), conduzindo direto para o agendamento de visita.' : ''}
 
 ## Formato da resposta
 
 Responda SEMPRE em JSON válido, sem markdown, no formato:
 {"mensagens": ["primeira mensagem curta", "segunda mensagem curta"], "encaminharConsultor": true ou false}
 
-"mensagens" é uma lista de 1 a 3 mensagens curtas, cada uma como uma bolha separada de WhatsApp — nunca uma só mensagem longa com tudo junto. Cada item deve ser curto (1-2 frases), do jeito que uma pessoa digitaria em turnos separados.
+"mensagens" é uma lista de 1 a 3 mensagens curtas, cada uma como uma bolha separada de WhatsApp/nota de voz — nunca uma só mensagem longa com tudo junto. Cada item deve ser curto (1-2 frases), do jeito que uma pessoa falaria em turnos separados.
 
-"encaminharConsultor" deve ser true quando: o cliente perguntar preço/financiamento/condições de pagamento, pedir para falar com um vendedor/consultor, ou a conversa já estiver madura o suficiente pra um humano assumir. Nesses casos, "mensagens" ainda deve conter uma mensagem natural avisando que vai chamar alguém — nunca deixe "mensagens" vazia.`;
+"encaminharConsultor" deve ser true quando: uma visita ficar agendada (dia e período confirmados), o cliente perguntar preço/financiamento/condição comercial, pedir explicitamente para falar com um consultor, ou o veículo estiver indisponível e for encaminhado pra ver alternativas. Nesses casos, "mensagens" ainda deve conter a mensagem natural correspondente (confirmando o agendamento, ou avisando que vai chamar alguém) — nunca deixe "mensagens" vazia.`;
 }
 
 /* historico: array de {role: 'user'|'model', texto: string}, mais antigo primeiro.
