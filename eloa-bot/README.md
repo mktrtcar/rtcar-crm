@@ -57,7 +57,11 @@ npm install
 node index.js
 ```
 
-Na primeira vez, vai aparecer um QR code em `./qr.png` para conectar o número de WhatsApp da Eloá.
+Na primeira vez, vai aparecer um QR code em `./qr.png` para conectar o número de WhatsApp da Eloá — ou, se preferir conectar por código de pareamento (não expira em segundos como o QR), defina `ELOA_TEL` no `.env` com o número (DDI+DDD+número, só dígitos) antes de rodar.
+
+## Testar a conversa sem WhatsApp
+
+`node simular.js "mensagem do cliente"` — conversa com a Eloá direto pelo terminal, sem precisar de celular nenhum. O histórico fica salvo em `simulacao.json` (fora do git) entre chamadas, então cada execução continua a mesma conversa. `node simular.js --reset` começa uma conversa nova. `node simular.js --veiculo "Nome do carro" "mensagem"` define o veículo simulado.
 
 ## Decisão ainda pendente (reunião 07/08/2026 com Aline/Rafa)
 
@@ -78,6 +82,8 @@ Na primeira conexão de teste com um número de WhatsApp válido, a Eloá cumpri
 Também corrigido: cada reconexão do WhatsApp criava um novo ciclo de verificação por cima do anterior (sem cancelar), o que multiplicava tentativas repetidas. Agora o ciclo só é iniciado uma vez, não de novo a cada reconexão.
 
 **Se algum dia apagar `ultimo-check.json` de propósito ou por acidente, ele reinicia em "agora" — nunca reprocessa o passado.** Isso é intencional.
+
+**Bug relacionado, mesmo dia:** o mapa telefone→lead comparava o número de formas inconsistentes (às vezes com DDI, às vezes sem), e como o WhatsApp brasileiro é inconsistente sobre incluir ou não o "9" extra do celular, uma resposta real de teste ficou sem resposta silenciosamente. Corrigido usando só os últimos 8 dígitos do número como chave (`chaveTel()`) — mesmo método já usado no agente de resgate (Cora) pra esse problema exato.
 
 ## Limitação atual da mensagem
 

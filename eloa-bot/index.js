@@ -75,6 +75,13 @@ function hoje() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
+/* Sempre usar só os últimos 8 dígitos como chave pro Map telefone->lead —
+   evita depender de o número vir com ou sem o "9" extra do celular
+   brasileiro (WhatsApp é inconsistente nisso), mesmo problema já visto e
+   corrigido no agente de resgate (Cora) e na demo original da Eloá. */
+function chaveTel(tel) {
+  return (tel || '').replace(/\D/g, '').slice(-8);
+}
 function paraJid(tel) {
   const digitos = (tel || '').replace(/\D/g, '');
   if (!digitos) return null;
@@ -122,8 +129,8 @@ async function reconstruirTelParaLeadId() {
   leads
     .filter((l) => l.st === 'ia' && l.eloaEnviadoEm && l.eloaEnviadoEm !== 'NUMERO_INVALIDO' && l.clienteTel)
     .forEach((l) => {
-      const digitos = (l.clienteTel || '').replace(/\D/g, '');
-      if (digitos) telParaLeadId.set(digitos, l.id);
+      const chave = chaveTel(l.clienteTel);
+      if (chave) telParaLeadId.set(chave, l.id);
     });
 }
 
@@ -148,7 +155,7 @@ async function cumprimentarLead(lead) {
   const veiculo = buscarVeiculoEstoque(lead.veiculo);
 
   try {
-    await sock.sendMessage(jid, { text: `Olá! Eu sou a Eloá, da RT Car. Vi que você se interessou por esse carro, vou te mandar mais detalhes!` });
+    await sock.sendMessage(jid, { text: `Olá! Eu sou a Eloá, da RT Car. Vi que você se interessou por esse carro, posso te mandar mais detalhes?` });
     if (veiculo?.foto) {
       await new Promise((r) => setTimeout(r, 1200));
       await sock.sendMessage(jid, { image: { url: veiculo.foto }, caption: `${veiculo.b} ${veiculo.m}` });
@@ -156,8 +163,8 @@ async function cumprimentarLead(lead) {
     await new Promise((r) => setTimeout(r, 1200));
     await sock.sendMessage(jid, { text: 'Gostou? Posso passar teu contato para um dos nossos consultores para tirar todas as dúvidas?' });
 
-    telParaLeadId.set(jid.split('@')[0], lead.id);
-    telParaLeadId.set((lead.clienteTel || '').replace(/\D/g, ''), lead.id);
+    telParaLeadId.set(chaveTel(jid.split('@')[0]), lead.id);
+    telParaLeadId.set(chaveTel(lead.clienteTel), lead.id);
 
     const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: '🤖 Saudação automática (Eloá)', obs: 'Mensagem de boas-vindas enviada ao lead novo', by: 'Eloá' }];
     await fbUpdate('leads', lead.id, { eloaEnviadoEm: new Date().toISOString(), historico });
@@ -261,9 +268,23 @@ async function start() {
   sock = makeWASocket({ auth: state, logger: P, printQRInTerminal: false });
   sock.ev.on('creds.update', saveCreds);
 
+  // Código de pareamento é mais robusto que QR (não expira em segundos) —
+  // usado só se ELOA_TEL estiver definida no .env; senão cai no QR normal.
+  const telPareamento = process.env.ELOA_TEL;
+  if (!state.creds.registered && telPareamento) {
+    try {
+      await new Promise((r) => setTimeout(r, 3000)); // deixa o socket estabilizar antes de pedir o código
+      const codigo = await sock.requestPairingCode(telPareamento);
+      console.log(`\n=== CÓDIGO DE PAREAMENTO: ${codigo} ===`);
+      console.log(`No WhatsApp desse número: Aparelhos conectados → Conectar um aparelho → Conectar com número de telefone → digite ${codigo}\n`);
+    } catch (e) {
+      console.error('Erro ao solicitar código de pareamento:', e.message);
+    }
+  }
+
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
-    if (qr) {
+    if (qr && !telPareamento) {
       qrcode.toFile('./qr.png', qr, { width: 400 }, (err) => {
         if (!err) console.log('\n=== NOVO QR CODE em ./qr.png ===\n');
       });
@@ -285,8 +306,8 @@ async function start() {
     if (!msg.message || msg.key.fromMe) return;
     const jid = msg.key.remoteJid;
     const jidTel = msg.key.remoteJidAlt || msg.key.remoteJid;
-    const telDigits = jidTel.split('@')[0].replace(/\D/g, '');
-    const leadId = telParaLeadId.get(telDigits) || telParaLeadId.get(telDigits.replace(/^55/, ''));
+    const chave = chaveTel(jidTel.split('@')[0]);
+    const leadId = telParaLeadId.get(chave);
     if (!leadId) return; // não é um número que a Eloá cumprimentou
     const texto = msg.message.conversation || msg.message.extendedTextMessage?.text;
     if (!texto) return; // figurinha, áudio, reação, mensagem automática de ausência etc. — não é fala real do cliente
