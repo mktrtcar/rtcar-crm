@@ -74,18 +74,21 @@ function montarWavDePCM(pcm, sampleRate) {
   return Buffer.concat([header, pcm]);
 }
 
-/* WhatsApp só reconhece como "nota de voz" (bolha de áudio com forma de
-   onda) um arquivo ogg/opus. Converte o WAV recebido das APIs de voz pra
-   esse formato usando o ffmpeg embutido (@ffmpeg-installer/ffmpeg). */
-function converterParaOggOpus(bufferWav) {
+/* Converte o WAV recebido das APIs de voz pro formato pedido, usando o
+   ffmpeg embutido (@ffmpeg-installer/ffmpeg) — sem precisar instalar nada
+   no sistema. 'ogg'/libopus é o formato real usado em produção (WhatsApp só
+   reconhece como "nota de voz" nesse formato); 'mp3' é só pra ouvir fora do
+   WhatsApp mais fácil (testes). */
+function converterAudio(bufferWav, extensao) {
+  const codec = extensao === 'mp3' ? 'libmp3lame' : 'libopus';
   return new Promise((resolve, reject) => {
     const fs = require('fs');
     const os = require('os');
     const path = require('path');
     const tmpIn = path.join(os.tmpdir(), `eloa-voz-in-${Date.now()}.wav`);
-    const tmpOut = path.join(os.tmpdir(), `eloa-voz-out-${Date.now()}.ogg`);
+    const tmpOut = path.join(os.tmpdir(), `eloa-voz-out-${Date.now()}.${extensao}`);
     fs.writeFileSync(tmpIn, bufferWav);
-    execFile(ffmpegPath, ['-y', '-i', tmpIn, '-c:a', 'libopus', '-b:a', '32k', tmpOut], (err) => {
+    execFile(ffmpegPath, ['-y', '-i', tmpIn, '-c:a', codec, '-b:a', '32k', tmpOut], (err) => {
       fs.unlink(tmpIn, () => {});
       if (err) { fs.unlink(tmpOut, () => {}); return reject(err); }
       fs.readFile(tmpOut, (err2, data) => {
@@ -97,13 +100,24 @@ function converterParaOggOpus(bufferWav) {
   });
 }
 
-async function gerarNotaDeVoz(texto) {
+async function gerarAudioBruto(texto) {
   const provedor = (process.env.ELOA_VOZ_PROVEDOR || '').toLowerCase();
-  let wav;
-  if (provedor === 'cartesia') wav = await gerarAudioCartesia(texto);
-  else if (provedor === 'gemini') wav = await gerarAudioGemini(texto);
-  else throw new Error(`ELOA_VOZ_PROVEDOR inválido ou não definido ("${provedor}") — use "cartesia" ou "gemini"`);
-  return converterParaOggOpus(wav);
+  if (provedor === 'cartesia') return gerarAudioCartesia(texto);
+  if (provedor === 'gemini') return gerarAudioGemini(texto);
+  throw new Error(`ELOA_VOZ_PROVEDOR inválido ou não definido ("${provedor}") — use "cartesia" ou "gemini"`);
 }
 
-module.exports = { gerarNotaDeVoz };
+/* Usada em produção — sempre ogg/opus, o único formato que o WhatsApp
+   mostra como nota de voz (bolha com forma de onda). */
+async function gerarNotaDeVoz(texto) {
+  return converterAudio(await gerarAudioBruto(texto), 'ogg');
+}
+
+/* Só pra teste/audição fora do WhatsApp — mesma voz, formato mp3 (toca em
+   qualquer player sem precisar de programa especial). Nunca usar isso pra
+   mandar mensagem de verdade — produção sempre usa gerarNotaDeVoz (ogg). */
+async function gerarAudioMp3ParaTeste(texto) {
+  return converterAudio(await gerarAudioBruto(texto), 'mp3');
+}
+
+module.exports = { gerarNotaDeVoz, gerarAudioMp3ParaTeste };
