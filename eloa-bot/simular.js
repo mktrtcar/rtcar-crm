@@ -44,6 +44,11 @@ async function main() {
     estado.lead.origem = args[iOrigem + 1];
     args.splice(iOrigem, 2);
   }
+  const iAgora = args.indexOf('--agora');
+  if (iAgora !== -1) {
+    process.env.ELOA_AGORA_TESTE = args[iAgora + 1]; // ex: "domingo, 22:30"
+    args.splice(iAgora, 2);
+  }
 
   const primeiroContato = args.includes('--primeiro');
   if (primeiroContato) args.splice(args.indexOf('--primeiro'), 1);

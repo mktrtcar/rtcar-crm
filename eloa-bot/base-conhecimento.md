@@ -17,3 +17,9 @@ Não escreva preço nem condição de financiamento aqui — mesmo que você col
 Rua Otto Renaux, 135 - Centro, Brusque - Santa Catarina.
 
 Pronúncia (só relevante em modo voz, nunca mude a grafia em texto): "Otto Renaux" fala-se "Otto Renô".
+
+## Horário de funcionamento
+
+Segunda a sexta: 8h às 19h.
+Sábado: 8h às 13h.
+Domingo: fechado.

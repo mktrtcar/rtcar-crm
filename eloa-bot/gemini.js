@@ -8,6 +8,12 @@ function carregarTexto(nome) {
   try { return fs.readFileSync(path.join(__dirname, nome), 'utf8'); } catch { return ''; }
 }
 
+function agora() {
+  // Override só pra teste (simular.js --agora "..."), nunca usado em produção.
+  if (process.env.ELOA_AGORA_TESTE) return process.env.ELOA_AGORA_TESTE;
+  return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
 function montarInstrucaoSistema(lead) {
   const persona = carregarTexto('persona.md');
   const conhecimento = carregarTexto('base-conhecimento.md');
@@ -23,6 +29,7 @@ Cliente: ${lead.clienteNome || 'não informado'}
 Veículo de interesse: ${lead.veiculo || 'não informado'}
 Plataforma de origem: ${lead.origem || 'não informada'}
 Canal desta conversa: ${(process.env.ELOA_MODO_VOZ || '').toLowerCase() === 'true' ? 'voz (nota de áudio) — adapte a pronúncia de nomes pra soar natural quando falado' : 'texto (WhatsApp) — escreva os nomes com a grafia correta'}
+Agora é: ${agora()} (horário de Brusque-SC) — compare com o horário de funcionamento da loja (base de conhecimento) antes de sugerir "hoje" como opção de visita. Se a loja já estiver fechada ou for tarde demais pra dar tempo de vir hoje, não ofereça "hoje" — pule direto pra "amanhã" ou pergunte o melhor dia.
 ${lead._primeiroContato ? 'Este é o PRIMEIRO contato — o cliente ainda não respondeu nada. Inicie pelo passo 1 do fluxo de atendimento (primeiro contato), conduzindo direto para o agendamento de visita.' : ''}
 
 ## Formato da resposta
