@@ -165,6 +165,15 @@ function garantirSemPreco(mensagens) {
   };
 }
 
+async function enviarFotoVeiculo(jid, lead) {
+  const veiculo = buscarVeiculoEstoque(lead.veiculo);
+  if (!veiculo?.foto) {
+    console.log(`(enviarFotos pedido, mas nenhuma foto encontrada no estoque para "${lead.veiculo}")`);
+    return;
+  }
+  await sock.sendMessage(jid, { image: { url: veiculo.foto }, caption: `${veiculo.b} ${veiculo.m}` });
+}
+
 async function cumprimentarLead(lead) {
   const jidTentativa = paraJid(lead.clienteTel);
   if (!jidTentativa) return;
@@ -251,6 +260,7 @@ async function responderComIA(jid, leadId, mensagemCliente) {
 
   try {
     await enviarMensagens(jid, mensagens);
+    if (resultado.enviarFotos) await enviarFotoVeiculo(jid, lead);
   } catch (e) {
     console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
     return;

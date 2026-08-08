@@ -75,6 +75,7 @@ async function main() {
 
   console.log(primeiroContato ? '\n[Primeiro contato — lead novo, ainda sem resposta]' : `\nCliente: ${mensagemCliente}`);
   mensagens.forEach((m) => console.log(`Eloá: ${m}`));
+  if (resultado.enviarFotos) console.log('📷 [enviaria a foto do veículo agora]');
   if (encaminharConsultor) console.log('\n🔔 [encaminharia para consultor humano agora]');
 
   if (primeiroContato) estado.historico.push({ role: 'model', texto: mensagens.join(' ') });

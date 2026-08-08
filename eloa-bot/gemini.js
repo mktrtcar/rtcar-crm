@@ -28,11 +28,13 @@ ${lead._primeiroContato ? 'Este é o PRIMEIRO contato — o cliente ainda não r
 ## Formato da resposta
 
 Responda SEMPRE em JSON válido, sem markdown, no formato:
-{"mensagens": ["primeira mensagem curta", "segunda mensagem curta"], "encaminharConsultor": true ou false}
+{"mensagens": ["primeira mensagem curta", "segunda mensagem curta"], "encaminharConsultor": true ou false, "enviarFotos": true ou false}
 
 "mensagens" é uma lista de 1 a 3 mensagens curtas, cada uma como uma bolha separada de WhatsApp/nota de voz — nunca uma só mensagem longa com tudo junto. Cada item deve ser curto (1-2 frases), do jeito que uma pessoa falaria em turnos separados.
 
-"encaminharConsultor" deve ser true quando: uma visita ficar agendada (dia e período confirmados), o cliente perguntar preço/financiamento/condição comercial, pedir explicitamente para falar com um consultor, ou o veículo estiver indisponível e for encaminhado pra ver alternativas. Nesses casos, "mensagens" ainda deve conter a mensagem natural correspondente (confirmando o agendamento, ou avisando que vai chamar alguém) — nunca deixe "mensagens" vazia.`;
+"encaminharConsultor" deve ser true quando: uma visita ficar agendada (dia e período confirmados), o cliente perguntar preço/financiamento/condição comercial, pedir explicitamente para falar com um consultor, ou o veículo estiver indisponível e for encaminhado pra ver alternativas. Nesses casos, "mensagens" ainda deve conter a mensagem natural correspondente (confirmando o agendamento, ou avisando que vai chamar alguém) — nunca deixe "mensagens" vazia.
+
+"enviarFotos" deve ser true quando o cliente pedir foto(s) do veículo ou "mais detalhes"/"mais informações" sobre ele de forma genérica. Quando true, uma das "mensagens" deve mencionar que você vai mandar a foto agora (o envio da imagem em si é feito pelo sistema, não por você) — não descreva a foto como se ela já tivesse sido enviada antes dessa mensagem.`;
 }
 
 /* historico: array de {role: 'user'|'model', texto: string}, mais antigo primeiro.
@@ -66,7 +68,7 @@ async function gerarResposta(lead, historico, mensagemCliente) {
   const parsed = JSON.parse(texto);
   const mensagens = Array.isArray(parsed.mensagens) ? parsed.mensagens.filter(Boolean) : [];
   if (!mensagens.length) throw new Error('Resposta do Gemini sem "mensagens": ' + texto);
-  return { mensagens, encaminharConsultor: !!parsed.encaminharConsultor };
+  return { mensagens, encaminharConsultor: !!parsed.encaminharConsultor, enviarFotos: !!parsed.enviarFotos };
 }
 
 module.exports = { gerarResposta };
