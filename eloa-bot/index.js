@@ -34,6 +34,7 @@ const qrcode = require('qrcode');
 const { fbList, fbUpdate } = require('./firestore');
 const { gerarResposta } = require('./gemini');
 const { gerarNotaDeVoz } = require('./voz');
+const { buscarDadosReais } = require('./dadosVeiculo');
 const ESTOQUE_RTCAR = require('./estoque.json');
 
 const INTERVALO_POLL_MS = 20000; // checa leads novos a cada 20s
@@ -71,6 +72,17 @@ function buscarVeiculoEstoque(veiculoTexto) {
   });
   return melhorScore > 0 ? melhor : null;
 }
+/* Enriquece o lead com dados reais do site (fotos múltiplas + specs), além
+   do que já vem do estoque.json. Se a busca no site falhar por qualquer
+   motivo, retorna só o que já tinha (marca/modelo/1 foto) — nunca trava a
+   conversa por isso. */
+async function buscarDadosCompletos(lead) {
+  const item = buscarVeiculoEstoque(lead.veiculo);
+  if (!item) return null;
+  const reais = await buscarDadosReais(item.pagina);
+  return { ...item, ...reais, fotos: reais?.fotos?.length ? reais.fotos : (item.foto ? [item.foto] : []) };
+}
+
 function hoje() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -165,13 +177,24 @@ function garantirSemPreco(mensagens) {
   };
 }
 
+const MAX_FOTOS_ENVIADAS = 3;
+
+/* Manda até 3 fotos reais do veículo (buscadas do site, com fallback pra 1
+   foto do estoque.json se a busca falhar) — a primeira com legenda com
+   specs reais (ano, km, câmbio, cor), nunca com preço. */
 async function enviarFotoVeiculo(jid, lead) {
-  const veiculo = buscarVeiculoEstoque(lead.veiculo);
-  if (!veiculo?.foto) {
-    console.log(`(enviarFotos pedido, mas nenhuma foto encontrada no estoque para "${lead.veiculo}")`);
+  const dados = await buscarDadosCompletos(lead);
+  if (!dados?.fotos?.length) {
+    console.log(`(enviarFotos pedido, mas nenhuma foto encontrada para "${lead.veiculo}")`);
     return;
   }
-  await sock.sendMessage(jid, { image: { url: veiculo.foto }, caption: `${veiculo.b} ${veiculo.m}` });
+  const specs = [dados.cor, dados.ano, dados.km ? `${dados.km} km` : null, dados.cambio, dados.potencia ? `${dados.potencia}cv` : null].filter(Boolean).join(' · ');
+  const legenda = `${dados.b} ${dados.m}${specs ? ' — ' + specs : ''}`;
+  const fotos = dados.fotos.slice(0, MAX_FOTOS_ENVIADAS);
+  for (let i = 0; i < fotos.length; i++) {
+    await sock.sendMessage(jid, i === 0 ? { image: { url: fotos[i] }, caption: legenda } : { image: { url: fotos[i] } });
+    if (i < fotos.length - 1) await new Promise((r) => setTimeout(r, 1000));
+  }
 }
 
 async function cumprimentarLead(lead) {
@@ -191,12 +214,12 @@ async function cumprimentarLead(lead) {
     console.error('Erro ao validar número, tentando mesmo assim:', e.message);
   }
 
-  const veiculo = buscarVeiculoEstoque(lead.veiculo);
+  const dadosVeiculo = await buscarDadosCompletos(lead);
 
   let resultado;
   try {
     resultado = await gerarResposta(
-      { ...lead, _primeiroContato: true },
+      { ...lead, _primeiroContato: true, _dadosVeiculo: dadosVeiculo },
       [],
       '(sem mensagem do cliente ainda — inicie o primeiro contato, conduzindo para o agendamento de visita)',
     );
@@ -209,9 +232,9 @@ async function cumprimentarLead(lead) {
 
   try {
     await enviarMensagens(jid, mensagens);
-    if (veiculo?.foto) {
+    if (resultado.enviarFotos) {
       await new Promise((r) => setTimeout(r, 1200));
-      await sock.sendMessage(jid, { image: { url: veiculo.foto }, caption: `${veiculo.b} ${veiculo.m}` });
+      await enviarFotoVeiculo(jid, lead);
     }
 
     telParaLeadId.set(chaveTel(jid.split('@')[0]), lead.id);
@@ -244,10 +267,11 @@ async function responderComIA(jid, leadId, mensagemCliente) {
   if (!lead || lead.st !== 'ia') return; // já não está mais em I.A. (evita reprocessar)
 
   const conversa = lead.conversaEloa || [];
+  const dadosVeiculo = await buscarDadosCompletos(lead);
 
   let resultado;
   try {
-    resultado = await gerarResposta(lead, conversa, mensagemCliente);
+    resultado = await gerarResposta({ ...lead, _dadosVeiculo: dadosVeiculo }, conversa, mensagemCliente);
   } catch (e) {
     console.error(`Erro ao gerar resposta da IA para ${leadId}:`, e.message);
     await encaminharParaConsultor(lead, `A Eloá não conseguiu responder por IA (${e.message}) — encaminhado direto pra não deixar o cliente sem retorno.`);

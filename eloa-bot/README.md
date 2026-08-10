@@ -85,6 +85,8 @@ Também corrigido: cada reconexão do WhatsApp criava um novo ciclo de verifica�
 
 **Bug relacionado, mesmo dia:** o mapa telefone→lead comparava o número de formas inconsistentes (às vezes com DDI, às vezes sem), e como o WhatsApp brasileiro é inconsistente sobre incluir ou não o "9" extra do celular, uma resposta real de teste ficou sem resposta silenciosamente. Corrigido usando só os últimos 8 dígitos do número como chave (`chaveTel()`) — mesmo método já usado no agente de resgate (Cora) pra esse problema exato.
 
-## Limitação atual da mensagem
+## Dados reais do veículo (fotos + specs)
 
-A foto e o texto usados vêm do `estoque.json` (marca, modelo, uma foto) — não tem preço, ano, km ou outras fotos, porque essa fonte de dados não tem esses campos. Pra enriquecer isso (como foi feito manualmente na demo, puxando do site rtcar.com.br para um único veículo), seria preciso uma integração nova com o Autoconf — não existe hoje de forma automática/genérica para qualquer veículo.
+`dadosVeiculo.js` busca ao vivo a página do veículo em rtcar.com.br (usando o link `pagina` que já vem no `estoque.json`) e extrai até 5 fotos reais + specs confirmadas (ano, km, cor, câmbio, potência, opcionais) — sem preço, que não aparece nem no HTML da página. Isso funciona para qualquer veículo do estoque, não só um caso específico como na demo manual original. Resultado fica em cache por 4h por veículo, pra não buscar a página de novo a cada mensagem.
+
+**Se a busca falhar** (site fora do ar, mudou de estrutura, sem `pagina` cadastrada), cai de volta pro que já tinha: 1 foto + marca/modelo do `estoque.json`, sem travar a conversa — a Eloá é instruída a admitir quando não tem um dado específico, em vez de inventar.

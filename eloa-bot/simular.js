@@ -12,9 +12,34 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { gerarResposta } = require('./gemini');
+const { buscarDadosReais } = require('./dadosVeiculo');
+const ESTOQUE_RTCAR = require('./estoque.json');
 
 const ARQ = path.join(__dirname, 'simulacao.json');
 const PADRAO_PRECO = /r\$\s?\d|\b\d{1,3}(\.\d{3})+\s*reais\b|\bfinanciamento\b|\bparcela(s)?\b|\bentrada de\b/i;
+
+function normalizarTxt(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function buscarVeiculoEstoque(veiculoTexto) {
+  const alvo = normalizarTxt(veiculoTexto);
+  if (!alvo) return null;
+  const palavras = alvo.split(' ').filter((p) => p.length >= 3);
+  if (!palavras.length) return null;
+  let melhor = null, melhorScore = 0;
+  ESTOQUE_RTCAR.forEach((item) => {
+    const texto = normalizarTxt(item.b + ' ' + item.m);
+    const score = palavras.reduce((s, p) => s + (texto.includes(p) ? 1 : 0), 0);
+    if (score > melhorScore) { melhorScore = score; melhor = item; }
+  });
+  return melhorScore > 0 ? melhor : null;
+}
+async function buscarDadosCompletos(lead) {
+  const item = buscarVeiculoEstoque(lead.veiculo);
+  if (!item) return null;
+  const reais = await buscarDadosReais(item.pagina);
+  return { ...item, ...reais, fotos: reais?.fotos?.length ? reais.fotos : (item.foto ? [item.foto] : []) };
+}
 
 function carregar() {
   try { return JSON.parse(fs.readFileSync(ARQ, 'utf8')); } catch { return { lead: { clienteNome: 'Cliente Simulado', veiculo: 'BYD Song Plus', origem: 'Webmotors' }, historico: [] }; }
@@ -63,8 +88,10 @@ async function main() {
   }
 
   let resultado;
+  let dadosVeiculoUsado;
   try {
-    const lead = primeiroContato ? { ...estado.lead, _primeiroContato: true } : estado.lead;
+    dadosVeiculoUsado = await buscarDadosCompletos(estado.lead);
+    const lead = { ...estado.lead, _dadosVeiculo: dadosVeiculoUsado, ...(primeiroContato ? { _primeiroContato: true } : {}) };
     resultado = await gerarResposta(lead, estado.historico, mensagemCliente);
   } catch (e) {
     console.error('Erro ao gerar resposta:', e.message);
@@ -80,7 +107,7 @@ async function main() {
 
   console.log(primeiroContato ? '\n[Primeiro contato — lead novo, ainda sem resposta]' : `\nCliente: ${mensagemCliente}`);
   mensagens.forEach((m) => console.log(`Eloá: ${m}`));
-  if (resultado.enviarFotos) console.log('📷 [enviaria a foto do veículo agora]');
+  if (resultado.enviarFotos) console.log(`📷 [enviaria ${dadosVeiculoUsado?.fotos?.length || 0} foto(s) real(is) do veículo agora]`);
   if (encaminharConsultor) console.log('\n🔔 [encaminharia para consultor humano agora]');
 
   if (primeiroContato) estado.historico.push({ role: 'model', texto: mensagens.join(' ') });

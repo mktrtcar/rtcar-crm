@@ -14,6 +14,20 @@ function agora() {
   return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function montarLinhaDadosVeiculo(dados) {
+  if (!dados) return 'Dados específicos confirmados do veículo: nenhum encontrado — trate qualquer pergunta específica (km, ano, cor, opcionais) como não confirmada.';
+  const partes = [
+    dados.ano ? `ano ${dados.ano}` : null,
+    dados.km ? `${dados.km} km` : null,
+    dados.cor ? `cor ${dados.cor}` : null,
+    dados.cambio ? `câmbio ${dados.cambio}` : null,
+    dados.potencia ? `${dados.potencia} cv` : null,
+    dados.opcionais?.length ? `opcionais: ${dados.opcionais.join(', ')}` : null,
+  ].filter(Boolean);
+  if (!partes.length) return 'Dados específicos confirmados do veículo: nenhum encontrado — trate qualquer pergunta específica (km, ano, cor, opcionais) como não confirmada.';
+  return `Dados específicos confirmados do veículo (pode usar pra responder pergunta direta, NUNCA cite preço mesmo que soubesse): ${partes.join(', ')}.`;
+}
+
 function montarInstrucaoSistema(lead) {
   const persona = carregarTexto('persona.md');
   const conhecimento = carregarTexto('base-conhecimento.md');
@@ -30,6 +44,7 @@ Veículo de interesse: ${lead.veiculo || 'não informado'}
 Plataforma de origem: ${lead.origem || 'não informada'}
 Canal desta conversa: ${(process.env.ELOA_MODO_VOZ || '').toLowerCase() === 'true' ? 'voz (nota de áudio) — adapte a pronúncia de nomes pra soar natural quando falado' : 'texto (WhatsApp) — escreva os nomes com a grafia correta'}
 Agora é: ${agora()} (horário de Brusque-SC) — compare com o horário de funcionamento da loja (base de conhecimento) antes de sugerir "hoje" como opção de visita. Se a loja já estiver fechada ou for tarde demais pra dar tempo de vir hoje, não ofereça "hoje" — pule direto pra "amanhã" ou pergunte o melhor dia.
+${montarLinhaDadosVeiculo(lead._dadosVeiculo)}
 ${lead._primeiroContato ? 'Este é o PRIMEIRO contato — o cliente ainda não respondeu nada. Inicie pelo passo 1 do fluxo de atendimento (primeiro contato).' : ''}
 
 ## Formato da resposta
