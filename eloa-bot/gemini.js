@@ -29,8 +29,20 @@ function montarLinhaDadosVeiculo(dados) {
 }
 
 function montarInstrucaoSistema(lead) {
-  const persona = carregarTexto('persona.md');
+  const arquivoPersona = lead._persona || 'persona.md';
+  const ehResgate = arquivoPersona === 'persona-resgate.md';
+  const persona = carregarTexto(arquivoPersona);
   const conhecimento = carregarTexto('base-conhecimento.md');
+
+  const contextoEloa = ehResgate ? '' : `
+Agora é: ${agora()} (horário de Brusque-SC) — compare com o horário de funcionamento da loja (base de conhecimento) antes de sugerir "hoje" como opção de visita. Se a loja já estiver fechada ou for tarde demais pra dar tempo de vir hoje, não ofereça "hoje" — pule direto pra "amanhã" ou pergunte o melhor dia.
+${montarLinhaDadosVeiculo(lead._dadosVeiculo)}
+${lead._primeiroContato ? 'Este é o PRIMEIRO contato — o cliente ainda não respondeu nada. Inicie pelo passo 1 do fluxo de atendimento (primeiro contato).' : ''}`;
+
+  const formatoFotos = ehResgate ? '' : `
+
+"enviarFotos" deve ser true quando o cliente pedir foto(s) do veículo ou "mais detalhes"/"mais informações" sobre ele de forma genérica. Quando true, uma das "mensagens" deve mencionar que você vai mandar a foto agora (o envio da imagem em si é feito pelo sistema, não por você) — não descreva a foto como se ela já tivesse sido enviada antes dessa mensagem.`;
+
   return `${persona}
 
 ## Base de conhecimento da RT Car
@@ -43,20 +55,16 @@ Cliente: ${lead.clienteNome || 'não informado'}
 Veículo de interesse: ${lead.veiculo || 'não informado'}
 Plataforma de origem: ${lead.origem || 'não informada'}
 Canal desta conversa: ${(process.env.ELOA_MODO_VOZ || '').toLowerCase() === 'true' ? 'voz (nota de áudio) — adapte a pronúncia de nomes pra soar natural quando falado' : 'texto (WhatsApp) — escreva os nomes com a grafia correta'}
-Agora é: ${agora()} (horário de Brusque-SC) — compare com o horário de funcionamento da loja (base de conhecimento) antes de sugerir "hoje" como opção de visita. Se a loja já estiver fechada ou for tarde demais pra dar tempo de vir hoje, não ofereça "hoje" — pule direto pra "amanhã" ou pergunte o melhor dia.
-${montarLinhaDadosVeiculo(lead._dadosVeiculo)}
-${lead._primeiroContato ? 'Este é o PRIMEIRO contato — o cliente ainda não respondeu nada. Inicie pelo passo 1 do fluxo de atendimento (primeiro contato).' : ''}
+${lead._mensagemOriginal ? `Mensagem original do cliente ao demonstrar interesse: "${lead._mensagemOriginal}"` : ''}${contextoEloa}
 
 ## Formato da resposta
 
 Responda SEMPRE em JSON válido, sem markdown, no formato:
-{"mensagens": ["primeira mensagem curta", "segunda mensagem curta"], "encaminharConsultor": true ou false, "enviarFotos": true ou false}
+{"mensagens": ["primeira mensagem curta", "segunda mensagem curta"], "encaminharConsultor": true ou false${ehResgate ? '' : ', "enviarFotos": true ou false'}}
 
 "mensagens" é uma lista de 1 a 3 mensagens curtas, cada uma como uma bolha separada de WhatsApp/nota de voz — nunca uma só mensagem longa com tudo junto. Cada item deve ser curto (1-2 frases), do jeito que uma pessoa falaria em turnos separados.
 
-"encaminharConsultor" deve ser true quando: uma visita ficar agendada (dia e período confirmados), o cliente perguntar preço/financiamento/condição comercial, pedir explicitamente para falar com um consultor, ou o veículo estiver indisponível e for encaminhado pra ver alternativas. Nesses casos, "mensagens" ainda deve conter a mensagem natural correspondente (confirmando o agendamento, ou avisando que vai chamar alguém) — nunca deixe "mensagens" vazia.
-
-"enviarFotos" deve ser true quando o cliente pedir foto(s) do veículo ou "mais detalhes"/"mais informações" sobre ele de forma genérica. Quando true, uma das "mensagens" deve mencionar que você vai mandar a foto agora (o envio da imagem em si é feito pelo sistema, não por você) — não descreva a foto como se ela já tivesse sido enviada antes dessa mensagem.`;
+"encaminharConsultor" deve ser true quando: ${ehResgate ? 'o cliente sinalizar abertura pra retomar o negócio, pedir pra falar com o Rubens, ou disser claramente que não tem mais interesse/já comprou em outro lugar (nesse caso, pra encerrar o caso).' : 'uma visita ficar agendada (dia e período confirmados), o cliente perguntar preço/financiamento/condição comercial, pedir explicitamente para falar com um consultor, ou o veículo estiver indisponível e for encaminhado pra ver alternativas.'} Nesses casos, "mensagens" ainda deve conter a mensagem natural correspondente — nunca deixe "mensagens" vazia.${formatoFotos}`;
 }
 
 /* historico: array de {role: 'user'|'model', texto: string}, mais antigo primeiro.
