@@ -1497,7 +1497,8 @@ async function setSimNaoRel(id,campo,valor,e){
   e.stopPropagation();
   const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
   c[campo]=c[campo]===valor?'':valor;
-  if(fbOk())await salvarCamposRel(id,{[campo]:c[campo]});
+  c[campo+'Data']=c[campo]==='sim'?new Date().toISOString().split('T')[0]:'';
+  if(fbOk())await salvarCamposRel(id,{[campo]:c[campo],[campo+'Data']:c[campo+'Data']});
   renderRelacionamento();
 }
 async function marcarRetiradoRel(id,novaColId,e){
@@ -1548,7 +1549,11 @@ async function moverClienteParaCol(c,novaColId){
   const newCol=COLS_REL.find(x=>x.id===novaColId);if(!newCol)return;
   const oldCol=colAtualRel(c);if(oldCol.id===newCol.id)return;
   const campos={};
-  if(newCol.baseId){c.st=newCol.baseId;campos.st=newCol.baseId;c[newCol.campo]=newCol.valorAtivo?'realizada':'';campos[newCol.campo]=c[newCol.campo];}
+  if(newCol.baseId){
+    c.st=newCol.baseId;campos.st=newCol.baseId;
+    c[newCol.campo]=newCol.valorAtivo?'realizada':'';campos[newCol.campo]=c[newCol.campo];
+    c[newCol.campo+'Data']=newCol.valorAtivo?new Date().toISOString().split('T')[0]:'';campos[newCol.campo+'Data']=c[newCol.campo+'Data'];
+  }
   else{c.st=newCol.id;campos.st=newCol.id;}
   await salvarCamposRel(c.id,campos);
   await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldCol.label}`,G.user?.n||'',newCol.emoji);
@@ -1671,7 +1676,32 @@ function renderDashboardRel(cnt){
   const indG=contarSimNao('indicacaoGeral'),fbG=contarSimNao('feedbackGeral');
   const recompras=clis.filter(c=>c.recompra==='sim').length;
 
+  // Métricas do mês (Milena)
+  function dentroDoMes(dataISO){
+    if(!dataISO)return false;
+    const d=new Date(dataISO+'T12:00:00'),hj=new Date();
+    return d.getMonth()===hj.getMonth()&&d.getFullYear()===hj.getFullYear();
+  }
+  function contarMes(campo){return clis.filter(c=>c[campo]==='sim'&&dentroDoMes(c[campo+'Data'])).length;}
+  const visitas1anoMes=clis.filter(c=>c.visita1ano==='realizada'&&dentroDoMes(c.visita1anoData)).length;
+  const vitrificacoesMes=clis.filter(c=>c.visita2anos==='realizada'&&dentroDoMes(c.visita2anosData)).length;
+  const indicacoesMes=contarMes('indicacao1ano')+contarMes('indicacao2anos')+contarMes('indicacaoGeral');
+  const npsMes=contarMes('feedback1ano')+contarMes('feedback2anos')+contarMes('feedbackGeral');
+
   cnt.innerHTML=`
+    <!-- KPIs do mês (Milena) -->
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-calendar-stats" style="color:var(--purple)"></i> Este mês
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+        ${kpiCard(visitas1anoMes,'🎁 Visitas 1 ano','#6b3db8','#f3e8fb')}
+        ${kpiCard(indicacoesMes,'🤝 Indicações','#1a6b3c','#e8f5ee')}
+        ${kpiCard(npsMes,'💬 NPS (feedbacks)','#1e4d8c','#e8f0fb')}
+        ${kpiCard(vitrificacoesMes,'✨ Vitrificações','#0b7ba8','#e8f8fb')}
+      </div>
+    </div>
+
     <!-- KPIs totais -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
       ${kpiCard(total,'Total de Clientes','var(--red)','')}
