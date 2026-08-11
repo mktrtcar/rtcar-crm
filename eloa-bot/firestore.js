@@ -33,7 +33,7 @@ function fromFF(fields) {
 async function fbList(col) {
   const r = await fetch(`${FB_URL}/${col}?key=${FB.apiKey}&pageSize=300`);
   if (!r.ok) throw new Error(await r.text());
-  return ((await r.json()).documents || []).map((d) => ({ ...fromFF(d.fields), _docName: d.name }));
+  return ((await r.json()).documents || []).map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
 }
 async function fbGet(col, id) {
   const r = await fetch(`${FB_URL}/${col}/${id}?key=${FB.apiKey}`);
