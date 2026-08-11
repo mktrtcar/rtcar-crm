@@ -601,8 +601,8 @@ const COLS_MK=[
   {id:'visita',      label:'Visita',       emoji:'🚗', desc:'Cliente veio à loja',                           cor:'#4a4a4a', bg:'#f0f0f0'},
   {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee'},
   {id:'venda',       label:'Venda',        emoji:'🏆', desc:'Negócio fechado com sucesso',                   cor:'#1a6b3c', bg:'#e8f5ee', fim:true},
-  {id:'perdido',     label:'Perdido',      emoji:'❌', desc:'Cliente desistiu ou sem interesse',             cor:'#e8431e', bg:'#fff0ec', fim:true},
   {id:'resgate',     label:'Resgate',      emoji:'🔄', desc:'Tentativa de resgatar o cliente perdido',       cor:'#6b3db8', bg:'#f3e8fb'},
+  {id:'perdido',     label:'Perdido',      emoji:'❌', desc:'Cliente desistiu ou sem interesse',             cor:'#e8431e', bg:'#fff0ec', fim:true},
 ];
 /* CATEGORIAS DE ORIGEM */
 const ORIGENS_MK={
@@ -1281,9 +1281,14 @@ function abrirDetailLead(id){
   const histHtml=hist.length?hist.map(h=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
     return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
-  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)).map(c=>c.id==='resgate'?
-    `<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`:
-    `<button class="col-btn" onclick="moverLead('${id}','${c.id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`).join('');
+  const SEQ_MK=['ia','atendimento','encantamento','agendamento','visita','negociacao','venda'];
+  const idxAtualMk=SEQ_MK.indexOf(lead.st);
+  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)).map(c=>{
+    if(c.id==='resgate')return`<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`;
+    const seqIdx=SEQ_MK.indexOf(c.id);
+    const cor=seqIdx>-1?(seqIdx<=idxAtualMk?'var(--green)':'var(--red)'):c.cor;
+    return`<button class="col-btn" onclick="moverLead('${id}','${c.id}')" style="border-color:${cor};color:${cor}">${c.emoji} ${c.label}</button>`;
+  }).join('');
   const btnVend=lead.st!=='vendido'?`<button class="col-btn" onclick="abrirModalVendido('${id}')" style="border-color:var(--green);color:var(--green)">✅ Vendido</button>`:'';
   const btnPerd=lead.st!=='perdido'?`<button class="col-btn" onclick="abrirModalPerda('${id}')" style="border-color:var(--red);color:var(--red)">❌ Perdido</button>`:'';
   const btnRetomou=lead.st==='resgate'?`<button class="col-btn" onclick="moverLead('${id}','atendimento')" style="border-color:var(--green);color:var(--green)">✅ Retomou interesse</button>`:'';
@@ -1316,7 +1321,7 @@ function abrirDetailLead(id){
         </div>
         ${lead.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px">${lead.obs}</div>`:''}
       </div>
-      <div class="d-section"><div class="d-section-title">Mover etapa</div>
+      <div class="d-section"><div class="d-section-title">Dashboard</div>
         <div class="col-select">${movBtns}${btnVend}${btnPerd}${btnRetomou}${btnOptOut}</div>
       </div>
       <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
