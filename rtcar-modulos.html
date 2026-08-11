@@ -358,7 +358,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
         <div class="field-row">
           <div class="field"><label>Faixa de valor</label><input type="text" id="f-valor" placeholder="Ex: 80.000 - 100.000"></div>
           <div class="field"><label>Etapa inicial</label>
-            <select id="f-etapa"><option value="ia">I.A.</option><option value="atendimento">Atendimento</option><option value="encantamento">Encantamento</option><option value="agendamento">Agendamento</option><option value="visita">Visita</option><option value="negociacao">Negociação</option><option value="venda">Venda</option><option value="perdido">Perdido</option><option value="resgate">Resgate</option></select>
+            <select id="f-etapa"><option value="ia">I.A.</option><option value="atendimento">Atendimento</option><option value="encantamento">Encantamento</option><option value="agendamento">Agendamento</option><option value="visita">Visita</option><option value="negociacao">Negociação</option><option value="vendido">Venda</option><option value="perdido">Perdido</option><option value="resgate">Resgate</option></select>
           </div>
         </div>
       </div>
@@ -410,7 +410,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     <div class="mod-head"><h3>❌ Registrar Perda</h3><button class="mod-close" onclick="fecharModal('ov-perda')"><i class="ti ti-x"></i></button></div>
     <div class="mod-body">
       <div class="field"><label>Motivo *</label>
-        <select id="perda-motivo"><option value="">Selecione...</option><option>Preço acima do esperado</option><option>Comprou em outra loja</option><option>Desistiu da compra</option><option>Financiamento não aprovado</option><option>Veículo não disponível</option><option>Sem contato / Sumiu</option><option>Comprou veículo diferente</option><option>Outro</option></select>
+        <select id="perda-motivo"><option value="">Selecione...</option><option>Já comprou</option><option>Já vendeu</option><option>Não temos carro de interesse</option><option>Avaliação baixa</option><option>Financiamento não aprovou</option><option>Não respondeu</option><option>Adiou negociação</option></select>
       </div>
       <div class="field"><label>Observações</label><textarea id="perda-obs" placeholder="Detalhes..."></textarea></div>
     </div>
@@ -600,7 +600,7 @@ const COLS_MK=[
   {id:'agendamento', label:'Agendamento',  emoji:'📅', desc:'Agendamento feito — timer de resposta ativo',  cor:'#b8860b', bg:'#faf6e8', timer:true},
   {id:'visita',      label:'Visita',       emoji:'🚗', desc:'Cliente veio à loja',                           cor:'#4a4a4a', bg:'#f0f0f0'},
   {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee'},
-  {id:'venda',       label:'Venda',        emoji:'🏆', desc:'Negócio fechado com sucesso',                   cor:'#1a6b3c', bg:'#e8f5ee', fim:true},
+  {id:'vendido',     label:'Venda',        emoji:'🏆', desc:'Negócio fechado com sucesso',                   cor:'#1a6b3c', bg:'#e8f5ee', fim:true},
   {id:'resgate',     label:'Resgate',      emoji:'🔄', desc:'Tentativa de resgatar o cliente perdido',       cor:'#6b3db8', bg:'#f3e8fb'},
   {id:'perdido',     label:'Perdido',      emoji:'❌', desc:'Cliente desistiu ou sem interesse',             cor:'#e8431e', bg:'#fff0ec', fim:true},
 ];
@@ -799,7 +799,7 @@ function initDemoMarketing(){
     mkLead('LEAD-003','Carlos Mendes','(47) 97654-3210','','OLX','Guilherme','Toyota Corolla Cross','100.000-110.000','atendimento','Aguardando retorno.',hoje(-2)),
     mkLead('LEAD-004','Ana Costa','(47) 96543-2109','ana@email.com','Indicação','Marco Caetano','Volkswagen T-Cross','75.000-85.000','encantamento','Renda e entrada confirmadas.',hoje(-3)),
     mkLead('LEAD-005','Pedro Santos','(47) 95432-1098','pedro@email.com','Webmotors','Rafael','Ford Bronco Sport','95.000-105.000','agendamento','Visita agendada para sábado.',hoje(-4)),
-    mkLead('LEAD-006','Lucia Ferreira','(47) 94321-0987','','Passante','Maicon','Honda HR-V EX 2023','89.900','venda','Fechou! HR-V EX 2023 Cinza.',hoje(-5)),
+    mkLead('LEAD-006','Lucia Ferreira','(47) 94321-0987','','Passante','Maicon','Honda HR-V EX 2023','89.900','vendido','Fechou! HR-V EX 2023 Cinza.',hoje(-5)),
     mkLead('LEAD-007','Roberto Lima','(47) 93210-9876','roberto@email.com','Compra','Milena','Hyundai Creta','85.000-95.000','negociacao','Em negociação de proposta.',hoje()),
     mkLead('LEAD-008','Fernanda Ramos','(47) 92109-8765','fernanda@email.com','iCarros','Carlos','Nissan Kicks','70.000-80.000','perdido','Comprou em outra loja.',hoje(-7)),
     mkLead('LEAD-009','Marcos Teixeira','(47) 98877-6655','','Mercado Livre','Janderson','Volkswagen Golf','90.000-100.000','ia','Aguardando resposta.',hoje(-1)),
@@ -811,7 +811,7 @@ function initDemoMarketing(){
 }
 function mkLead(id,clienteNome,clienteTel,clienteEmail,origem,captador,veiculo,valor,st,obs,dt){
   const dtISO=new Date().toISOString().split('T')[0];
-  return{id,dt,dtISO,st,by:captador,uid:'demo',origem,captador,clienteNome,clienteTel,clienteEmail,veiculo,valor,obs,convertido:st==='venda',dtVenda:st==='venda'?dt:'',motivoPerda:st==='perdido'?'Sem interesse':'',historico:[],pendente_at:st==='agendamento'?new Date().toISOString():'',pendente_end:'',atendimento_at:st==='atendimento'?new Date().toISOString():'',atendimento_end:''};
+  return{id,dt,dtISO,st,by:captador,uid:'demo',origem,captador,clienteNome,clienteTel,clienteEmail,veiculo,valor,obs,convertido:st==='vendido',dtVenda:st==='vendido'?dt:'',motivoPerda:st==='perdido'?'Sem interesse':'',historico:[],pendente_at:st==='agendamento'?new Date().toISOString():'',pendente_end:'',atendimento_at:st==='atendimento'?new Date().toISOString():'',atendimento_end:''};
 }
 async function initMarketing(){
   document.getElementById('tb').innerHTML='';
@@ -927,13 +927,24 @@ function renderKanbanMk(cnt){
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
+        ${col.id==='perdido'?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
+        ${col.id==='agendamento'?`<div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap">
+          <button class="card-btn card-btn-label" onclick="setAgendamentoStatusMk('${l.id}','compareceu',event)" style="${l.agendamentoStatus==='compareceu'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">✅ Compareceu</button>
+          <button class="card-btn card-btn-label" onclick="setAgendamentoStatusMk('${l.id}','nao_compareceu',event)" style="${l.agendamentoStatus==='nao_compareceu'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">❌ Não compareceu</button>
+          <button class="card-btn card-btn-label" onclick="setAgendamentoStatusMk('${l.id}','reagendado',event)" style="${l.agendamentoStatus==='reagendado'?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">🔄 Reagendamento</button>
+        </div>`:''}
+        ${col.id==='encantamento'?`<div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap">
+          <button class="card-btn card-btn-label" onclick="toggleEncantamentoMk('${l.id}','encVideoTecnico',event)" style="${l.encVideoTecnico?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">${l.encVideoTecnico?'✓ ':''}Vídeo técnico</button>
+          <button class="card-btn card-btn-label" onclick="toggleEncantamentoMk('${l.id}','encVideoLoja',event)" style="${l.encVideoLoja?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">${l.encVideoLoja?'✓ ':''}Vídeo da loja</button>
+          <button class="card-btn card-btn-label" onclick="toggleEncantamentoMk('${l.id}','encTelefone',event)" style="${l.encTelefone?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">${l.encTelefone?'✓ ':''}Ligação</button>
+        </div>`:''}
         <div class="card-footer">
           <div class="card-actions">
             <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
-            ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
           </div>
+          ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button></div>`:''}
         </div>
         <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}</div>`;
       body.appendChild(c);
@@ -950,7 +961,7 @@ async function dropLead(novaCol){
   if(!G.mk.dragId)return;
   const lead=G.mk.leads.find(l=>l.id===G.mk.dragId);
   if(!lead||lead.st===novaCol)return;
-  if(novaCol==='venda'){abrirModalVendido(G.mk.dragId);return;}
+  if(novaCol==='vendido'){abrirModalVendido(G.mk.dragId);return;}
   if(novaCol==='perdido'){abrirModalPerda(G.mk.dragId);return;}
   if(novaCol==='resgate'){
     if(lead.optOutContato){toast('Cliente pediu para não ser mais contatado (LGPD)','red');return;}
@@ -970,17 +981,18 @@ function renderListaMk(cnt){
   selOrig.innerHTML=`<option value="">🌐 Todas origens</option><optgroup label="📢 Marketing">${ORIGENS_MK.marketing.map(o=>`<option${G.mk.filtroOrigem===o?' selected':''}>${o}</option>`).join('')}</optgroup><optgroup label="🛒 Compra"><option${G.mk.filtroOrigem==='Compra'?' selected':''}>Compra</option></optgroup><optgroup label="🏪 Outros">${ORIGENS_MK.outros.map(o=>`<option${G.mk.filtroOrigem===o?' selected':''}>${o}</option>`).join('')}</optgroup>`;
   selOrig.onchange=()=>{G.mk.filtroOrigem=selOrig.value;renderMarketing()};filt.appendChild(selOrig);
   wrap.appendChild(filt);
-  const leads=mkLeadsFiltrados().sort((a,b)=>b.id.localeCompare(a.id));
+  const leads=mkLeadsFiltrados().sort((a,b)=>(b.id||'').localeCompare(a.id||''));
   const tw=document.createElement('div');tw.className='lista-table-wrap';
   if(!leads.length){tw.innerHTML='<div class="lista-empty"><i class="ti ti-user-search"></i><p>Nenhum lead encontrado</p></div>';}
   else{
     const t=document.createElement('table');t.className='lista-table';
-    t.innerHTML='<thead><tr><th>ID</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Veículo</th><th>Origem</th><th>Vendedor</th><th>Etapa</th></tr></thead>';
+    t.innerHTML='<thead><tr><th>ID</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Veículo</th><th>Origem</th><th>Vendedor</th><th>Etapa</th><th>Motivo/Resultado</th></tr></thead>';
     const tb2=document.createElement('tbody');
     leads.forEach(l=>{
       const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
+      const resultado=l.st==='vendido'?`🏆 Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td><strong style="font-size:11px;color:var(--tx2)">${l.id}</strong></td><td style="font-size:12px;color:var(--tx3);white-space:nowrap">${l.dt||'-'}</td><td><strong>${l.clienteNome||'-'}</strong></td><td style="font-size:12px">${l.clienteTel||'-'}</td><td style="font-size:12px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.veiculo||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${l.origem||'-'}</span></td><td style="font-size:12px">${l.captador||l.by||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${col.emoji} ${col.label}</span></td>`;
+      tr.innerHTML=`<td><strong style="font-size:11px;color:var(--tx2)">${l.id}</strong></td><td style="font-size:12px;color:var(--tx3);white-space:nowrap">${l.dt||'-'}</td><td><strong>${l.clienteNome||'-'}</strong></td><td style="font-size:12px">${l.clienteTel||'-'}</td><td style="font-size:12px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.veiculo||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${l.origem||'-'}</span></td><td style="font-size:12px">${l.captador||l.by||'-'}</td><td><span class="badge" style="background:${col.bg};color:${col.cor}">${col.emoji} ${col.label}</span></td><td style="font-size:12px">${resultado}</td>`;
       tr.onclick=()=>abrirDetailLead(l.id);tb2.appendChild(tr);
     });
     t.appendChild(tb2);tw.appendChild(t);
@@ -1241,12 +1253,16 @@ async function confirmarOptOut(id){
 }
 async function moverLead(id,novaCol){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  if(lead.st==='encantamento'&&['agendamento','negociacao'].includes(novaCol)){
+    const feitas=[lead.encVideoTecnico,lead.encVideoLoja,lead.encTelefone].filter(Boolean).length;
+    if(feitas<2){toast('Complete pelo menos 2 das 3 etapas do Encantamento antes de avançar','red',4000);return;}
+  }
   const oldLabel=COLS_MK.find(c=>c.id===lead.st)?.label;
   const extras={};
   if(novaCol==='agendamento'&&!lead.pendente_at){
     lead.pendente_at=new Date().toISOString();extras.pendente_at=lead.pendente_at;
   }
-  if((novaCol==='venda'||novaCol==='perdido')&&lead.pendente_at&&!lead.pendente_end){
+  if((novaCol==='vendido'||novaCol==='perdido')&&lead.pendente_at&&!lead.pendente_end){
     lead.pendente_end=new Date().toISOString();extras.pendente_end=lead.pendente_end;
   }
   if(novaCol==='atendimento'&&!lead.atendimento_at){
@@ -1269,6 +1285,27 @@ function abrirWhatsappLead(id){
   const msg=`Olá, ${primeiroNome}! 😊 Aqui é da RT Car. Vi seu interesse${l.veiculo?` no ${l.veiculo}`:''} e quero te ajudar a encontrar a melhor condição. Podemos conversar?`;
   window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,'_blank');
 }
+async function toggleNuncaRespondeuMk(id,e){
+  e.stopPropagation();
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead.nuncaRespondeu=!lead.nuncaRespondeu;
+  await salvarCamposMk(id,{nuncaRespondeu:lead.nuncaRespondeu});
+  renderMarketing();
+}
+async function setAgendamentoStatusMk(id,valor,e){
+  e.stopPropagation();
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead.agendamentoStatus=lead.agendamentoStatus===valor?'':valor;
+  await salvarCamposMk(id,{agendamentoStatus:lead.agendamentoStatus});
+  renderMarketing();
+}
+async function toggleEncantamentoMk(id,campo,e){
+  e.stopPropagation();
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead[campo]=!lead[campo];
+  await salvarCamposMk(id,{[campo]:lead[campo]});
+  renderMarketing();
+}
 async function regHistMk(lead,acao,obs,by,icone='blue'){if(!lead.historico)lead.historico=[];lead.historico.push({dt:hoje(),icone,acao,obs,by});await salvarCamposMk(lead.id,{historico:lead.historico});}
 async function salvarCamposMk(id,campos){if(G.mk.modoDemo)return;try{await fbUpdate('leads',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
 
@@ -1281,7 +1318,7 @@ function abrirDetailLead(id){
   const histHtml=hist.length?hist.map(h=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
     return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
-  const SEQ_MK=['ia','atendimento','encantamento','agendamento','visita','negociacao','venda'];
+  const SEQ_MK=['ia','atendimento','encantamento','agendamento','visita','negociacao','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
   const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))).map(c=>{
     if(c.id==='resgate')return`<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`;
@@ -1565,7 +1602,7 @@ async function dropCliente(novaCol){
 }
 function renderListaRel(cnt){
   const wrap=document.createElement('div');wrap.className='lista-wrap';
-  const clis=relClisFiltrados().sort((a,b)=>b.id.localeCompare(a.id));
+  const clis=relClisFiltrados().sort((a,b)=>(b.id||'').localeCompare(a.id||''));
   const tw=document.createElement('div');tw.className='lista-table-wrap';
   if(!clis.length){tw.innerHTML='<div class="lista-empty"><i class="ti ti-heart-handshake"></i><p>Nenhum cliente encontrado</p></div>';}
   else{
