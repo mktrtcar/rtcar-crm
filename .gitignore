@@ -2,8 +2,14 @@ node_modules/
 .firebase/
 *.log
 eloa-bot/auth/
+eloa-bot/auth-backup*/
 eloa-bot/qr.png
 eloa-bot/.env
 eloa-bot/ultimo-check.json
 eloa-bot/simulacao.json
+eloa-bot/testar-conversa-historico.json
 eloa-bot/*.ogg
+# scripts de lote de resgate trazem nome/telefone real de cliente — nunca versionar
+eloa-bot/lote-resgate-*.sh
+# scratch de experimentos pontuais (ex: avaliação de TTS), não faz parte do bot real
+eloa-bot/scratch-*.js

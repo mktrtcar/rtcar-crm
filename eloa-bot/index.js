@@ -70,14 +70,37 @@ function buscarVeiculoEstoque(veiculoTexto) {
     const score = palavras.reduce((s, p) => s + (texto.includes(p) ? 1 : 0), 0);
     if (score > melhorScore) { melhorScore = score; melhor = item; }
   });
-  return melhorScore > 0 ? melhor : null;
+  // Exige que TODAS as palavras significativas casem — um match parcial (ex: só a marca)
+  // fazia "Volvo XC90" (que não existe) casar erroneamente com "Volvo XC60" (que existe).
+  return melhorScore === palavras.length ? melhor : null;
 }
 /* Enriquece o lead com dados reais do site (fotos múltiplas + specs), além
    do que já vem do estoque.json. Se a busca no site falhar por qualquer
    motivo, retorna só o que já tinha (marca/modelo/1 foto) — nunca trava a
    conversa por isso. */
-async function buscarDadosCompletos(lead) {
-  const item = buscarVeiculoEstoque(lead.veiculo);
+/* Acha um veículo do estoque real citado DENTRO de um texto livre (ex: a
+   mensagem do cliente) — sem isso, o sistema só teria dados reais do
+   veículo original do lead, mesmo quando o cliente muda de assunto pra
+   outro veículo no meio da conversa. */
+function buscarVeiculoNoTexto(texto) {
+  const alvo = normalizarTxt(texto).replace(/\s+/g, '');
+  if (!alvo) return null;
+  let melhor = null, melhorLen = 0;
+  ESTOQUE_RTCAR.forEach((item) => {
+    const modelo = normalizarTxt(item.m).replace(/\s+/g, '');
+    if (modelo.length >= 3 && alvo.includes(modelo) && modelo.length > melhorLen) { melhor = item; melhorLen = modelo.length; }
+  });
+  if (melhor) return melhor;
+  // Cliente pode citar só a primeira palavra do modelo, sem a variante/trim (ex: "golf" em vez de
+  // "Golf GTi") — sem isso, uma menção real e específica ao veículo não era reconhecida.
+  ESTOQUE_RTCAR.forEach((item) => {
+    const primeira = normalizarTxt(item.m).split(' ')[0];
+    if (primeira.length >= 4 && alvo.includes(primeira) && primeira.length > melhorLen) { melhor = item; melhorLen = primeira.length; }
+  });
+  return melhor;
+}
+async function buscarDadosCompletos(lead, mensagemAtual) {
+  const item = (mensagemAtual && buscarVeiculoNoTexto(mensagemAtual)) || buscarVeiculoEstoque(lead.veiculo);
   if (!item) return null;
   const reais = await buscarDadosReais(item.pagina);
   return { ...item, ...reais, fotos: reais?.fotos?.length ? reais.fotos : (item.foto ? [item.foto] : []) };
@@ -147,21 +170,33 @@ async function reconstruirTelParaLeadId() {
 }
 
 /* Envia cada mensagem como bolha separada (texto ou nota de voz, conforme
-   MODO_VOZ), com uma pequena pausa entre elas pra imitar cadência humana. */
-async function enviarMensagens(jid, mensagens) {
+   MODO_VOZ), com uma pequena pausa entre elas pra imitar cadência humana, e
+   mostrando "digitando..."/"gravando áudio..." de verdade enquanto gera.
+   `aindaValido()` (opcional) é checado antes de cada bolha — se retornar
+   false (o cliente já mandou mensagem nova nesse meio-tempo), interrompe o
+   envio das bolhas restantes em vez de terminar de mandar uma resposta que
+   já ficou velha. Retorna true se completou, false se foi cancelado no meio. */
+async function enviarMensagens(jid, mensagens, aindaValido = () => true) {
   for (let i = 0; i < mensagens.length; i++) {
+    if (!aindaValido()) return false;
     if (i > 0) await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
     if (MODO_VOZ) {
       try {
+        await sock.sendPresenceUpdate('recording', jid);
         const audio = await gerarNotaDeVoz(mensagens[i]);
+        if (!aindaValido()) return false; // já era antiga quando a voz ficou pronta
         await sock.sendMessage(jid, { audio, mimetype: 'audio/ogg; codecs=opus', ptt: true });
         continue;
       } catch (e) {
         console.error('Nota de voz falhou, mandando texto:', e.message);
       }
     }
+    await sock.sendPresenceUpdate('composing', jid);
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 700));
+    if (!aindaValido()) return false;
     await sock.sendMessage(jid, { text: mensagens[i] });
   }
+  return true;
 }
 
 /* Segunda barreira, além da instrução em persona.md: se a resposta da IA
@@ -172,7 +207,7 @@ function garantirSemPreco(mensagens) {
   if (!mensagens.some((m) => PADRAO_PRECO.test(m))) return { mensagens, forcarEncaminhar: false };
   console.warn(`⚠️ Resposta da IA continha preço/financiamento — bloqueada e encaminhada. Texto original: ${JSON.stringify(mensagens)}`);
   return {
-    mensagens: ['Essa parte de valores e condições eu prefiro confirmar com um consultor pra te passar certinho — já vou te conectar com alguém.'],
+    mensagens: ['Isso eu prefiro confirmar certinho com um consultor — já vou te conectar com alguém.'],
     forcarEncaminhar: true,
   };
 }
@@ -182,10 +217,9 @@ const MAX_FOTOS_ENVIADAS = 3;
 /* Manda até 3 fotos reais do veículo (buscadas do site, com fallback pra 1
    foto do estoque.json se a busca falhar) — a primeira com legenda com
    specs reais (ano, km, câmbio, cor), nunca com preço. */
-async function enviarFotoVeiculo(jid, lead) {
-  const dados = await buscarDadosCompletos(lead);
+async function enviarFotoVeiculo(jid, dados) {
   if (!dados?.fotos?.length) {
-    console.log(`(enviarFotos pedido, mas nenhuma foto encontrada para "${lead.veiculo}")`);
+    console.log(`(enviarFotos pedido, mas nenhuma foto encontrada)`);
     return;
   }
   const specs = [dados.cor, dados.ano, dados.km ? `${dados.km} km` : null, dados.cambio, dados.potencia ? `${dados.potencia}cv` : null].filter(Boolean).join(' · ');
@@ -234,7 +268,7 @@ async function cumprimentarLead(lead) {
     await enviarMensagens(jid, mensagens);
     if (resultado.enviarFotos) {
       await new Promise((r) => setTimeout(r, 1200));
-      await enviarFotoVeiculo(jid, lead);
+      await enviarFotoVeiculo(jid, dadosVeiculo);
     }
 
     telParaLeadId.set(chaveTel(jid.split('@')[0]), lead.id);
@@ -261,34 +295,49 @@ async function encaminharParaConsultor(lead, motivoResumo) {
   }
 }
 
-async function responderComIA(jid, leadId, mensagemCliente) {
+/* Cancelamento cooperativo por lead: cada mensagem nova do cliente incrementa
+   o turno daquele lead. Se uma resposta ainda em andamento (gerando texto ou
+   voz) descobrir que o turno mudou, ela para de mandar bolhas/fotos em vez
+   de terminar uma resposta que já ficou desatualizada. Não cancela a
+   requisição de rede já em voo (o fetch do Gemini/TTS que já começou
+   continua até terminar, só o resultado é descartado). */
+const turnoPorLead = new Map();
+
+async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
   const leads = await fbList('leads');
   const lead = leads.find((l) => l.id === leadId);
   if (!lead || lead.st !== 'ia') return; // já não está mais em I.A. (evita reprocessar)
 
+  const aindaValido = () => turnoPorLead.get(leadId) === meuTurno;
+
   const conversa = lead.conversaEloa || [];
-  const dadosVeiculo = await buscarDadosCompletos(lead);
+  const dadosVeiculo = await buscarDadosCompletos(lead, mensagemCliente);
 
   let resultado;
   try {
     resultado = await gerarResposta({ ...lead, _dadosVeiculo: dadosVeiculo }, conversa, mensagemCliente);
   } catch (e) {
     console.error(`Erro ao gerar resposta da IA para ${leadId}:`, e.message);
-    await encaminharParaConsultor(lead, `A Eloá não conseguiu responder por IA (${e.message}) — encaminhado direto pra não deixar o cliente sem retorno.`);
+    if (aindaValido()) await encaminharParaConsultor(lead, `A Eloá não conseguiu responder por IA (${e.message}) — encaminhado direto pra não deixar o cliente sem retorno.`);
     return;
   }
+
+  if (!aindaValido()) { console.log(`[cancelado] lead ${leadId}: chegou mensagem nova antes da resposta a "${mensagemCliente}" ficar pronta.`); return; }
 
   const seguro = garantirSemPreco(resultado.mensagens);
   const mensagens = seguro.mensagens;
   const encaminharConsultor = resultado.encaminharConsultor || seguro.forcarEncaminhar;
 
+  let completou;
   try {
-    await enviarMensagens(jid, mensagens);
-    if (resultado.enviarFotos) await enviarFotoVeiculo(jid, lead);
+    completou = await enviarMensagens(jid, mensagens, aindaValido);
+    if (completou && resultado.enviarFotos) await enviarFotoVeiculo(jid, dadosVeiculo);
   } catch (e) {
     console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
     return;
   }
+
+  if (!completou) { console.log(`[cancelado] lead ${leadId}: parou de mandar a resposta a "${mensagemCliente}" no meio — mensagem nova chegou.`); return; }
 
   const respostaCompleta = mensagens.join(' ');
   const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
@@ -373,7 +422,9 @@ async function start() {
     if (!leadId) return; // não é um número que a Eloá cumprimentou
     const texto = msg.message.conversation || msg.message.extendedTextMessage?.text;
     if (!texto) return; // figurinha, áudio, reação, mensagem automática de ausência etc. — não é fala real do cliente
-    responderComIA(jid, leadId, texto).catch(console.error);
+    const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;
+    turnoPorLead.set(leadId, meuTurno);
+    responderComIA(jid, leadId, texto, meuTurno).catch(console.error);
   });
 }
 
