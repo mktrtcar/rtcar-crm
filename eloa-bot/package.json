@@ -9,10 +9,12 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "dotenv": "^16.4.5",
+    "kokoro-js": "^1.2.1",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4"
   }

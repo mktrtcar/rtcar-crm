@@ -23,22 +23,26 @@ Todas as chaves ficam num arquivo `.env` dentro desta pasta (nunca é enviado pr
 
 Além da regra em `persona.md`, o código (`index.js`, `PADRAO_PRECO`) verifica toda resposta da IA antes de mandar pro cliente — se aparecer algo como "R$", "financiamento" ou "parcela", a mensagem é bloqueada e o lead é encaminhado direto pra um consultor humano, mesmo que a IA não tenha sinalizado isso sozinha.
 
-## Voz — Cartesia ou Gemini, alternável (⚠️ não testado de ponta a ponta)
+## Voz — Cartesia, Gemini ou Fish Audio, alternável (⚠️ não testado de ponta a ponta)
 
-A Eloá pode responder por nota de voz em vez de texto, nas respostas da conversa (não na saudação inicial). Duas APIs possíveis, escolhidas por variável de ambiente:
+A Eloá pode responder por nota de voz em vez de texto, nas respostas da conversa (não na saudação inicial). Três APIs possíveis, escolhidas por variável de ambiente:
 
 ```
 ELOA_MODO_VOZ=true
-ELOA_VOZ_PROVEDOR=cartesia   # ou "gemini"
+ELOA_VOZ_PROVEDOR=cartesia   # ou "gemini" ou "fish"
 
 # se usar Cartesia:
 CARTESIA_API_KEY=sua_chave
 CARTESIA_VOICE_ID=id_da_voz
 
 # se usar Gemini (usa a mesma GOOGLE_AI_API_KEY já configurada, voz "Kore"):
+
+# se usar Fish Audio (https://fish.audio):
+FISH_API_KEY=sua_chave
+FISH_VOICE_ID=id_da_voz   # opcional — sem isso usa a voz padrão do modelo
 ```
 
-**Aviso:** ninguém testou essa parte ainda com uma chave de verdade — nem a geração de áudio, nem a conversão pra ogg/opus (formato que o WhatsApp exige pra mostrar como nota de voz), nem o envio pelo Baileys. Teste com um número de teste antes de confiar em produção. Se a nota de voz falhar por qualquer motivo, o código cai automaticamente pra mandar a resposta em texto, pra não deixar o cliente sem resposta.
+**Aviso:** ninguém testou essa parte ainda com uma chave de verdade — nem a geração de áudio, nem a conversão pra ogg/opus (formato que o WhatsApp exige pra mostrar como nota de voz), nem o envio pelo Baileys. Teste com um número de teste antes de confiar em produção. Se a nota de voz falhar por qualquer motivo, o código cai automaticamente pra mandar a resposta em texto, pra não deixar o cliente sem resposta. Fish Audio foi adicionado em 2026-08-13 e está no mesmo estado — código escrito a partir da documentação oficial deles, nunca chamado com uma chave real.
 
 Lembrete de quando testamos a Cartesia antes (simulação de resgate por voz): o plano free deles não permite uso comercial — pra valer em produção precisaria do plano Pro (a partir de US$5/mês).
 
