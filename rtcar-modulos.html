@@ -2104,11 +2104,13 @@ async function salvarEvento(){
   const nome=document.getElementById('wev-nome').value.trim();
   if(!nome){alert('Informe o nome do evento');return;}
   const data={nome,data:document.getElementById('wev-data').value,hora:document.getElementById('wev-hora').value,valor:document.getElementById('wev-valor').value.trim(),obs:document.getElementById('wev-obs').value.trim(),dt:hoje(),criadoPor:G.user?.n||''};
-  if(!G.ws.modoDemo){
-    const id=await gerarId('eventos_ws','ws_config','ws_seq','EV');
-    data.id=id;await fbCreate('eventos_ws',id,data);G.ws.eventos.push({...data});
-  } else {data.id='EV-'+(G.ws.eventos.length+1).toString().padStart(3,'0');G.ws.eventos.push(data);}
-  fecharModal('ov-evento');toast('Evento criado!');renderWorkshop();
+  try{
+    if(!G.ws.modoDemo){
+      const id=await proximoId('EV',G.ws.eventos,'ws_config/seq','evSeq');
+      data.id=id;await fbCreate('eventos_ws',id,data);G.ws.eventos.push({...data});
+    } else {data.id='EV-'+(G.ws.eventos.length+1).toString().padStart(3,'0');G.ws.eventos.push(data);}
+    fecharModal('ov-evento');toast('Evento criado!');renderWorkshop();
+  }catch(e){console.error(e);toast('Erro ao criar evento','red');}
 }
 
 /* ---- MODAL CONVIDADO ---- */
@@ -2134,18 +2136,20 @@ async function salvarConvidado(){
   if(!nome){alert('Informe o nome');return;}
   const editId=document.getElementById('wcv-id').value;
   const data={nome,whatsapp:document.getElementById('wcv-whatsapp').value.trim(),obs:document.getElementById('wcv-obs').value.trim(),st:document.getElementById('wcv-st').value||'convidado',eventoId:G.ws.eventoAtualId};
-  if(editId){
-    Object.assign(G.ws.convidados.find(c=>c.id===editId),data);
-    if(!G.ws.modoDemo)await fbUpdate('convidados_ws',editId,data);
-    toast('Convidado atualizado!');
-  } else {
-    if(!G.ws.modoDemo){
-      const id=await gerarId('convidados_ws','ws_config','wcv_seq','CV');
-      data.id=id;await fbCreate('convidados_ws',id,data);G.ws.convidados.push({...data});
-    } else {data.id='CV-'+(G.ws.convidados.length+1).toString().padStart(3,'0');G.ws.convidados.push(data);}
-    toast('Convidado adicionado!');
-  }
-  fecharModal('ov-convidado');renderWorkshop();
+  try{
+    if(editId){
+      Object.assign(G.ws.convidados.find(c=>c.id===editId),data);
+      if(!G.ws.modoDemo)await fbUpdate('convidados_ws',editId,data);
+      toast('Convidado atualizado!');
+    } else {
+      if(!G.ws.modoDemo){
+        const id=await proximoId('CV',G.ws.convidados,'ws_config/seq','cvSeq');
+        data.id=id;await fbCreate('convidados_ws',id,data);G.ws.convidados.push({...data});
+      } else {data.id='CV-'+(G.ws.convidados.length+1).toString().padStart(3,'0');G.ws.convidados.push(data);}
+      toast('Convidado adicionado!');
+    }
+    fecharModal('ov-convidado');renderWorkshop();
+  }catch(e){console.error(e);toast('Erro ao salvar convidado','red');}
 }
 
 /* ---- MODAL OBS CONVIDADO ---- */
