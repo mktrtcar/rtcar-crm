@@ -1,0 +1,10 @@
+Aline, pra colocar a Eva rodando naquele computador que vai ficar ligado direto:
+
+1. Senta na frente daquele computador (login que já existe nele, sem precisar criar nada novo)
+
+2. Baixa o Claude Desktop nele:
+https://claude.ai/download
+
+3. Instala e loga com sua conta normal (a mesma que você já usa)
+
+4. Depois disso me chama de novo que eu te passo o próximo passo (puxar o código e configurar)
