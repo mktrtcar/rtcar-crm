@@ -352,16 +352,21 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
 
 async function cicloPoll() {
   const inicioDoCiclo = new Date().toISOString();
+  let novos = [];
   try {
-    const novos = await getLeadsNovos();
+    novos = await getLeadsNovos();
     if (novos.length) console.log(`${novos.length} lead(s) novo(s) — cumprimentando (máx. ${MAX_SAUDACOES_POR_CICLO} por ciclo).`);
     for (const lead of novos) await cumprimentarLead(lead);
   } catch (e) {
     console.error('Erro no ciclo de checagem de leads novos:', e.message);
   }
-  // Avança o checkpoint só depois de processar, e só até o início deste ciclo
-  // (nunca além de "agora"), pra não pular um lead que chegou durante o ciclo.
-  checkpoint = inicioDoCiclo;
+  /* Avança o checkpoint só depois de processar. Se o ciclo bateu no limite de
+     MAX_SAUDACOES_POR_CICLO, pode haver mais leads represados atrás deles no
+     backlog — avança só até o último processado (em vez de pular pra "agora"),
+     senão o resto do backlog nunca mais é visto (próximo ciclo só olha
+     _criadoEm > checkpoint). Sem represamento, avança até o início deste
+     ciclo normalmente, nunca além de "agora". */
+  checkpoint = novos.length === MAX_SAUDACOES_POR_CICLO ? novos[novos.length - 1]._criadoEm : inicioDoCiclo;
   salvarCheckpoint(checkpoint);
   setTimeout(cicloPoll, INTERVALO_POLL_MS);
 }
