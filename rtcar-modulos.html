@@ -581,8 +581,8 @@ const USUARIOS=[
   {id:'u02',n:'Marcela', e:'marcela@rtcar.com.br',          r:'master',  senha:'rtcar2024'},
   {id:'u03',n:'Rafael',  e:'rafael@rtcar.com.br',           r:'master',  senha:'rtcar2024'},
   {id:'u04',n:'Milena',  e:'milena@rtcar.com.br',           r:'coordenadora', senha:'rtcar2024'},
-  {id:'u05',n:'Janderson',e:'janderson@rtcar.com.br',       r:'seller',  senha:'rtcar2024'},
-  {id:'u06',n:'Maicon',  e:'maicon.meske@rtcar.com.br',     r:'seller',  senha:'rtcar2024'},
+  {id:'u05',n:'Janderson',e:'janderson@rtcar.com.br',       r:'seller',  senha:'Rtcar2022'},
+  {id:'u06',n:'Maicon',  e:'maicon.meske@rtcar.com.br',     r:'seller',  senha:'Rtcar2021'},
   {id:'u07',n:'Anderson',e:'anderson@rtcar.com.br',         r:'seller',  senha:'rtcar2024'},
   {id:'u08',n:'Guilherme',e:'guilhermefleck@rtcar.com.br',  r:'seller',  senha:'rtcar2024'},
   {id:'u09',n:'Marco Caetano',e:'marcocaetano@rtcar.com.br',r:'seller',  senha:'rtcar2024'},
@@ -876,12 +876,13 @@ function renderMarketing(){
 }
 
 function isSeller(){return G.user?.r==='seller';}
+function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora';}
 function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora'||G.user?.r==='dev';}
 function isMaster(){return G.user?.r==='master';}
 function podeVerModulo(mod){
   const r=G.user?.r||'seller';
   if(r==='master')return true;
-  if(r==='coordenadora')return mod!=='anuncios';
+  if(r==='coordenadora')return true;
   // seller: apenas CRM
   return mod==='marketing';
 }
@@ -889,6 +890,8 @@ function mkLeadsFiltrados(){
   let ls=[...G.mk.leads];
   // CONTROLE DE ACESSO: vendedor vê só seus leads
   if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
   if(G.mk.busca){const b=G.mk.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b));}
   if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
   if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');
@@ -904,7 +907,7 @@ function mkLeadsFiltrados(){
 
 function renderKanbanMk(cnt){
   const wrap=document.createElement('div');wrap.className='kanban-wrap';
-  COLS_MK.forEach(col=>{
+  COLS_MK.filter(col=>!(escondeColunaIA()&&col.id==='ia')).forEach(col=>{
     const leads=mkLeadsFiltrados().filter(l=>l.st===col.id);
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
@@ -1322,7 +1325,7 @@ function abrirDetailLead(id){
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
   const SEQ_MK=['ia','atendimento','encantamento','agendamento','visita','negociacao','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
-  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))).map(c=>{
+  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))&&!(escondeColunaIA()&&c.id==='ia')).map(c=>{
     if(c.id==='resgate')return`<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`;
     const seqIdx=SEQ_MK.indexOf(c.id);
     const cor=seqIdx>-1?(seqIdx<=idxAtualMk?'var(--green)':'var(--red)'):c.cor;
