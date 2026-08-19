@@ -891,7 +891,7 @@ function mkLeadsFiltrados(){
   // CONTROLE DE ACESSO: vendedor vê só seus leads
   if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
   // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
-  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.origem==='Compra');
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
   if(G.mk.busca){const b=G.mk.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b));}
   if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
   if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');

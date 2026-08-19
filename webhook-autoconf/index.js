@@ -39,16 +39,21 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     const dup=await db.collection('leads').where('autoconfLeadId','==',body.lead_id).limit(1).get();
     if(!dup.empty){res.status(200).send('duplicado, ignorado');return;}
 
-    const origem=(body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra';
+    /* Intencao de compra (negotiation_type "Compra") vai 100% pra Milena,
+       pula a triagem da I.A. e nao entra no rodizio Janderson/Maicon. */
+    const intencaoCompra=(body.negotiation_type_slug||body.negotiation_type||'').toLowerCase()==='compra';
+    const origem=intencaoCompra?'Compra':((body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra');
 
     const {novoId,captador}=await db.runTransaction(async tx=>{
       const refSeq=db.collection('leads_config').doc('mk');
-      const refRodizio=db.collection('leads_config').doc('rodizio');
-      const [snapSeq,snapRodizio]=await Promise.all([tx.get(refSeq),tx.get(refRodizio)]);
-
+      const snapSeq=await tx.get(refSeq);
       const seq=((snapSeq.exists&&snapSeq.data().leadSeq)||0)+1;
       tx.set(refSeq,{leadSeq:seq},{merge:true});
 
+      if(intencaoCompra)return{novoId:`LEAD-${pad3(seq)}`,captador:'Milena'};
+
+      const refRodizio=db.collection('leads_config').doc('rodizio');
+      const snapRodizio=await tx.get(refRodizio);
       const idx=((snapRodizio.exists&&snapRodizio.data().idx)||0)%RODIZIO_VENDEDORES.length;
       tx.set(refRodizio,{idx:idx+1},{merge:true});
 
@@ -59,7 +64,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       id:novoId,
       dt:hojeBR(),
       dtISO:hojeISO(),
-      st:'ia',
+      st:intencaoCompra?'atendimento':'ia',
       by:'',
       captador,
       uid:'',
@@ -73,7 +78,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       convertido:false,
       dtVenda:'',
       motivoPerda:'',
-      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:`Via Autoconf (${origem}) — atribuído a ${captador} pelo rodízio`,by:'Autoconf'}],
+      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':`Via Autoconf (${origem}) — atribuído a ${captador} pelo rodízio`,by:'Autoconf'}],
       pendente_at:'',
       pendente_end:'',
       atendimento_at:'',
