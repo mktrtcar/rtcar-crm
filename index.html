@@ -904,7 +904,7 @@ function mkLeadsFiltrados(){
 
 function renderKanbanMk(cnt){
   const wrap=document.createElement('div');wrap.className='kanban-wrap';
-  COLS_MK.forEach(col=>{
+  COLS_MK.filter(col=>!(isSeller()&&col.id==='ia')).forEach(col=>{
     const leads=mkLeadsFiltrados().filter(l=>l.st===col.id);
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
@@ -1322,7 +1322,7 @@ function abrirDetailLead(id){
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
   const SEQ_MK=['ia','atendimento','encantamento','agendamento','visita','negociacao','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
-  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))).map(c=>{
+  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))&&!(isSeller()&&c.id==='ia')).map(c=>{
     if(c.id==='resgate')return`<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`;
     const seqIdx=SEQ_MK.indexOf(c.id);
     const cor=seqIdx>-1?(seqIdx<=idxAtualMk?'var(--green)':'var(--red)'):c.cor;
