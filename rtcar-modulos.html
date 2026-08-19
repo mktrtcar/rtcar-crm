@@ -881,7 +881,7 @@ function isMaster(){return G.user?.r==='master';}
 function podeVerModulo(mod){
   const r=G.user?.r||'seller';
   if(r==='master')return true;
-  if(r==='coordenadora')return mod!=='anuncios';
+  if(r==='coordenadora')return true;
   // seller: apenas CRM
   return mod==='marketing';
 }
@@ -889,6 +889,8 @@ function mkLeadsFiltrados(){
   let ls=[...G.mk.leads];
   // CONTROLE DE ACESSO: vendedor vê só seus leads
   if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.origem==='Compra');
   if(G.mk.busca){const b=G.mk.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b));}
   if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
   if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');
