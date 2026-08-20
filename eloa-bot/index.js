@@ -31,14 +31,83 @@ const path = require('path');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
-const { fbList, fbUpdate } = require('./firestore');
-const { gerarResposta } = require('./gemini');
+const { fbList, fbGet, fbUpdate } = require('./firestore');
+const { gerarResposta, gerarFollowUp } = require('./claude');
 const { gerarNotaDeVoz } = require('./voz');
 const { buscarDadosReais } = require('./dadosVeiculo');
 const ESTOQUE_RTCAR = require('./estoque.json');
 
 const INTERVALO_POLL_MS = 20000; // checa leads novos a cada 20s
-const NOTIFICACAO_PESSOAL = '5551998050105@s.whatsapp.net'; // avisa o Rubens quando um consultor humano precisa assumir
+
+/* MVP temporário (18/08/2026, a pedido do Rubens; ajustado 19/08/2026 a
+   pedido da Aline): enquanto a Eva ainda tem bugs em produção, ela
+   cumprimenta e, assim que o cliente responder qualquer coisa pela primeira
+   vez, manda a foto do veículo (forçando o envio se já tivermos os dados,
+   mesmo sem pedido explícito) e já encaminha pro vendedor — sem continuar a
+   conversa completa. O persona.md e o fluxo completo continuam intactos no
+   código pra quando quisermos reativar; só mudar isto pra false. */
+const MODO_SIMPLES_ATIVO = true;
+const NOTIFICACAO_PESSOAL = '5551998050105@s.whatsapp.net'; // avisa o Rubens quando um consultor humano precisa assumir (fallback se o vendedor do rodízio não tiver WhatsApp cadastrado abaixo)
+
+/* WhatsApp de cada vendedor do rodízio (mesmos nomes usados em RODIZIO_VENDEDORES
+   abaixo e em rtcar-modulos.html) — usado pra encaminhar direto pro
+   vendedor da vez (lead.captador) em vez de sempre avisar só o Rubens. */
+const WHATSAPP_VENDEDORES = {
+  Janderson: '554796732227@s.whatsapp.net', // sem o "9" — número real dele, confirmado (18/08/2026) por bater com o que onWhatsApp já resolvia
+  Maicon: '554791800978@s.whatsapp.net', // sem o "9" — número real dele, confirmado 18/08/2026
+  Milena: '5547999938679@s.whatsapp.net', // recebe 100% dos leads de "Compra" (avaliação/venda do veículo do cliente), fora do rodízio
+};
+
+/* Até 20/08/2026, o vendedor da vez era sorteado no momento em que o Autoconf
+   criava o lead (dentro de webhook-autoconf/index.js) — mesmo que o cliente
+   nunca respondesse, o que desequilibrava o rodízio (lead sem resposta
+   "gastava" a vez de um vendedor do mesmo jeito que um cliente engajado). A
+   pedido do Rubens, o sorteio agora só acontece em encaminharParaConsultor,
+   no momento de um encaminhamento de verdade pra atendimento humano — um
+   lead nunca respondido não consome vez de ninguém. O webhook-autoconf não
+   assina mais vendedor nenhum pra leads que não sejam de "Compra" (deixa
+   captador vazio até aqui). */
+const RODIZIO_VENDEDORES = ['Janderson', 'Maicon'];
+let filaRodizio = Promise.resolve(); // serializa leitura+escrita do contador — evita dois clientes respondendo quase juntos "empatarem" no mesmo vendedor
+function atribuirVendedorRodizio() {
+  const proxima = filaRodizio.then(async () => {
+    const doc = await fbGet('leads_config', 'rodizio').catch(() => null);
+    const idx = ((doc && doc.idx) || 0) % RODIZIO_VENDEDORES.length;
+    await fbUpdate('leads_config', 'rodizio', { idx: idx + 1 });
+    return RODIZIO_VENDEDORES[idx];
+  });
+  filaRodizio = proxima.catch(() => {}); // erro num sorteio não pode travar a fila pros próximos
+  return proxima;
+}
+
+/* Retomada automática de contato (a pedido do Rubens, 19/08/2026) quando o
+   cliente não responde depois da última mensagem da Eva. "horas" é o total
+   acumulado desde a última mensagem (não incremental) — bate com o plano:
+   Step 1 em 4h, Step 2 em +4h (8h), Step 3 em +6h (14h), Step 4 em +10h (24h).
+   Parado no Step 4 de propósito: um Step 5 (48h+) exigiria um template
+   pré-aprovado na API oficial do WhatsApp Business — a Eva usa o Baileys
+   (não é a API oficial), então mandar mensagem livre depois de 24h sem
+   resposta é puro risco de a Meta marcar o número como spam, sem o
+   benefício de compliance que o template daria. */
+const FOLLOWUP_STEPS = [
+  {
+    horas: 4,
+    instrucao: 'Retome o contato de forma leve, como continuação natural da conversa, sem parecer cobrança. Pergunte se o cliente conseguiu pensar sobre o veículo ou se ficou alguma dúvida. Mantenha tom tranquilo e disponível.',
+  },
+  {
+    horas: 8,
+    instrucao: 'Reforce de forma breve os diferenciais do veículo e da RT Car (vitrificação, revisão completa, garantia), sem repetir tudo que já foi dito antes. Pergunte se há algo específico travando a decisão (preço, condições, dúvida técnica).',
+  },
+  {
+    horas: 14,
+    instrucao: 'Aproxime-se de forma mais pessoal, perguntando diretamente se o cliente ainda tem interesse no veículo ou se prefere que você sugira outra opção do estoque. Mostre disponibilidade total para ajudar, sem soar insistente.',
+  },
+  {
+    horas: 24,
+    instrucao: 'Envie uma mensagem com tom gentil, reconhecendo que talvez o cliente esteja ocupado ou ainda decidindo. Reforce que você está à disposição sem pressão. Inclua uma pergunta curta e fácil de responder.',
+  },
+];
+const INTERVALO_FOLLOWUP_MS = 15 * 60 * 1000; // checa a cada 15min — steps são em horas, não precisa de granularidade fina
 
 /* Liga/desliga nota de voz nas respostas da conversa (não na saudação
    inicial). Escolha do provedor em voz.js via ELOA_VOZ_PROVEDOR. Ainda não
@@ -92,15 +161,36 @@ function buscarVeiculoNoTexto(texto) {
   });
   if (melhor) return melhor;
   // Cliente pode citar só a primeira palavra do modelo, sem a variante/trim (ex: "golf" em vez de
-  // "Golf GTi") — sem isso, uma menção real e específica ao veículo não era reconhecida.
+  // "Golf GTi", ou "ora"/"208" em vez de "Ora 03 Skin"/"208 Griffe") — sem isso, uma menção real e
+  // específica ao veículo não era reconhecida. Mínimo de 3 (não 4) pra cobrir esses dois casos reais.
   ESTOQUE_RTCAR.forEach((item) => {
     const primeira = normalizarTxt(item.m).split(' ')[0];
-    if (primeira.length >= 4 && alvo.includes(primeira) && primeira.length > melhorLen) { melhor = item; melhorLen = primeira.length; }
+    if (primeira.length >= 3 && alvo.includes(primeira) && primeira.length > melhorLen) { melhor = item; melhorLen = primeira.length; }
   });
   return melhor;
 }
-async function buscarDadosCompletos(lead, mensagemAtual) {
-  const item = (mensagemAtual && buscarVeiculoNoTexto(mensagemAtual)) || buscarVeiculoEstoque(lead.veiculo);
+/* Acha o veículo do assunto atual olhando a mensagem mais recente primeiro e,
+   se ela não citar nenhum (ex: "sim", "manda foto", "me conta mais"), volta
+   no histórico até achar a última vez que o cliente citou um veículo — sem
+   isso, o assunto "esquecia" o veículo assim que o cliente parava de repetir
+   o nome dele a cada mensagem, e a busca caía de volta pro veículo original
+   do lead no meio da conversa (incidente real: cliente pediu fotos do GWM
+   Ora, mas como a mensagem "Sim" não citava o nome, vieram fotos do BYD Song
+   Plus — o veículo original — em vez do Ora). */
+function buscarVeiculoNoHistorico(mensagemAtual, conversa) {
+  if (mensagemAtual) {
+    const item = buscarVeiculoNoTexto(mensagemAtual);
+    if (item) return item;
+  }
+  for (let i = conversa.length - 1; i >= 0; i--) {
+    if (conversa[i].role !== 'user') continue;
+    const item = buscarVeiculoNoTexto(conversa[i].texto);
+    if (item) return item;
+  }
+  return null;
+}
+async function buscarDadosCompletos(lead, mensagemAtual, conversa = []) {
+  const item = buscarVeiculoNoHistorico(mensagemAtual, conversa) || buscarVeiculoEstoque(lead.veiculo);
   if (!item) return null;
   const reais = await buscarDadosReais(item.pagina);
   return { ...item, ...reais, fotos: reais?.fotos?.length ? reais.fotos : (item.foto ? [item.foto] : []) };
@@ -231,9 +321,13 @@ async function enviarFotoVeiculo(jid, dados) {
   }
 }
 
+/* Retorna true se o lead ficou "resolvido" (cumprimentado OU descartado por
+   motivo permanente, ex.: número inválido) e false se falhou por motivo
+   transitório (deve ser tentado de novo no próximo ciclo). cicloPoll usa
+   esse retorno pra decidir até onde pode avançar o checkpoint. */
 async function cumprimentarLead(lead) {
   const jidTentativa = paraJid(lead.clienteTel);
-  if (!jidTentativa) return;
+  if (!jidTentativa) return true; // telefone sem dígitos: não adianta tentar de novo
   let jid = jidTentativa;
   try {
     const numero = jidTentativa.split('@')[0];
@@ -242,7 +336,7 @@ async function cumprimentarLead(lead) {
     else {
       console.log(`⚠️ Número de ${lead.clienteNome} (${lead.clienteTel}) não encontrado no WhatsApp — pulando.`);
       await fbUpdate('leads', lead.id, { eloaEnviadoEm: 'NUMERO_INVALIDO' });
-      return;
+      return true;
     }
   } catch (e) {
     console.error('Erro ao validar número, tentando mesmo assim:', e.message);
@@ -259,16 +353,18 @@ async function cumprimentarLead(lead) {
     );
   } catch (e) {
     console.error(`Erro ao gerar saudação por IA para ${lead.clienteNome}:`, e.message);
-    return; // não manda nada fixo — melhor tentar de novo no próximo ciclo do que mandar mensagem genérica
+    return false; // não manda nada fixo — melhor tentar de novo no próximo ciclo do que mandar mensagem genérica
   }
 
   const { mensagens } = garantirSemPreco(resultado.mensagens);
 
   try {
     await enviarMensagens(jid, mensagens);
+    let fotosEnviadas = false;
     if (resultado.enviarFotos) {
       await new Promise((r) => setTimeout(r, 1200));
       await enviarFotoVeiculo(jid, dadosVeiculo);
+      fotosEnviadas = true;
     }
 
     telParaLeadId.set(chaveTel(jid.split('@')[0]), lead.id);
@@ -277,21 +373,64 @@ async function cumprimentarLead(lead) {
     const respostaCompleta = mensagens.join(' ');
     const conversaEloa = [{ role: 'model', texto: respostaCompleta }];
     const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: '🤖 Primeiro contato (Eloá)', obs: respostaCompleta, by: 'Eloá' }];
-    await fbUpdate('leads', lead.id, { eloaEnviadoEm: new Date().toISOString(), conversaEloa, historico });
+    const agoraISO = new Date().toISOString();
+    await fbUpdate('leads', lead.id, { eloaEnviadoEm: agoraISO, ultimaMensagemEm: agoraISO, followUpStep: 0, conversaEloa, historico });
     console.log(`✅ Eloá cumprimentou ${lead.clienteNome} (${lead.id}).`);
+
+    // MVP temporário — ver comentário de MODO_SIMPLES_ATIVO no topo do arquivo.
+    if (MODO_SIMPLES_ATIVO && fotosEnviadas) {
+      await encaminharParaConsultor(
+        { ...lead, conversaEloa, historico },
+        'Modo simplificado ativo — encaminha direto pro vendedor assim que manda a foto do veículo, sem continuar a conversa.',
+      );
+    }
+    return true;
   } catch (e) {
     console.error(`Erro ao cumprimentar ${lead.clienteNome}:`, e.message);
+    return false;
   }
 }
 
 async function encaminharParaConsultor(lead, motivoResumo) {
+  if (!lead.captador) {
+    // Lead ainda não passou pelo rodízio (cliente "não qualificado" até este
+    // momento) — sorteia agora, na hora do encaminhamento de verdade.
+    lead = { ...lead, captador: await atribuirVendedorRodizio() };
+  }
   const historico = [...(lead.historico || []), { dt: hoje(), icone: 'green', acao: '✅ Encaminhado para esteira (Eloá)', obs: motivoResumo, by: 'Eloá' }];
-  await fbUpdate('leads', lead.id, { st: 'atendimento', atendimento_at: new Date().toISOString(), historico });
-  console.log(`✅ Lead ${lead.id} movido de "I.A." para "Atendimento" — ${motivoResumo}`);
+  await fbUpdate('leads', lead.id, { st: 'atendimento', atendimento_at: new Date().toISOString(), historico, captador: lead.captador });
+  console.log(`✅ Lead ${lead.id} movido de "I.A." para "Atendimento" — vendedor ${lead.captador} — ${motivoResumo}`);
+
+  // Encaminha pro vendedor da vez (lead.captador, atribuído pelo rodízio no
+  // Autoconf ou na tela manual do CRM). Resolve o JID de verdade via
+  // onWhatsApp — mesma validação que cumprimentarLead já faz — em vez de
+  // mandar direto pro JID construído a partir do número puro: mandar sem
+  // validar pode "funcionar" sem erro e mesmo assim não entregar nada, se
+  // esse número tiver variação do "9" (comum em número brasileiro antigo)
+  // (incidente real: notificação pro Janderson não chegou, 18/08/2026).
+  // Se o vendedor não tiver WhatsApp cadastrado, ou o número não existir no
+  // WhatsApp, cai de volta pro Rubens — nunca deixa um lead sem ninguém avisado.
+  const numeroVendedorCru = WHATSAPP_VENDEDORES[lead.captador];
+  let vendedorJid = null;
+  if (numeroVendedorCru) {
+    try {
+      const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+      if (check?.[0]?.exists) vendedorJid = check[0].jid;
+      else console.error(`Número de ${lead.captador} (${numeroVendedorCru}) não encontrado no WhatsApp — encaminhando pro Rubens.`);
+    } catch (e) {
+      console.error(`Erro ao validar número de ${lead.captador}, encaminhando pro Rubens:`, e.message);
+    }
+  }
+
+  const destino = vendedorJid || NOTIFICACAO_PESSOAL;
+  const texto = vendedorJid
+    ? `🔔 Novo atendimento pra você! A Eva encaminhou ${lead.clienteNome || lead.id} pra você assumir.\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}\nTelefone do cliente: ${lead.clienteTel || '-'}`
+    : `🔔 A Eloá encaminhou ${lead.clienteNome || lead.id} pra atendimento humano (vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele).\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}`;
+
   try {
-    await sock.sendMessage(NOTIFICACAO_PESSOAL, { text: `🔔 A Eloá encaminhou ${lead.clienteNome || lead.id} pra atendimento humano.\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}` });
+    await sock.sendMessage(destino, { text: texto });
   } catch (e) {
-    console.error('Erro ao notificar Rubens sobre encaminhamento:', e.message);
+    console.error(`Erro ao notificar ${vendedorJid ? lead.captador : 'Rubens'} sobre encaminhamento:`, e.message);
   }
 }
 
@@ -311,7 +450,48 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
   const aindaValido = () => turnoPorLead.get(leadId) === meuTurno;
 
   const conversa = lead.conversaEloa || [];
-  const dadosVeiculo = await buscarDadosCompletos(lead, mensagemCliente);
+  const primeiraRespostaDoCliente = conversa.length === 1; // só a saudação existia antes desta troca
+  const dadosVeiculo = await buscarDadosCompletos(lead, mensagemCliente, conversa);
+
+  /* MVP temporário (18/08/2026, ajustado 19/08/2026 a pedido da Aline): na
+     primeira resposta do cliente, a Eva NÃO gera mais uma resposta completa
+     via IA — isso fazia ela "trabalhar de vendedora" (comparar modelos,
+     perguntar preferência, etc.) mesmo já estando prestes a transferir, o
+     oposto do objetivo do modo simplificado (incidente real: Mislene,
+     LEAD-009, 19/08/2026 — a Eva comparou Creta x HR-V e perguntou qual ela
+     preferia antes de encaminhar). Em vez disso: manda uma mensagem curta e
+     neutra, a foto do veículo se já der pra identificar, e já transfere. O
+     fluxo completo do persona.md (gerarResposta) continua intacto logo
+     abaixo pra quando quisermos reativar — só mudar MODO_SIMPLES_ATIVO pra
+     false. */
+  if (MODO_SIMPLES_ATIVO && primeiraRespostaDoCliente) {
+    const primeiroNome = (lead.clienteNome || '').trim().split(' ')[0];
+    const mensagens = [`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou te conectar agora com um consultor da nossa equipe, que já te passa todos os detalhes 😊`];
+
+    let completou;
+    let fotosEnviadas = false;
+    try {
+      completou = await enviarMensagens(jid, mensagens, aindaValido);
+      if (completou && dadosVeiculo?.fotos?.length) {
+        await enviarFotoVeiculo(jid, dadosVeiculo);
+        fotosEnviadas = true;
+      }
+    } catch (e) {
+      console.error(`Erro ao enviar resposta (modo simples) para ${leadId}:`, e.message);
+      return;
+    }
+
+    if (!completou) { console.log(`[cancelado] lead ${leadId}: parou de mandar a resposta (modo simples) a "${mensagemCliente}" no meio — mensagem nova chegou.`); return; }
+
+    const respostaCompleta = mensagens.join(' ');
+    const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
+    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
+    await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
+
+    const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico };
+    await encaminharParaConsultor(leadAtualizado, `Modo simplificado ativo — encaminha assim que o cliente responde qualquer coisa, sem continuar a conversa${fotosEnviadas ? ' (foto do veículo já enviada)' : ''}.`);
+    return;
+  }
 
   let resultado;
   try {
@@ -326,12 +506,15 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
 
   const seguro = garantirSemPreco(resultado.mensagens);
   const mensagens = seguro.mensagens;
-  const encaminharConsultor = resultado.encaminharConsultor || seguro.forcarEncaminhar;
 
   let completou;
+  let fotosEnviadas = false;
   try {
     completou = await enviarMensagens(jid, mensagens, aindaValido);
-    if (completou && resultado.enviarFotos) await enviarFotoVeiculo(jid, dadosVeiculo);
+    if (completou && resultado.enviarFotos) {
+      await enviarFotoVeiculo(jid, dadosVeiculo);
+      fotosEnviadas = true;
+    }
   } catch (e) {
     console.error(`Erro ao enviar resposta da IA para ${leadId}:`, e.message);
     return;
@@ -342,33 +525,174 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
   const respostaCompleta = mensagens.join(' ');
   const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
   const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
-  await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico });
+  // Cliente respondeu de verdade agora — reseta o relógio do follow-up (zera o
+  // step, senão ele retomaria do meio da escada da próxima vez que ficar quieto).
+  await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
 
-  if (encaminharConsultor) {
+  let motivoEncaminhar = null;
+  if (resultado.encaminharConsultor || seguro.forcarEncaminhar) {
+    motivoEncaminhar = 'Assunto exigia consultor humano (preço/financiamento/pedido do cliente) ou conversa já madura.';
+  } else if (MODO_SIMPLES_ATIVO && fotosEnviadas) {
+    motivoEncaminhar = 'Modo simplificado ativo — encaminha assim que manda a foto do veículo, sem continuar a conversa.';
+  }
+
+  if (motivoEncaminhar) {
     const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico };
-    await encaminharParaConsultor(leadAtualizado, 'Assunto exigia consultor humano (preço/financiamento/pedido do cliente) ou conversa já madura.');
+    await encaminharParaConsultor(leadAtualizado, motivoEncaminhar);
+  }
+}
+
+/* Leads de "Compra" (a pedido da Aline, 19/08/2026) nunca passam pela Eva —
+   o webhook-autoconf já cria eles direto em st:'atendimento' com o
+   captador='Milena', sem gerar saudação nem entrar na coluna IA. Aqui só
+   avisa a Milena por WhatsApp que chegou um lead novo pra ela, uma única
+   vez (marca notificacaoVendedorEm pra não avisar de novo). */
+async function getLeadsCompraParaNotificar() {
+  const leads = await fbList('leads');
+  return leads.filter((l) => l.origem === 'Compra' && l.st === 'atendimento' && !l.notificacaoVendedorEm && l.clienteTel);
+}
+
+async function notificarVendedorCompra(lead) {
+  const numeroVendedorCru = WHATSAPP_VENDEDORES[lead.captador];
+  let vendedorJid = null;
+  if (numeroVendedorCru) {
+    try {
+      const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+      if (check?.[0]?.exists) vendedorJid = check[0].jid;
+    } catch (e) {
+      console.error(`Erro ao validar número de ${lead.captador} pra notificar lead de Compra ${lead.id}:`, e.message);
+    }
+  }
+  const destino = vendedorJid || NOTIFICACAO_PESSOAL;
+  const primeiraLinhaObs = (lead.obs || '').split('\n')[0];
+  const texto = vendedorJid
+    ? `🔔 Novo lead de COMPRA (avaliação/venda de veículo) pra você!\nCliente: ${lead.clienteNome || lead.id}\nTelefone: ${lead.clienteTel || '-'}${primeiraLinhaObs ? '\n' + primeiraLinhaObs : ''}`
+    : `🔔 Lead de Compra (${lead.clienteNome || lead.id}) sem WhatsApp válido cadastrado pro vendedor "${lead.captador || 'não definido'}" — confira o número dele.\nTelefone do cliente: ${lead.clienteTel || '-'}`;
+
+  try {
+    await sock.sendMessage(destino, { text: texto });
+    await fbUpdate('leads', lead.id, { notificacaoVendedorEm: new Date().toISOString() });
+    console.log(`✅ Notificação de lead de Compra enviada pra ${lead.captador || 'Rubens'} (${lead.id}).`);
+  } catch (e) {
+    console.error(`Erro ao notificar ${lead.captador || 'Rubens'} sobre lead de Compra ${lead.id}:`, e.message);
   }
 }
 
 async function cicloPoll() {
   const inicioDoCiclo = new Date().toISOString();
   let novos = [];
+  let ultimoOk = null;
+  let todosOk = true;
+  try {
+    const comprasParaNotificar = await getLeadsCompraParaNotificar();
+    for (const lead of comprasParaNotificar) await notificarVendedorCompra(lead);
+  } catch (e) {
+    console.error('Erro ao notificar leads de Compra:', e.message);
+  }
   try {
     novos = await getLeadsNovos();
     if (novos.length) console.log(`${novos.length} lead(s) novo(s) — cumprimentando (máx. ${MAX_SAUDACOES_POR_CICLO} por ciclo).`);
-    for (const lead of novos) await cumprimentarLead(lead);
+    for (const lead of novos) {
+      const ok = await cumprimentarLead(lead);
+      if (ok) {
+        ultimoOk = lead;
+      } else {
+        todosOk = false;
+        break; // não pula pros próximos — mantém a ordem e tenta este de novo no próximo ciclo
+      }
+    }
   } catch (e) {
     console.error('Erro no ciclo de checagem de leads novos:', e.message);
+    todosOk = false;
   }
-  /* Avança o checkpoint só depois de processar. Se o ciclo bateu no limite de
-     MAX_SAUDACOES_POR_CICLO, pode haver mais leads represados atrás deles no
-     backlog — avança só até o último processado (em vez de pular pra "agora"),
-     senão o resto do backlog nunca mais é visto (próximo ciclo só olha
-     _criadoEm > checkpoint). Sem represamento, avança até o início deste
-     ciclo normalmente, nunca além de "agora". */
-  checkpoint = novos.length === MAX_SAUDACOES_POR_CICLO ? novos[novos.length - 1]._criadoEm : inicioDoCiclo;
-  salvarCheckpoint(checkpoint);
+  /* Avança o checkpoint só depois de processar, e só até onde deu pra
+     confirmar sucesso. Se algum lead falhou por motivo transitório (ex.:
+     erro 529 "overloaded" da IA — incidente real: lead PATRICK, 18/08/2026),
+     o checkpoint NÃO pode passar da hora de criação dele, senão getLeadsNovos
+     (_criadoEm > checkpoint) nunca mais o encontra e ele fica abandonado pra
+     sempre mesmo sem eloaEnviadoEm. Se todos os leads do lote foram
+     resolvidos e o lote bateu no limite de MAX_SAUDACOES_POR_CICLO, pode
+     haver mais represados atrás — avança só até o último processado (em vez
+     de pular pra "agora"). Sem represamento, avança até o início deste ciclo
+     normalmente, nunca além de "agora". */
+  if (todosOk) {
+    checkpoint = novos.length === MAX_SAUDACOES_POR_CICLO ? novos[novos.length - 1]._criadoEm : inicioDoCiclo;
+    salvarCheckpoint(checkpoint);
+  } else if (ultimoOk) {
+    checkpoint = ultimoOk._criadoEm;
+    salvarCheckpoint(checkpoint);
+  } // se nem o primeiro lead do lote foi resolvido, o checkpoint fica parado onde estava
   setTimeout(cicloPoll, INTERVALO_POLL_MS);
+}
+
+/* Acha leads que a Eva já cumprimentou (ou já conversou) mas que o cliente
+   parou de responder — a última mensagem da conversa é da Eva, não dele.
+   Não mexe em leads onde o cliente respondeu por último (o fluxo normal via
+   responderComIA já cuida desses) nem em quem já recebeu os 4 steps. */
+async function getLeadsParaFollowUp() {
+  const leads = await fbList('leads');
+  const agora = Date.now();
+  return leads.filter((l) => {
+    if (l.st !== 'ia' || !l.eloaEnviadoEm || l.eloaEnviadoEm === 'NUMERO_INVALIDO') return false;
+    if (l.origem === 'Teste') return false;
+    const conversa = l.conversaEloa || [];
+    if (!conversa.length || conversa[conversa.length - 1].role !== 'model') return false;
+    const step = l.followUpStep || 0;
+    if (step >= FOLLOWUP_STEPS.length) return false;
+    const desde = l.ultimaMensagemEm || l.eloaEnviadoEm;
+    const horasPassadas = (agora - new Date(desde).getTime()) / 3600000;
+    return horasPassadas >= FOLLOWUP_STEPS[step].horas;
+  });
+}
+
+async function enviarFollowUp(lead) {
+  const jidTentativa = paraJid(lead.clienteTel);
+  if (!jidTentativa) return;
+  let jid = jidTentativa;
+  try {
+    const check = await sock.onWhatsApp(jidTentativa.split('@')[0]);
+    if (check?.[0]?.exists) jid = check[0].jid;
+  } catch (e) {
+    console.error(`Erro ao validar número pro follow-up de ${lead.clienteNome}, tentando mesmo assim:`, e.message);
+  }
+
+  const conversa = lead.conversaEloa || [];
+  const step = lead.followUpStep || 0;
+  const { instrucao } = FOLLOWUP_STEPS[step];
+
+  let resultado;
+  try {
+    resultado = await gerarFollowUp(lead, conversa, instrucao);
+  } catch (e) {
+    console.error(`Erro ao gerar follow-up (step ${step + 1}) para ${lead.clienteNome}:`, e.message);
+    return;
+  }
+
+  const { mensagens } = garantirSemPreco(resultado.mensagens);
+  try {
+    const completou = await enviarMensagens(jid, mensagens);
+    if (!completou) return;
+    const respostaCompleta = mensagens.join(' ');
+    const novaConversa = [...conversa, { role: 'model', texto: respostaCompleta }];
+    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: `🔁 Follow-up automático (step ${step + 1}/${FOLLOWUP_STEPS.length})`, obs: respostaCompleta, by: 'Eloá' }];
+    await fbUpdate('leads', lead.id, { conversaEloa: novaConversa, historico, followUpStep: step + 1, ultimaMensagemEm: new Date().toISOString() });
+    console.log(`✅ Follow-up (step ${step + 1}/${FOLLOWUP_STEPS.length}) enviado pra ${lead.clienteNome} (${lead.id}).`);
+    if (resultado.encaminharConsultor) {
+      await encaminharParaConsultor({ ...lead, conversaEloa: novaConversa, historico }, 'Follow-up automático indicou necessidade de consultor.');
+    }
+  } catch (e) {
+    console.error(`Erro ao enviar follow-up pra ${lead.clienteNome}:`, e.message);
+  }
+}
+
+async function cicloFollowUp() {
+  try {
+    const pendentes = await getLeadsParaFollowUp();
+    for (const lead of pendentes) await enviarFollowUp(lead);
+  } catch (e) {
+    console.error('Erro no ciclo de follow-up:', e.message);
+  }
+  setTimeout(cicloFollowUp, INTERVALO_FOLLOWUP_MS);
 }
 
 let pollJaIniciado = false;
@@ -376,6 +700,7 @@ function iniciarPollUmaVez() {
   if (pollJaIniciado) return;
   pollJaIniciado = true;
   cicloPoll();
+  cicloFollowUp();
 }
 
 async function start() {

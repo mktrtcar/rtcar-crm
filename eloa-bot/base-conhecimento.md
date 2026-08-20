@@ -23,3 +23,7 @@ Pronúncia (só relevante em modo voz, nunca mude a grafia em texto): "Otto Rena
 Segunda a sexta: 8h às 19h.
 Sábado: 8h às 13h.
 Domingo: fechado.
+
+## Diferenciais da loja
+
+Todo veículo vendido pela RT Car passa por vitrificação (proteção da pintura) e revisão completa antes da entrega, e sai com 3 meses de garantia.
