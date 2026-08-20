@@ -81,8 +81,9 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':`Via Autoconf (${origem}) — atribuído a ${captador} pelo rodízio`,by:'Autoconf'}],
       pendente_at:'',
       pendente_end:'',
-      atendimento_at:'',
+      atendimento_at:intencaoCompra?new Date().toISOString():'',
       atendimento_end:'',
+      notificacaoVendedorEm:'',
       autoconfLeadId:body.lead_id,
     };
 
