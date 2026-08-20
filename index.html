@@ -1125,7 +1125,10 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
 }
 /* RODÍZIO DE VENDEDORES — lead sem vendedor definido cai automaticamente no próximo da fila.
-   Para incluir mais alguém no rodízio, basta acrescentar o nome no array abaixo. */
+   Para incluir mais alguém no rodízio, basta acrescentar o nome no array abaixo.
+   O contador é incrementado via fieldTransform atômico do Firestore (increment), em vez de
+   ler-e-gravar em duas chamadas separadas — assim duas criações de lead ao mesmo tempo nunca
+   leem o mesmo número e caem no mesmo vendedor. */
 const RODIZIO_VENDEDORES=['Janderson','Maicon'];
 async function proximoVendedorRodizio(){
   if(!RODIZIO_VENDEDORES.length)return'';
@@ -1135,10 +1138,17 @@ async function proximoVendedorRodizio(){
     return RODIZIO_VENDEDORES[i];
   }
   try{
-    const r=await fetch(`${FB_URL}/leads_config/rodizio?key=${FB.apiKey}`);
+    const r=await fetch(`${FB_URL}:commit?key=${FB.apiKey}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({writes:[{transform:{
+        document:`projects/${FB.projectId}/databases/(default)/documents/leads_config/rodizio`,
+        fieldTransforms:[{fieldPath:'idx',increment:{integerValue:1}}]
+      }}]})
+    });
+    if(!r.ok)throw new Error(await r.text());
     const j=await r.json();
-    const idx=(fromFV((j.fields||{}).idx)||0)%RODIZIO_VENDEDORES.length;
-    await fbUpdate('leads_config','rodizio',{idx:idx+1});
+    const novoIdx=Number(j.writeResults[0].transformResults[0].integerValue);
+    const idx=(novoIdx-1)%RODIZIO_VENDEDORES.length;
     return RODIZIO_VENDEDORES[idx];
   }catch{
     await fbCreate('leads_config','rodizio',{idx:1});
