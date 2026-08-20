@@ -293,12 +293,6 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-senha" placeholder="Sua senha" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <button class="btn btn-red btn-w" onclick="fazerLogin()">→ Entrar</button>
-    <div class="login-access">
-      <p>Acesso rápido:</p>
-      <button class="btn-acesso" onclick="preenchLogin('contato@rtcar.com.br','rtcar2024')">▸ Aline (Master)</button>
-      <button class="btn-acesso" onclick="preenchLogin('milena@rtcar.com.br','rtcar2024')">▸ Milena (Relacionamento)</button>
-      <button class="btn-acesso" onclick="preenchLogin('rubens@rtcar.com.br','Rubens@2026')">▸ Rubens (Desenvolvedor)</button>
-    </div>
   </div>
 </div>
 
@@ -312,6 +306,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     <nav class="nav">
       <div class="ni-lbl">Módulos</div>
       <div class="ni" id="ni-mk" onclick="trocarModulo('marketing')"><i class="ti ti-speakerphone"></i> CRM</div>
+      <div class="ni" id="ni-ia" onclick="trocarModulo('ia')"><i class="ti ti-robot"></i> IA (Eva)</div>
       <div class="ni" id="ni-rel" onclick="trocarModulo('relacionamento')"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
       <div class="ni" id="ni-ws" onclick="trocarModulo('workshop')"><i class="ti ti-calendar-event"></i> Workshop</div>
       <div class="ni" id="ni-an" onclick="trocarModulo('anuncios')"><i class="ti ti-speakerphone"></i> Anúncios</div>
@@ -655,6 +650,7 @@ const G={
   rel:{clientes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
+  ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
 };
 
 /* ---- FIREBASE HELPERS ---- */
@@ -734,8 +730,8 @@ function fazerLogin(){
   document.querySelectorAll('.ni-sistema-principal').forEach(el=>el.style.display=(u.r==='dev'?'none':''));
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
-  ['ni-rel','ni-ws','ni-an'].forEach(id=>{
-    const mod={'ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios'}[id];
+  ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{
+    const mod={'ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios','ni-ia':'ia'}[id];
     const el=document.getElementById(id);
     if(el) el.style.display=podeVerModulo(mod)?'':'none';
   });
@@ -744,7 +740,7 @@ function fazerLogin(){
 function logout(){
   G.user=null;G.mk.leads=[];G.rel.clientes=[];
   // Resetar visibilidade das tabs para o próximo login
-  ['ni-rel','ni-ws','ni-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+  ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('login-error').style.display='none';
@@ -775,7 +771,8 @@ async function trocarModulo(mod){
   document.getElementById('ni-rel').classList.toggle('on',mod==='relacionamento');
   document.getElementById('ni-ws').classList.toggle('on',mod==='workshop');
   document.getElementById('ni-an').classList.toggle('on',mod==='anuncios');
-  document.getElementById('sb-tag').textContent={marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios'}[mod]||mod;
+  document.getElementById('ni-ia').classList.toggle('on',mod==='ia');
+  document.getElementById('sb-tag').textContent={marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios',ia:'IA (Eva)'}[mod]||mod;
   if(mod==='marketing'){
     if(!G.mk.leads.length)await initMarketing();
     else renderMarketing();
@@ -784,6 +781,8 @@ async function trocarModulo(mod){
     pararTimerCRM();pararAutoRefreshMk();await initWorkshop();
   } else if(mod==='anuncios'){
     pararTimerCRM();pararAutoRefreshMk();await initAnuncios();
+  } else if(mod==='ia'){
+    pararTimerCRM();pararAutoRefreshMk();await initIA();
   } else {
     pararAutoRefreshMk();
     if(!G.rel.clientes.length)await initRelacionamento();
@@ -2628,6 +2627,145 @@ async function salvarCamposAn(id,campos){
 
 <!-- OVERLAY ANUNCIOS -->
 <div class="ov hidden" id="ov-an"><div class="mod" id="mod-an" style="max-width:560px"></div></div>
+
+<script>
+/* ============================================================
+   IA (EVA) — MÓDULO
+   ============================================================ */
+function iaLeadsEva(){
+  return G.ia.leads.filter(l=>l.eloaEnviadoEm||(l.conversaEloa&&l.conversaEloa.length));
+}
+function iaLeadsFiltrados(){
+  let ls=iaLeadsEva();
+  if(G.ia.filtroStatus==='ia')ls=ls.filter(l=>l.st==='ia');
+  else if(G.ia.filtroStatus==='atendimento')ls=ls.filter(l=>l.st==='atendimento');
+  if(G.ia.filtroVendedor)ls=ls.filter(l=>l.captador===G.ia.filtroVendedor);
+  if(G.ia.busca){const b=G.ia.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.clienteTel||'').includes(b)||(l.id||'').toLowerCase().includes(b));}
+  return ls.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
+}
+async function initIA(){
+  try{G.ia.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar dados da IA.','red');}
+  renderIA(document.getElementById('cnt'));
+  iniciarTimerIA();
+}
+function iniciarTimerIA(){
+  if(G.ia._timerInterval)clearInterval(G.ia._timerInterval);
+  G.ia._timerInterval=setInterval(async()=>{
+    if(G.modulo!=='ia'){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;return;}
+    if(document.activeElement&&document.activeElement.id==='ia-busca')return;
+    try{G.ia.leads=await fbList('leads');renderIA(document.getElementById('cnt'));}catch(e){console.error(e);}
+  },10000);
+}
+function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
+function iaBadgeStatus(st){
+  if(st==='ia')return '<span class="badge" style="background:var(--bluel);color:var(--blue)">NA IA</span>';
+  if(st==='atendimento')return '<span class="badge" style="background:var(--goldl);color:var(--gold)">TRANSFERIDO</span>';
+  return `<span class="badge" style="background:var(--bg3);color:var(--tx3)">${st||'-'}</span>`;
+}
+function iaKpiCard(val,label,color,icone){
+  return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;text-align:center">
+    <div style="font-size:24px;font-weight:700;color:${color}"><i class="ti ${icone}" style="font-size:18px;margin-right:4px"></i>${val}</div>
+    <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
+  </div>`;
+}
+function renderIA(cnt){
+  if(G.modulo!=='ia')return;
+  const todos=iaLeadsEva();
+  const total=todos.length;
+  const naIA=todos.filter(l=>l.st==='ia').length;
+  const transferidos=todos.filter(l=>l.st==='atendimento').length;
+  const responderam=todos.filter(l=>(l.conversaEloa||[]).some(m=>m.role==='user')).length;
+  const taxaResposta=total?Math.round(responderam/total*100):0;
+  const followUpsAtivos=todos.filter(l=>(l.followUpStep||0)>0&&l.st==='ia').length;
+  const porVendedor={};
+  todos.forEach(l=>{const v=l.captador||'(sem vendedor)';porVendedor[v]=(porVendedor[v]||0)+1;});
+  const vendedoresLista=Object.entries(porVendedor).sort((a,b)=>b[1]-a[1]);
+  const filtrados=iaLeadsFiltrados();
+  const leadSel=filtrados.find(l=>l.id===G.ia.detailId)||todos.find(l=>l.id===G.ia.detailId);
+  const listaHtml=filtrados.length?filtrados.map(l=>{
+    const conversa=l.conversaEloa||[];
+    const ultima=conversa.length?conversa[conversa.length-1].texto:(l.obs||'');
+    const ativo=l.id===G.ia.detailId;
+    const step=l.followUpStep||0;
+    return `<div onclick="G.ia.detailId='${l.id}';renderIA(document.getElementById('cnt'))" style="padding:10px;border-radius:8px;margin-bottom:5px;cursor:pointer;background:${ativo?'var(--bluel)':'transparent'};border:1px solid ${ativo?'var(--blue)':'transparent'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-weight:600;font-size:12.5px">${l.clienteNome||l.id}</span>
+        ${iaBadgeStatus(l.st)}
+      </div>
+      <div style="font-size:11px;color:var(--tx3)">${l.captador||'sem vendedor'} · ${l.origem||'-'}${step>0?` · follow-up ${step}/4`:''}</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(ultima||'').replace(/</g,'&lt;')}</div>
+    </div>`;
+  }).join(''):'<div style="text-align:center;color:var(--tx3);padding:30px 10px;font-size:12px">Nenhum lead encontrado com esses filtros.</div>';
+  let conversaHtml;
+  if(!leadSel){
+    conversaHtml=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:13px">Selecione um lead à esquerda pra ver a conversa.</div>`;
+  }else{
+    const conversa=leadSel.conversaEloa||[];
+    const bolhas=conversa.length?conversa.map(m=>{
+      const isEva=m.role==='model';
+      return `<div style="max-width:65%;align-self:${isEva?'flex-start':'flex-end'};background:${isEva?'var(--bg3)':'var(--bluel)'};padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.45">
+        <div style="font-size:9.5px;color:var(--tx3);font-weight:700;margin-bottom:2px;letter-spacing:.3px">${isEva?'EVA':(leadSel.clienteNome||'CLIENTE').toUpperCase()}</div>
+        ${(m.texto||'').replace(/</g,'&lt;')}
+      </div>`;
+    }).join(''):'<div style="color:var(--tx3);font-size:12px;text-align:center;padding:20px">Ainda sem mensagens.</div>';
+    const desde=leadSel.ultimaMensagemEm||leadSel.eloaEnviadoEm;
+    conversaHtml=`
+      <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:700;font-size:14px">${leadSel.clienteNome||leadSel.id}</div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:2px">${leadSel.clienteTel||'-'} · ${leadSel.veiculo||'sem veículo'} · ${leadSel.id}${desde?` · última mensagem há ${calcElapsed(desde,null)}`:''}</div>
+        </div>
+        ${leadSel.captador?`<span class="badge" style="background:var(--purplel);color:var(--purple)">${leadSel.captador}</span>`:''}
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:8px">${bolhas}</div>
+    `;
+  }
+  cnt.innerHTML=`
+    <div style="padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:19px;font-weight:700">🤖 IA (Eva)</div>
+          <div style="font-size:12px;color:var(--tx3)">Atendimento automático via WhatsApp — leads, conversas e follow-up em tempo real</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="initIA()"><i class="ti ti-refresh"></i> Atualizar</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        ${iaKpiCard(total,'Leads atendidos pela Eva','var(--tx)','ti-robot')}
+        ${iaKpiCard(naIA,'Aguardando na IA','var(--blue)','ti-clock')}
+        ${iaKpiCard(transferidos,'Transferidos p/ vendedor','var(--gold)','ti-arrow-right')}
+        ${iaKpiCard(taxaResposta+'%','Taxa de resposta','var(--green)','ti-message-check')}
+        ${iaKpiCard(followUpsAtivos,'Follow-ups em andamento','var(--purple)','ti-repeat')}
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Distribuição por vendedor</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${vendedoresLista.map(([v,n])=>`<span class="badge" style="background:var(--bg3);color:var(--tx2)">${v}: ${n}</span>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;flex:1;min-height:420px">
+        <div style="width:320px;flex-shrink:0;display:flex;flex-direction:column;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--bg2);overflow:hidden">
+          <div style="padding:10px;border-bottom:1px solid var(--bdr);display:flex;flex-direction:column;gap:7px">
+            <input id="ia-busca" type="text" placeholder="Buscar por nome/telefone/ID..." value="${G.ia.busca}" oninput="G.ia.busca=this.value;renderIA(document.getElementById('cnt'))" style="padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <select onchange="G.ia.filtroStatus=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+              <option value="todos"${G.ia.filtroStatus==='todos'?' selected':''}>Todos os status</option>
+              <option value="ia"${G.ia.filtroStatus==='ia'?' selected':''}>Na IA (aguardando)</option>
+              <option value="atendimento"${G.ia.filtroStatus==='atendimento'?' selected':''}>Transferido</option>
+            </select>
+            <select onchange="G.ia.filtroVendedor=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+              <option value="">Todos os vendedores</option>
+              ${VENDEDORES_ATIVOS.map(v=>`<option value="${v}"${G.ia.filtroVendedor===v?' selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:6px">${listaHtml}</div>
+        </div>
+        <div style="flex:1;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--bg2);display:flex;flex-direction:column;overflow:hidden">
+          ${conversaHtml}
+        </div>
+      </div>
+    </div>
+  `;
+}
+</script>
 
 </body>
 </html>
