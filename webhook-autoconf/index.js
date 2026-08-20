@@ -46,14 +46,14 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
 
     const {novoId,captador}=await db.runTransaction(async tx=>{
       const refSeq=db.collection('leads_config').doc('mk');
-      const snapSeq=await tx.get(refSeq);
+      const refRodizio=db.collection('leads_config').doc('rodizio');
+      const [snapSeq,snapRodizio]=await Promise.all([tx.get(refSeq),tx.get(refRodizio)]);
+
       const seq=((snapSeq.exists&&snapSeq.data().leadSeq)||0)+1;
       tx.set(refSeq,{leadSeq:seq},{merge:true});
 
       if(intencaoCompra)return{novoId:`LEAD-${pad3(seq)}`,captador:'Milena'};
 
-      const refRodizio=db.collection('leads_config').doc('rodizio');
-      const snapRodizio=await tx.get(refRodizio);
       const idx=((snapRodizio.exists&&snapRodizio.data().idx)||0)%RODIZIO_VENDEDORES.length;
       tx.set(refRodizio,{idx:idx+1},{merge:true});
 
