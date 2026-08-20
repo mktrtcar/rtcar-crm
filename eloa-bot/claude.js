@@ -135,4 +135,63 @@ async function gerarResposta(lead, historico, mensagemCliente) {
   return interpretarJson(textBlock.text, 'Claude');
 }
 
-module.exports = { gerarResposta };
+/* Retomada de contato automática (Steps 1-4, a pedido do Rubens, 19/08/2026)
+   quando o cliente para de responder depois da última mensagem da Eva.
+   Reaproveita o mesmo persona.md/base-conhecimento (voz e regras iguais),
+   só troca a instrução de fundo pela do step específico. Usa o schema de
+   resgate (mensagens + encaminharConsultor, sem enviarFotos) porque um
+   follow-up nunca deve mandar foto por conta própria. */
+async function gerarFollowUp(lead, historico, instrucaoStep) {
+  const persona = carregarTexto(lead._persona || 'persona.md');
+  const conhecimento = carregarTexto('base-conhecimento.md');
+
+  const sistema = `${persona}
+
+## Base de conhecimento da RT Car
+
+${conhecimento}
+
+## Contexto deste atendimento
+
+Cliente: ${lead.clienteNome || 'não informado'}
+Veículo de interesse: ${lead.veiculo || 'não informado'}
+
+## Instrução específica desta mensagem (retomada de contato automática)
+
+O cliente não respondeu desde a última mensagem da conversa (veja o histórico abaixo). Gere agora só a mensagem de retomada de contato, seguindo exatamente esta instrução: "${instrucaoStep}"
+
+Não repita literalmente o que já foi dito no histórico. Mantenha o mesmo tom natural e as mesmas regras da seção "Nunca fazer" do seu perfil (nunca fale de valores, nunca invente dado específico, nunca ofereça entrega pra fora da região).`;
+
+  // A conversa sempre termina com a última mensagem da Eva aqui (é a própria
+  // condição que dispara o follow-up) — mas a API exige terminar com "user".
+  // Preenche esse turno com uma instrução neutra em vez de deixar a Eva
+  // "pensar" que o cliente disse algo que ele não disse.
+  const messages = [
+    ...historico.map((h) => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.texto })),
+    { role: 'user', content: '(cliente não respondeu ainda — gere agora a mensagem de retomada de contato conforme a instrução do sistema)' },
+  ];
+
+  const response = await client.messages.create(
+    {
+      model: MODELO,
+      max_tokens: 512,
+      system: sistema,
+      messages,
+      output_config: {
+        effort: 'medium',
+        format: { type: 'json_schema', schema: SCHEMA_RESGATE },
+      },
+    },
+    { timeout: 20000 },
+  );
+
+  if (response.stop_reason === 'refusal') {
+    throw new Error('Claude recusou o follow-up (stop_reason: refusal): ' + JSON.stringify(response.stop_details));
+  }
+
+  const textBlock = response.content.find((b) => b.type === 'text');
+  if (!textBlock) throw new Error('Claude não retornou texto no follow-up: ' + JSON.stringify(response));
+  return interpretarJson(textBlock.text, 'Claude (follow-up)');
+}
+
+module.exports = { gerarResposta, gerarFollowUp };
