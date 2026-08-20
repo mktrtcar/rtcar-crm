@@ -779,11 +779,13 @@ async function trocarModulo(mod){
   if(mod==='marketing'){
     if(!G.mk.leads.length)await initMarketing();
     else renderMarketing();
+    iniciarAutoRefreshMk();
   } else if(mod==='workshop'){
-    pararTimerCRM();await initWorkshop();
+    pararTimerCRM();pararAutoRefreshMk();await initWorkshop();
   } else if(mod==='anuncios'){
-    pararTimerCRM();await initAnuncios();
+    pararTimerCRM();pararAutoRefreshMk();await initAnuncios();
   } else {
+    pararAutoRefreshMk();
     if(!G.rel.clientes.length)await initRelacionamento();
     else renderRelacionamento();
   }
@@ -842,6 +844,22 @@ function iniciarTimerCRM(){
 }
 function pararTimerCRM(){
   if(G.mk._timerInterval){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;}
+}
+/* ---- AUTO-REFRESH CRM (pega lead novo/movido por outra tela sem precisar recarregar) ---- */
+function algumaJanelaAberta(){
+  return !!document.querySelector('.ov:not(.hidden), .detail-ov:not(.hidden)');
+}
+function iniciarAutoRefreshMk(){
+  pararAutoRefreshMk();
+  if(!fbOk()||G.mk.modoDemo)return;
+  G.mk._autoRefreshInterval=setInterval(async()=>{
+    if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
+    if(algumaJanelaAberta())return;
+    try{G.mk.leads=await fbList('leads');renderMarketing();}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
+  },10000);
+}
+function pararAutoRefreshMk(){
+  if(G.mk._autoRefreshInterval){clearInterval(G.mk._autoRefreshInterval);G.mk._autoRefreshInterval=null;}
 }
 
 function renderMarketing(){
