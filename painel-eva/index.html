@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel Eva — RT Car</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #161d2e;
+    --panel2: #1d2740;
+    --border: #2a3550;
+    --text: #e8ecf5;
+    --text2: #9aa6c0;
+    --text3: #6b7591;
+    --accent: #4f7cff;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --purple: #a78bfa;
+    --bubble-eva: #23315a;
+    --bubble-cliente: #1b2e22;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #gate {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+  #gate .box { text-align: center; }
+  #gate h1 { font-size: 18px; margin-bottom: 16px; }
+  #gate .campos { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  #gate input {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 14px; border-radius: 8px; font-size: 14px; width: 240px; text-align: center;
+  }
+  #gate button {
+    background: var(--accent); color: #fff; border: none;
+    padding: 10px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; width: 240px;
+  }
+  #gate .erro { color: var(--red); font-size: 12px; margin-top: 10px; min-height: 16px; }
+  #app { display: none; width: 100%; height: 100%; }
+  #app.visivel { display: flex; }
+  #sidebar {
+    width: 380px;
+    min-width: 380px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #header {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  #header h1 {
+    font-size: 16px;
+    margin: 0 0 2px 0;
+    font-weight: 700;
+  }
+  #header .sub {
+    font-size: 12px;
+    color: var(--text3);
+  }
+  #status-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 8px;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(34,197,94,0.5);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+  #lead-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .lead-card {
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s;
+  }
+  .lead-card:hover { background: var(--panel2); }
+  .lead-card.active { background: var(--panel2); border-color: var(--accent); }
+  .lead-card .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .lead-card .name { font-weight: 600; font-size: 13.5px; }
+  .lead-card .id { font-size: 10.5px; color: var(--text3); }
+  .lead-card .meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .lead-card .last-msg {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-ia { background: rgba(79,124,255,0.18); color: #7fa2ff; }
+  .badge-atendimento { background: rgba(234,179,8,0.18); color: var(--yellow); }
+  .badge-outro { background: rgba(107,117,145,0.18); color: var(--text2); }
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #conv-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #conv-header .name { font-size: 15px; font-weight: 700; }
+  #conv-header .details { font-size: 12px; color: var(--text3); margin-top: 3px; }
+  #conv-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bubble {
+    max-width: 60%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .bubble.eva {
+    align-self: flex-start;
+    background: var(--bubble-eva);
+    border-bottom-left-radius: 3px;
+  }
+  .bubble.cliente {
+    align-self: flex-end;
+    background: var(--bubble-cliente);
+    border-bottom-right-radius: 3px;
+  }
+  .bubble .who {
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 3px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  #empty-state, #empty-conv {
+    color: var(--text3);
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 13px;
+  }
+  #vendedor-tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(167,139,250,0.15);
+    color: var(--purple);
+    font-weight: 600;
+  }
+  #sair {
+    font-size: 11px;
+    color: var(--text3);
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 6px;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <h1>Painel Eva — RT Car</h1>
+    <div class="campos">
+      <input type="email" id="gate-email" placeholder="seu@email.com" autocomplete="username">
+      <input type="password" id="gate-senha" placeholder="Senha" autocomplete="current-password">
+      <button id="btn-entrar">Entrar</button>
+    </div>
+    <div class="erro" id="gate-erro"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="sidebar">
+    <div id="header">
+      <h1>Painel Eva — RT Car</h1>
+      <div class="sub">Leads e conversas em tempo real</div>
+      <div id="status-line"><span class="dot"></span><span id="status-text">Carregando…</span></div>
+      <span id="sair">Sair</span>
+    </div>
+    <div id="lead-list"><div id="empty-state">Carregando leads…</div></div>
+  </div>
+
+  <div id="main">
+    <div id="conv-header" style="display:none">
+      <div>
+        <div class="name" id="conv-name">—</div>
+        <div class="details" id="conv-details">—</div>
+      </div>
+      <span id="vendedor-tag" style="display:none"></span>
+    </div>
+    <div id="conv-body"><div id="empty-conv">Selecione um lead à esquerda pra ver a conversa.</div></div>
+  </div>
+</div>
+
+<script>
+/* Login: mesmo esquema do CRM principal (e-mail + senha contra uma lista
+   fixa) — restrito a quem já tem acesso gerencial lá (master/coordenadora/
+   dev). Vendedores comuns não entram aqui, pois este painel mostra a
+   conversa de TODOS os leads, não só os deles. */
+const USUARIOS_PAINEL = [
+  {n:'Aline',   e:'contato@rtcar.com.br', senha:'rtcar2024'},
+  {n:'Marcela', e:'marcela@rtcar.com.br', senha:'rtcar2024'},
+  {n:'Rafael',  e:'rafael@rtcar.com.br',  senha:'rtcar2024'},
+  {n:'Tiago',   e:'tiago@rtcar.com.br',   senha:'rtcar2024'},
+  {n:'Milena',  e:'milena@rtcar.com.br',  senha:'rtcar2024'},
+  {n:'Rubens',  e:'rubens@rtcar.com.br',  senha:'Rubens@2026'},
+];
+
+function tentarEntrar() {
+  const email = document.getElementById('gate-email').value.trim().toLowerCase();
+  const senha = document.getElementById('gate-senha').value;
+  const usuario = USUARIOS_PAINEL.find(u => u.e.toLowerCase() === email && u.senha === senha);
+  if (usuario) {
+    sessionStorage.setItem('painelEvaUsuario', usuario.n);
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').classList.add('visivel');
+    iniciar();
+  } else {
+    document.getElementById('gate-erro').textContent = 'E-mail ou senha incorretos.';
+  }
+}
+document.getElementById('btn-entrar').addEventListener('click', tentarEntrar);
+['gate-email','gate-senha'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') tentarEntrar(); });
+});
+document.getElementById('sair').addEventListener('click', () => {
+  sessionStorage.removeItem('painelEvaUsuario');
+  location.reload();
+});
+
+if (sessionStorage.getItem('painelEvaUsuario')) {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').classList.add('visivel');
+  iniciar();
+}
+
+const FB = { projectId: 'rtcarprograma', apiKey: 'AIzaSyAHswK1g0CnOJYiN3smElfDL1XQFrOR-Y8' };
+const FB_URL = `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
+const REFRESH_MS = 6000;
+
+let selectedId = null;
+let leadsCache = [];
+let timerIniciado = false;
+
+function fromFV(v) {
+  if (!v) return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('integerValue' in v) return parseInt(v.integerValue);
+  if ('doubleValue' in v) return v.doubleValue;
+  if ('nullValue' in v) return null;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fromFV);
+  if ('mapValue' in v) return fromFF(v.mapValue.fields || {});
+  return null;
+}
+function fromFF(fields) {
+  if (!fields) return {};
+  return Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fromFV(v)]));
+}
+async function fbList(col) {
+  const r = await fetch(`${FB_URL}/${col}?key=${FB.apiKey}&pageSize=300`);
+  if (!r.ok) throw new Error(await r.text());
+  return ((await r.json()).documents || []).map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
+}
+
+function statusBadge(st) {
+  if (st === 'ia') return '<span class="badge badge-ia">IA</span>';
+  if (st === 'atendimento') return '<span class="badge badge-atendimento">Atendimento</span>';
+  return `<span class="badge badge-outro">${st || '—'}</span>`;
+}
+
+function renderList() {
+  const list = document.getElementById('lead-list');
+  if (!leadsCache.length) {
+    list.innerHTML = '<div id="empty-state">Nenhum lead ainda.</div>';
+    return;
+  }
+  const sorted = [...leadsCache].sort((a, b) => (b._criadoEm || '').localeCompare(a._criadoEm || ''));
+  list.innerHTML = sorted.map((l) => {
+    const conversa = l.conversaEloa || [];
+    const ultima = conversa.length ? conversa[conversa.length - 1].texto : (l.obs || '');
+    const isActive = l.id === selectedId ? 'active' : '';
+    return `<div class="lead-card ${isActive}" data-id="${l.id}">
+      <div class="top-row">
+        <span class="name">${l.clienteNome || l.id}</span>
+        ${statusBadge(l.st)}
+      </div>
+      <div class="meta">${l.veiculo || 'Veículo não informado'} · ${l.origem || '-'}</div>
+      <div class="last-msg">${(ultima || '').replace(/</g, '&lt;')}</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.lead-card').forEach((el) => {
+    el.addEventListener('click', () => { selectedId = el.dataset.id; renderList(); renderConversation(); });
+  });
+}
+
+function renderConversation() {
+  const header = document.getElementById('conv-header');
+  const body = document.getElementById('conv-body');
+  const lead = leadsCache.find((l) => l.id === selectedId);
+  if (!lead) {
+    header.style.display = 'none';
+    body.innerHTML = '<div id="empty-conv">Selecione um lead à esquerda pra ver a conversa.</div>';
+    return;
+  }
+  header.style.display = 'flex';
+  document.getElementById('conv-name').textContent = lead.clienteNome || lead.id;
+  document.getElementById('conv-details').textContent = `${lead.clienteTel || '-'} · ${lead.veiculo || 'sem veículo'} · ${lead.id}`;
+  const tag = document.getElementById('vendedor-tag');
+  if (lead.captador) { tag.style.display = 'inline-block'; tag.textContent = lead.captador; }
+  else { tag.style.display = 'none'; }
+
+  const conversa = lead.conversaEloa || [];
+  if (!conversa.length) {
+    body.innerHTML = '<div id="empty-conv">Ainda sem mensagens nessa conversa.</div>';
+    return;
+  }
+  body.innerHTML = conversa.map((m) => {
+    const isEva = m.role === 'model';
+    return `<div class="bubble ${isEva ? 'eva' : 'cliente'}">
+      <div class="who">${isEva ? 'EVA' : (lead.clienteNome || 'CLIENTE')}</div>
+      ${(m.texto || '').replace(/</g, '&lt;')}
+    </div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+async function tick() {
+  try {
+    leadsCache = await fbList('leads');
+    document.getElementById('status-text').textContent = `Atualizado às ${new Date().toLocaleTimeString('pt-BR')} · ${leadsCache.length} leads`;
+    renderList();
+    renderConversation();
+  } catch (e) {
+    document.getElementById('status-text').textContent = 'Erro ao carregar: ' + e.message;
+  }
+}
+
+function iniciar() {
+  if (timerIniciado) return;
+  timerIniciado = true;
+  tick();
+  setInterval(tick, REFRESH_MS);
+}
+</script>
+
+</body>
+</html>

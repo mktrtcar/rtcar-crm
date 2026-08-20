@@ -5,5 +5,9 @@
       "codebase": "default",
       "runtime": "nodejs22"
     }
-  ]
+  ],
+  "hosting": {
+    "public": "painel-eva",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
 }
