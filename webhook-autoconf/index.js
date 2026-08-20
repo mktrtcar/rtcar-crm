@@ -36,7 +36,19 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     /* Intencao de compra (negotiation_type "Compra") vai 100% pra Milena,
        pula a triagem da I.A. e nao entra no rodizio Janderson/Maicon. */
     const intencaoCompra=(body.negotiation_type_slug||body.negotiation_type||'').toLowerCase()==='compra';
-    const origem=intencaoCompra?'Compra':((body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra');
+    const origemBruta=(body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra';
+
+    /* 20/08/2026: leads com essas origens sao, na pratica, clientes que o
+       vendedor ja atende pessoalmente e cadastrou manualmente no CRM — o
+       Autoconf so foi usado por engano/costume pra registrar o contato.
+       Nao devem ir pra Eva (ela nao sabe que ja existe atendimento humano
+       rolando) nem entrar no rodizio (nao sao leads novos de verdade). Ficam
+       em "atendimento" sem vendedor, pra alguem confirmar manualmente. */
+    const ORIGENS_CADASTRO_MANUAL=['Loja','Carteira de clientes','Passante'];
+    const cadastroManual=!intencaoCompra&&ORIGENS_CADASTRO_MANUAL.includes(origemBruta);
+
+    const origem=intencaoCompra?'Compra':origemBruta;
+    const vaiDiretoAtendimento=intencaoCompra||cadastroManual;
 
     // 20/08/2026: o rodizio (Janderson/Maicon) NAO e mais sorteado aqui. So
     // o lead de "Compra" ja sai com vendedor definido (Milena). Os demais
@@ -59,7 +71,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       id:novoId,
       dt:hojeBR(),
       dtISO:hojeISO(),
-      st:intencaoCompra?'atendimento':'ia',
+      st:vaiDiretoAtendimento?'atendimento':'ia',
       by:'',
       captador,
       uid:'',
@@ -73,10 +85,10 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       convertido:false,
       dtVenda:'',
       motivoPerda:'',
-      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`,by:'Autoconf'}],
+      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`),by:'Autoconf'}],
       pendente_at:'',
       pendente_end:'',
-      atendimento_at:intencaoCompra?new Date().toISOString():'',
+      atendimento_at:vaiDiretoAtendimento?new Date().toISOString():'',
       atendimento_end:'',
       notificacaoVendedorEm:'',
       autoconfLeadId:body.lead_id,
