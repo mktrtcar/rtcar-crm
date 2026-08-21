@@ -609,6 +609,49 @@ async function notificarVendedorCompra(lead) {
   }
 }
 
+/* Leads de cadastro manual (Loja/Carteira de clientes/Passante, a pedido do
+   Rubens, 21/08/2026): o webhook-autoconf já cria eles direto em
+   st:'atendimento', mas sem vendedor definido (não dá pra saber ainda, pelo
+   payload do Autoconf, qual vendedor especificamente cadastrou). Em vez de
+   ficar sem ninguém avisado, segue a mesma lógica de qualquer outro
+   encaminhamento: sorteia pelo rodízio (mesmo atribuirVendedorRodizio usado
+   quando o cliente responde à Eva) e notifica por WhatsApp. */
+async function getLeadsCadastroManualParaNotificar() {
+  const leads = await fbList('leads');
+  return leads.filter((l) => l.st === 'atendimento' && !l.captador && !l.notificacaoVendedorEm && l.clienteTel);
+}
+
+async function notificarCadastroManual(lead) {
+  const captador = await atribuirVendedorRodizio();
+  const numeroVendedorCru = WHATSAPP_VENDEDORES[captador];
+  let vendedorJid = null;
+  if (numeroVendedorCru) {
+    try {
+      const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+      if (check?.[0]?.exists) vendedorJid = check[0].jid;
+    } catch (e) {
+      console.error(`Erro ao validar número de ${captador} pra notificar cadastro manual ${lead.id}:`, e.message);
+    }
+  }
+  const destino = vendedorJid || NOTIFICACAO_PESSOAL;
+  const texto = vendedorJid
+    ? `🔔 Novo lead (${lead.origem || 'cadastro manual'}) pra você!\nCliente: ${lead.clienteNome || lead.id}\nTelefone: ${lead.clienteTel || '-'}\nVeículo: ${lead.veiculo || '-'}`
+    : `🔔 Lead de cadastro manual (${lead.clienteNome || lead.id}) sem WhatsApp válido cadastrado pro vendedor "${captador}" — confira o número dele.\nTelefone do cliente: ${lead.clienteTel || '-'}`;
+
+  try {
+    await sock.sendMessage(destino, { text: texto });
+    const historico = [
+      ...(lead.historico || []),
+      { dt: agoraDt(), icone: 'green', acao: `✅ Vendedor sorteado (${captador})`, obs: `Cadastro manual via Autoconf (${lead.origem || '-'}) — sorteado pelo rodízio, mesma lógica do encaminhamento da Eva.`, by: 'Eloá' },
+      { dt: agoraDt(), icone: 'purple', acao: vendedorJid ? `📲 Notificação enviada a ${captador}` : '📲 Notificação enviada (fallback pro Rubens)', obs: vendedorJid ? '' : `Vendedor "${captador}" sem WhatsApp válido cadastrado — confira o número dele.`, by: 'Eloá' },
+    ];
+    await fbUpdate('leads', lead.id, { captador, notificacaoVendedorEm: new Date().toISOString(), historico });
+    console.log(`✅ Notificação de cadastro manual enviada pra ${captador} (${lead.id}).`);
+  } catch (e) {
+    console.error(`Erro ao notificar ${captador} sobre cadastro manual ${lead.id}:`, e.message);
+  }
+}
+
 async function cicloPoll() {
   const inicioDoCiclo = new Date().toISOString();
   let novos = [];
@@ -619,6 +662,12 @@ async function cicloPoll() {
     for (const lead of comprasParaNotificar) await notificarVendedorCompra(lead);
   } catch (e) {
     console.error('Erro ao notificar leads de Compra:', e.message);
+  }
+  try {
+    const cadastrosManuaisParaNotificar = await getLeadsCadastroManualParaNotificar();
+    for (const lead of cadastrosManuaisParaNotificar) await notificarCadastroManual(lead);
+  } catch (e) {
+    console.error('Erro ao notificar leads de cadastro manual:', e.message);
   }
   try {
     novos = await getLeadsNovos();
