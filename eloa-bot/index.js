@@ -200,6 +200,13 @@ function hoje() {
   const d = new Date();
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
+// Igual a hoje(), mas com horário — usado só no "dt" de cada evento do
+// historico (a pedido do Rubens, 21/08/2026, pra dar pra ver o horário exato
+// de cada etapa no painel de acompanhamento, não só o dia).
+function agoraDt() {
+  const d = new Date();
+  return `${hoje()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 /* Sempre usar só os últimos 8 dígitos como chave pro Map telefone->lead —
    evita depender de o número vir com ou sem o "9" extra do celular
    brasileiro (WhatsApp é inconsistente nisso), mesmo problema já visto e
@@ -372,7 +379,7 @@ async function cumprimentarLead(lead) {
 
     const respostaCompleta = mensagens.join(' ');
     const conversaEloa = [{ role: 'model', texto: respostaCompleta }];
-    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: '🤖 Primeiro contato (Eloá)', obs: respostaCompleta, by: 'Eloá' }];
+    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: '🤖 Primeiro contato (Eloá)', obs: respostaCompleta, by: 'Eloá' }];
     const agoraISO = new Date().toISOString();
     await fbUpdate('leads', lead.id, { eloaEnviadoEm: agoraISO, ultimaMensagemEm: agoraISO, followUpStep: 0, conversaEloa, historico });
     console.log(`✅ Eloá cumprimentou ${lead.clienteNome} (${lead.id}).`);
@@ -397,7 +404,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
     // momento) — sorteia agora, na hora do encaminhamento de verdade.
     lead = { ...lead, captador: await atribuirVendedorRodizio() };
   }
-  const historico = [...(lead.historico || []), { dt: hoje(), icone: 'green', acao: '✅ Encaminhado para esteira (Eloá)', obs: motivoResumo, by: 'Eloá' }];
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'green', acao: '✅ Encaminhado para esteira (Eloá)', obs: motivoResumo, by: 'Eloá' }];
   await fbUpdate('leads', lead.id, { st: 'atendimento', atendimento_at: new Date().toISOString(), historico, captador: lead.captador });
   console.log(`✅ Lead ${lead.id} movido de "I.A." para "Atendimento" — vendedor ${lead.captador} — ${motivoResumo}`);
 
@@ -435,7 +442,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
     const historicoNotif = [
       ...historico,
       {
-        dt: hoje(),
+        dt: agoraDt(),
         icone: 'purple',
         acao: vendedorJid ? `📲 Notificação enviada a ${lead.captador}` : '📲 Notificação enviada (fallback pro Rubens)',
         obs: vendedorJid ? '' : `Vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele.`,
@@ -499,7 +506,7 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
 
     const respostaCompleta = mensagens.join(' ');
     const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
-    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
+    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
     await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
 
     const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico };
@@ -538,7 +545,7 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
 
   const respostaCompleta = mensagens.join(' ');
   const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
-  const historico = [...(lead.historico || []), { dt: hoje(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
   // Cliente respondeu de verdade agora — reseta o relógio do follow-up (zera o
   // step, senão ele retomaria do meio da escada da próxima vez que ficar quieto).
   await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
@@ -588,7 +595,7 @@ async function notificarVendedorCompra(lead) {
     const historico = [
       ...(lead.historico || []),
       {
-        dt: hoje(),
+        dt: agoraDt(),
         icone: 'purple',
         acao: vendedorJid ? `📲 Notificação enviada a ${lead.captador}` : '📲 Notificação enviada (fallback pro Rubens)',
         obs: vendedorJid ? '' : `Vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele.`,
@@ -698,7 +705,7 @@ async function enviarFollowUp(lead) {
     if (!completou) return;
     const respostaCompleta = mensagens.join(' ');
     const novaConversa = [...conversa, { role: 'model', texto: respostaCompleta }];
-    const historico = [...(lead.historico || []), { dt: hoje(), icone: 'purple', acao: `🔁 Follow-up automático (step ${step + 1}/${FOLLOWUP_STEPS.length})`, obs: respostaCompleta, by: 'Eloá' }];
+    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: `🔁 Follow-up automático (step ${step + 1}/${FOLLOWUP_STEPS.length})`, obs: respostaCompleta, by: 'Eloá' }];
     await fbUpdate('leads', lead.id, { conversaEloa: novaConversa, historico, followUpStep: step + 1, ultimaMensagemEm: new Date().toISOString() });
     console.log(`✅ Follow-up (step ${step + 1}/${FOLLOWUP_STEPS.length}) enviado pra ${lead.clienteNome} (${lead.id}).`);
     if (resultado.encaminharConsultor) {
