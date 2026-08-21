@@ -1009,6 +1009,7 @@ function renderListaMk(cnt){
   const selOrig=document.createElement('select');selOrig.className='select-sm';selOrig.style.minWidth='140px';
   selOrig.innerHTML=`<option value="">🌐 Todas origens</option><optgroup label="📢 Marketing">${ORIGENS_MK.marketing.map(o=>`<option${G.mk.filtroOrigem===o?' selected':''}>${o}</option>`).join('')}</optgroup><optgroup label="🛒 Compra"><option${G.mk.filtroOrigem==='Compra'?' selected':''}>Compra</option></optgroup><optgroup label="🏪 Outros">${ORIGENS_MK.outros.map(o=>`<option${G.mk.filtroOrigem===o?' selected':''}>${o}</option>`).join('')}</optgroup>`;
   selOrig.onchange=()=>{G.mk.filtroOrigem=selOrig.value;renderMarketing()};filt.appendChild(selOrig);
+  const btnExport=document.createElement('button');btnExport.className='btn btn-outline btn-sm';btnExport.innerHTML='<i class="ti ti-download"></i> Exportar';btnExport.onclick=exportarLeadsCSV;filt.appendChild(btnExport);
   wrap.appendChild(filt);
   const leads=mkLeadsFiltrados().sort((a,b)=>(b.id||'').localeCompare(a.id||''));
   const tw=document.createElement('div');tw.className='lista-table-wrap';
@@ -1027,6 +1028,23 @@ function renderListaMk(cnt){
     t.appendChild(tb2);tw.appendChild(t);
   }
   wrap.appendChild(tw);cnt.appendChild(wrap);
+}
+function exportarLeadsCSV(){
+  const leads=mkLeadsFiltrados().sort((a,b)=>(b.id||'').localeCompare(a.id||''));
+  if(!leads.length){toast('Nenhum lead pra exportar com esses filtros','gold');return;}
+  const linhas=[['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Motivo/Resultado']];
+  leads.forEach(l=>{
+    const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
+    const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
+    linhas.push([l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'',l.captador||l.by||'',col.label,resultado]);
+  });
+  const csv=linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const bom=String.fromCharCode(0xFEFF);
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`leads_${hoje().replace(/\//g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+  toast(`${leads.length} lead(s) exportado(s)!`);
 }
 
 function renderRelatoriosMk(cnt){
@@ -1055,7 +1073,7 @@ function renderRelatoriosMk(cnt){
   const vendasRecuperadas=all.filter(l=>l.vendaRecuperada).length;
   wrap.innerHTML=`
   <div class="rel-reporte">
-    <div class="rp-header"><i class="ti ti-clipboard-data"></i> Reporte de Leads <span class="rp-period">${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}</span></div>
+    <div class="rp-header"><i class="ti ti-clipboard-data"></i> Reporte de Leads <span class="rp-period">${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}</span><button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="exportarRelatorioCSV()"><i class="ti ti-download"></i> Exportar</button></div>
     <div class="rp-grid">
       <div class="rp-section">
         <div class="rp-sec-title">📢 Leads Canal de Marketing</div>
@@ -1131,6 +1149,41 @@ function renderConversao(el,data){
   el.innerHTML=entries.map(([k,v])=>{const pct=v.total?Math.round(v.vendidos/v.total*100):0;
     return`<div class="bar-item"><span class="bar-lbl" title="${k}">${k}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--green)"></div></div><span class="bar-val">${v.vendidos}/${v.total} (${pct}%)</span></div>`;
   }).join('');
+}
+function exportarRelatorioCSV(){
+  const all=mkLeadsFiltrados();
+  if(!all.length){toast('Nenhum lead pra exportar com esses filtros','gold');return;}
+  const porCanal={};all.forEach(l=>{const k=l.origem||'—';porCanal[k]=(porCanal[k]||0)+1;});
+  const porCap={};all.forEach(l=>{const c=l.captador||l.by||'—';porCap[c]=(porCap[c]||0)+1;});
+  const funil={};COLS_MK.forEach(col=>{funil[col.id]=all.filter(l=>l.st===col.id).length;});
+  const convPorOrigem={};all.forEach(l=>{const k=l.origem||'—';if(!convPorOrigem[k])convPorOrigem[k]={total:0,vendidos:0};convPorOrigem[k].total++;if(l.st==='vendido')convPorOrigem[k].vendidos++;});
+  const convPorCap={};all.forEach(l=>{const k=l.captador||l.by||'—';if(!convPorCap[k])convPorCap[k]={total:0,vendidos:0};convPorCap[k].total++;if(l.st==='vendido')convPorCap[k].vendidos++;});
+  const motivosPerda={};all.filter(l=>l.st==='perdido'&&l.motivoPerda).forEach(l=>{motivosPerda[l.motivoPerda]=(motivosPerda[l.motivoPerda]||0)+1;});
+  const linhas=[[`Reporte de Leads — ${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}`],[]];
+  linhas.push(['Por Canal','Quantidade']);
+  Object.entries(porCanal).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>linhas.push([k,v]));
+  linhas.push([]);
+  linhas.push(['Por Vendedor','Quantidade']);
+  Object.entries(porCap).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>linhas.push([k,v]));
+  linhas.push([]);
+  linhas.push(['Funil','Quantidade']);
+  COLS_MK.forEach(col=>linhas.push([col.label,funil[col.id]||0]));
+  linhas.push([]);
+  linhas.push(['Conversão por Origem','Vendidos','Total','%']);
+  Object.entries(convPorOrigem).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total).forEach(([k,v])=>linhas.push([k,v.vendidos,v.total,v.total?Math.round(v.vendidos/v.total*100)+'%':'0%']));
+  linhas.push([]);
+  linhas.push(['Conversão por Vendedor','Vendidos','Total','%']);
+  Object.entries(convPorCap).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total).forEach(([k,v])=>linhas.push([k,v.vendidos,v.total,v.total?Math.round(v.vendidos/v.total*100)+'%':'0%']));
+  linhas.push([]);
+  linhas.push(['Motivos de Perda','Quantidade']);
+  Object.entries(motivosPerda).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>linhas.push([k,v]));
+  const csv=linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const bom=String.fromCharCode(0xFEFF);
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`relatorio_leads_${hoje().replace(/\//g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+  toast('Relatório exportado!');
 }
 </script>
 <script>
