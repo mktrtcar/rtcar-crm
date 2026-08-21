@@ -429,6 +429,20 @@ async function encaminharParaConsultor(lead, motivoResumo) {
 
   try {
     await sock.sendMessage(destino, { text: texto });
+    // Evento separado do "Encaminhado para esteira" acima — aqui é a confirmação
+    // real de que o WhatsApp foi enviado (não é confirmação de entrega/leitura,
+    // o Baileys não expõe isso de forma confiável, só que o envio não deu erro).
+    const historicoNotif = [
+      ...historico,
+      {
+        dt: hoje(),
+        icone: 'purple',
+        acao: vendedorJid ? `📲 Notificação enviada a ${lead.captador}` : '📲 Notificação enviada (fallback pro Rubens)',
+        obs: vendedorJid ? '' : `Vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele.`,
+        by: 'Eloá',
+      },
+    ];
+    await fbUpdate('leads', lead.id, { historico: historicoNotif });
   } catch (e) {
     console.error(`Erro ao notificar ${vendedorJid ? lead.captador : 'Rubens'} sobre encaminhamento:`, e.message);
   }
@@ -571,7 +585,17 @@ async function notificarVendedorCompra(lead) {
 
   try {
     await sock.sendMessage(destino, { text: texto });
-    await fbUpdate('leads', lead.id, { notificacaoVendedorEm: new Date().toISOString() });
+    const historico = [
+      ...(lead.historico || []),
+      {
+        dt: hoje(),
+        icone: 'purple',
+        acao: vendedorJid ? `📲 Notificação enviada a ${lead.captador}` : '📲 Notificação enviada (fallback pro Rubens)',
+        obs: vendedorJid ? '' : `Vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele.`,
+        by: 'Eloá',
+      },
+    ];
+    await fbUpdate('leads', lead.id, { notificacaoVendedorEm: new Date().toISOString(), historico });
     console.log(`✅ Notificação de lead de Compra enviada pra ${lead.captador || 'Rubens'} (${lead.id}).`);
   } catch (e) {
     console.error(`Erro ao notificar ${lead.captador || 'Rubens'} sobre lead de Compra ${lead.id}:`, e.message);
