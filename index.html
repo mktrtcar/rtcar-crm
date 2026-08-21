@@ -2713,7 +2713,7 @@ function renderIA(cnt){
       <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-weight:700;font-size:14px">${leadSel.clienteNome||leadSel.id}</div>
-          <div style="font-size:11px;color:var(--tx3);margin-top:2px">${leadSel.clienteTel||'-'} · ${leadSel.veiculo||'sem veículo'} · ${leadSel.id}${desde?` · última mensagem há ${calcElapsed(desde,null)}`:''}</div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:2px">${leadSel.clienteTel||'-'} · ${leadSel.veiculo||'sem veículo'} · ${leadSel.id}${desde==='NUMERO_INVALIDO'?' · telefone inválido — não enviado':(desde?` · última mensagem há ${calcElapsed(desde,null)}`:'')}</div>
         </div>
         ${leadSel.captador?`<span class="badge" style="background:var(--purplel);color:var(--purple)">${leadSel.captador}</span>`:''}
       </div>
