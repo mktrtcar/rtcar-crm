@@ -589,7 +589,7 @@ const USUARIOS=[
 
 /* COLUNAS MARKETING */
 const COLS_MK=[
-  {id:'ia',          label:'I.A.',         emoji:'🤖', desc:'Lead recebido — triagem por I.A.',              cor:'#6b3db8', bg:'#f3e8fb'},
+  {id:'ia',          label:'I.A.',         emoji:'🤖', desc:'Lead recebido — triagem por I.A.',              cor:'#6b3db8', bg:'#f3e8fb', timer:true},
   {id:'atendimento', label:'Atendimento',  emoji:'💬', desc:'Vendedor em atendimento ativo',                 cor:'#1e4d8c', bg:'#e8f0fb', timer:true},
   {id:'encantamento',label:'Encantamento', emoji:'✨', desc:'Construindo relacionamento com o cliente',      cor:'#0b7ba8', bg:'#e8f8fb'},
   {id:'agendamento', label:'Agendamento',  emoji:'📅', desc:'Agendamento feito — timer de resposta ativo',  cor:'#b8860b', bg:'#faf6e8', timer:true},
@@ -675,7 +675,7 @@ function fromFF(fields){if(!fields)return{};return Object.fromEntries(Object.ent
 async function fbList(col){
   const r=await fetch(`${FB_URL}/${col}?key=${FB.apiKey}&pageSize=300`);
   if(!r.ok)throw new Error(await r.text());
-  return((await r.json()).documents||[]).map(d=>({...fromFF(d.fields),_docName:d.name}));
+  return((await r.json()).documents||[]).map(d=>({...fromFF(d.fields),_docName:d.name,_criadoEm:d.createTime}));
 }
 async function fbCreate(col,id,data){
   const r=await fetch(`${FB_URL}/${col}?documentId=${id}&key=${FB.apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:toFF(data)})});
@@ -939,8 +939,8 @@ function renderKanbanMk(cnt){
       c.addEventListener('dragstart',()=>{G.mk.dragId=l.id;c.classList.add('dragging')});
       c.addEventListener('dragend',()=>{G.mk.dragId=null;c.classList.remove('dragging')});
       c.onclick=e=>{if(!e.target.closest('.card-btn'))abrirDetailLead(l.id)};
-      const timerStart=col.id==='atendimento'?l.atendimento_at:l.pendente_at;
-      const timerEnd=col.id==='atendimento'?l.atendimento_end:l.pendente_end;
+      const timerStart=col.id==='atendimento'?l.atendimento_at:(col.id==='ia'?l._criadoEm:l.pendente_at);
+      const timerEnd=col.id==='atendimento'?l.atendimento_end:(col.id==='ia'?null:l.pendente_end);
       const timerInline=col.timer&&timerStart&&!timerEnd?
         `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
         (col.timer&&timerStart&&timerEnd?
