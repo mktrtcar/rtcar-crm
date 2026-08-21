@@ -7,6 +7,10 @@ const db = admin.firestore();
 function pad3(n){return String(n).padStart(3,'0');}
 function hojeBR(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
 function hojeISO(){return new Date().toISOString().slice(0,10);}
+// Igual a hojeBR(), mas com horario - usado so no "dt" do evento de historico
+// (21/08/2026, a pedido do Rubens, pra dar pra ver o horario exato de cada
+// etapa no painel de acompanhamento, nao so o dia).
+function agoraBR(){const d=new Date();return `${hojeBR()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 
 function montarVeiculo(lead){
   const v=(lead.interested_in_vehicle||[])[0];
@@ -85,7 +89,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
       convertido:false,
       dtVenda:'',
       motivoPerda:'',
-      historico:[{dt:hojeBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`),by:'Autoconf'}],
+      historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`),by:'Autoconf'}],
       pendente_at:'',
       pendente_end:'',
       atendimento_at:vaiDiretoAtendimento?new Date().toISOString():'',
