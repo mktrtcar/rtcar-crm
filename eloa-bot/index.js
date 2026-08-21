@@ -449,7 +449,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
         by: 'Eloá',
       },
     ];
-    await fbUpdate('leads', lead.id, { historico: historicoNotif });
+    await fbUpdate('leads', lead.id, { historico: historicoNotif, notificacaoVendedorEm: new Date().toISOString() });
   } catch (e) {
     console.error(`Erro ao notificar ${vendedorJid ? lead.captador : 'Rubens'} sobre encaminhamento:`, e.message);
   }
@@ -563,17 +563,21 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
   }
 }
 
-/* Leads de "Compra" (a pedido da Aline, 19/08/2026) nunca passam pela Eva —
-   o webhook-autoconf já cria eles direto em st:'atendimento' com o
-   captador='Milena', sem gerar saudação nem entrar na coluna IA. Aqui só
-   avisa a Milena por WhatsApp que chegou um lead novo pra ela, uma única
-   vez (marca notificacaoVendedorEm pra não avisar de novo). */
-async function getLeadsCompraParaNotificar() {
+/* 20/08/2026 (a pedido da Aline): qualquer lead que fique em "atendimento"
+   JÁ COM VENDEDOR DEFINIDO precisa gerar aviso por WhatsApp pra esse
+   vendedor — não importa se é um lead de "Compra" (webhook já cria direto
+   em atendimento/Milena) ou se foi cadastrado manualmente por alguém direto
+   no CRM, escolhendo o vendedor na hora (esses nunca passam pela Eva, então
+   sem este ciclo aqui ninguém nunca avisaria o vendedor). Não conflita com
+   getLeadsCadastroManualParaNotificar (que trata o caso contrário: lead em
+   atendimento SEM vendedor ainda) — os dois filtros são mutuamente
+   exclusivos pelo campo captador. */
+async function getLeadsParaNotificarVendedor() {
   const leads = await fbList('leads');
-  return leads.filter((l) => l.origem === 'Compra' && l.st === 'atendimento' && !l.notificacaoVendedorEm && l.clienteTel);
+  return leads.filter((l) => l.st === 'atendimento' && l.captador && !l.notificacaoVendedorEm && l.clienteTel);
 }
 
-async function notificarVendedorCompra(lead) {
+async function notificarVendedorAtribuido(lead) {
   const numeroVendedorCru = WHATSAPP_VENDEDORES[lead.captador];
   let vendedorJid = null;
   if (numeroVendedorCru) {
@@ -581,14 +585,17 @@ async function notificarVendedorCompra(lead) {
       const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
       if (check?.[0]?.exists) vendedorJid = check[0].jid;
     } catch (e) {
-      console.error(`Erro ao validar número de ${lead.captador} pra notificar lead de Compra ${lead.id}:`, e.message);
+      console.error(`Erro ao validar número de ${lead.captador} pra notificar lead ${lead.id}:`, e.message);
     }
   }
   const destino = vendedorJid || NOTIFICACAO_PESSOAL;
   const primeiraLinhaObs = (lead.obs || '').split('\n')[0];
+  const ehCompra = lead.origem === 'Compra';
   const texto = vendedorJid
-    ? `🔔 Novo lead de COMPRA (avaliação/venda de veículo) pra você!\nCliente: ${lead.clienteNome || lead.id}\nTelefone: ${lead.clienteTel || '-'}${primeiraLinhaObs ? '\n' + primeiraLinhaObs : ''}`
-    : `🔔 Lead de Compra (${lead.clienteNome || lead.id}) sem WhatsApp válido cadastrado pro vendedor "${lead.captador || 'não definido'}" — confira o número dele.\nTelefone do cliente: ${lead.clienteTel || '-'}`;
+    ? (ehCompra
+      ? `🔔 Novo lead de COMPRA (avaliação/venda de veículo) pra você!\nCliente: ${lead.clienteNome || lead.id}\nTelefone: ${lead.clienteTel || '-'}${primeiraLinhaObs ? '\n' + primeiraLinhaObs : ''}`
+      : `🔔 Novo lead atribuído pra você!\nCliente: ${lead.clienteNome || lead.id}\nOrigem: ${lead.origem || '-'}\nVeículo: ${lead.veiculo || '-'}\nTelefone: ${lead.clienteTel || '-'}${primeiraLinhaObs ? '\n' + primeiraLinhaObs : ''}`)
+    : `🔔 Lead (${lead.clienteNome || lead.id}) sem WhatsApp válido cadastrado pro vendedor "${lead.captador || 'não definido'}" — confira o número dele.\nTelefone do cliente: ${lead.clienteTel || '-'}`;
 
   try {
     await sock.sendMessage(destino, { text: texto });
@@ -603,9 +610,9 @@ async function notificarVendedorCompra(lead) {
       },
     ];
     await fbUpdate('leads', lead.id, { notificacaoVendedorEm: new Date().toISOString(), historico });
-    console.log(`✅ Notificação de lead de Compra enviada pra ${lead.captador || 'Rubens'} (${lead.id}).`);
+    console.log(`✅ Notificação enviada pra ${lead.captador || 'Rubens'} (${lead.id}).`);
   } catch (e) {
-    console.error(`Erro ao notificar ${lead.captador || 'Rubens'} sobre lead de Compra ${lead.id}:`, e.message);
+    console.error(`Erro ao notificar ${lead.captador || 'Rubens'} sobre lead ${lead.id}:`, e.message);
   }
 }
 
@@ -615,10 +622,10 @@ async function cicloPoll() {
   let ultimoOk = null;
   let todosOk = true;
   try {
-    const comprasParaNotificar = await getLeadsCompraParaNotificar();
-    for (const lead of comprasParaNotificar) await notificarVendedorCompra(lead);
+    const parasNotificar = await getLeadsParaNotificarVendedor();
+    for (const lead of parasNotificar) await notificarVendedorAtribuido(lead);
   } catch (e) {
-    console.error('Erro ao notificar leads de Compra:', e.message);
+    console.error('Erro ao notificar vendedores sobre leads atribuídos:', e.message);
   }
   try {
     novos = await getLeadsNovos();
