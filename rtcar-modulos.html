@@ -858,6 +858,7 @@ function iniciarAutoRefreshMk(){
   G.mk._autoRefreshInterval=setInterval(async()=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
     if(algumaJanelaAberta())return;
+    if(document.activeElement&&['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;
     try{G.mk.leads=await fbList('leads');renderMarketing();}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
   },10000);
 }
