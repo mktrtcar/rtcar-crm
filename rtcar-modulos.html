@@ -872,6 +872,9 @@ function renderMarketing(){
   if(G.modulo!=='marketing')return;
   const tb=document.getElementById('tb');
   const view=G.mk.view;
+  const buscaFocada=document.activeElement&&document.activeElement.id==='mk-busca';
+  const buscaSelStart=buscaFocada?document.activeElement.selectionStart:null;
+  const buscaSelEnd=buscaFocada?document.activeElement.selectionEnd:null;
   tb.innerHTML=`
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
     <div class="tb-sep"></div>
@@ -888,9 +891,14 @@ function renderMarketing(){
       <input type="date" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="G.mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
       ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.mk.filtroCaptador=\'\';G.mk.filtroDataInicio=\'\';G.mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="G.mk.busca=this.value;renderMarketing()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="G.mk.busca=this.value;renderMarketing()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalLead()"><i class="ti ti-plus"></i> Novo Lead</button>
   `;
+  if(buscaFocada){
+    const buscaEl=document.getElementById('mk-busca');
+    buscaEl.focus();
+    buscaEl.setSelectionRange(buscaSelStart,buscaSelEnd);
+  }
   const cnt=document.getElementById('cnt');
   G.mk._scrollAnterior={};
   cnt.querySelectorAll('.kb-col-body').forEach(b=>{G.mk._scrollAnterior[b.dataset.col]=b.scrollTop;});
