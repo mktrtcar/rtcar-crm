@@ -471,7 +471,15 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
   const aindaValido = () => turnoPorLead.get(leadId) === meuTurno;
 
   const conversa = lead.conversaEloa || [];
-  const primeiraRespostaDoCliente = conversa.length === 1; // só a saudação existia antes desta troca
+  // 22/08/2026: antes checava "conversa.length === 1" (só a saudação existia
+  // antes desta troca) - mas isso só cobria quem responde ANTES de qualquer
+  // follow-up. Um cliente que só responde depois de 1+ follow-ups (a
+  // conversa já tinha mais de 1 mensagem, todas da Eva) escapava do modo
+  // simplificado e caía no fluxo completo de IA, voltando a "negociar"
+  // como vendedora (caso real: Cláudio/Mateus perguntando por Porsche 911,
+  // 22/08/2026). Checar se NENHUMA mensagem anterior é do cliente cobre os
+  // dois casos.
+  const primeiraRespostaDoCliente = !conversa.some((m) => m.role === 'user');
   const dadosVeiculo = await buscarDadosCompletos(lead, mensagemCliente, conversa);
 
   /* MVP temporário (18/08/2026, ajustado 19/08/2026 a pedido da Aline): na
