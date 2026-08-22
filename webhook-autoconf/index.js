@@ -18,6 +18,13 @@ function montarVeiculo(lead){
   return [v.brand,v.model,v.version].filter(Boolean).join(' ');
 }
 
+// So os ultimos 8 digitos - mesmo criterio ja usado no eloa-bot (chaveTel)
+// pra nao depender de DDI/"9" extra do celular brasileiro.
+function normalizarTel(tel){
+  const digitos=(tel||'').replace(/\D/g,'');
+  return digitos.slice(-8)||null;
+}
+
 function montarObs(lead){
   const partes=[];
   if(lead.message)partes.push(lead.message);
@@ -41,6 +48,49 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
        pula a triagem da I.A. e nao entra no rodizio Janderson/Maicon. */
     const intencaoCompra=(body.negotiation_type_slug||body.negotiation_type||'').toLowerCase()==='compra';
     const origemBruta=(body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra';
+
+    /* 22/08/2026, a pedido do Rubens: mesmo cliente contata por mais de uma
+       plataforma (ex: Mercado Livre e depois Webmotors) — sem isso, cada
+       contato virava um lead novo e independente, a Eva cumprimentava duas
+       vezes pelo mesmo WhatsApp, e a resposta do cliente só "grudava" no
+       lead mais recente (o mapa telefone->lead do eloa-bot é sobrescrito a
+       cada saudação) — o lead mais antigo ficava zumbi, recebendo follow-up
+       sozinho pra sempre. Agora, se já existe um lead ATIVO (IA ou
+       Atendimento) com o mesmo telefone, não cria lead novo nenhum — só
+       mescla a informação no lead existente. Se o lead antigo já estava
+       Vendido/Perdido, conta como contato novo de verdade (não é
+       duplicado, é uma nova oportunidade). */
+    const telNorm=normalizarTel(body.mobile_phone||body.phone);
+    if(telNorm){
+      const candidatos=await db.collection('leads').where('clienteTelNorm','==',telNorm).get();
+      const ativo=candidatos.docs.map(d=>({_id:d.id,...d.data()})).find(l=>l.st==='ia'||l.st==='atendimento');
+      if(ativo){
+        const origemNova=(body.negotiation_type_slug||body.negotiation_type||'').toLowerCase()==='compra'?'Compra':((body.origins&&body.origins[0]&&body.origins[0].nome)||'Outra');
+        const veiculoNovo=montarVeiculo(body);
+        const historicoNovo=[...(ativo.historico||[]),{
+          dt:agoraBR(),
+          icone:'gold',
+          acao:'🔗 Contato duplicado (outra plataforma)',
+          obs:`Cliente também entrou em contato via ${origemNova}${veiculoNovo?` — interesse em: ${veiculoNovo}`:''}. Mesclado com este atendimento (Autoconf lead #${body.lead_id}).`,
+          by:'Autoconf',
+        }];
+        const atualizacoes={historico:historicoNovo};
+        if(!ativo.veiculo&&veiculoNovo)atualizacoes.veiculo=veiculoNovo;
+        await db.collection('leads').doc(ativo._id).update(atualizacoes);
+
+        if(ativo.st==='atendimento'&&ativo.captador){
+          await db.collection('mensagens_avulsas').add({
+            destino:ativo.captador,
+            texto:`Só um adendo sobre ${ativo.clienteNome||ativo._id}: ele também entrou em contato agora via ${origemNova}${veiculoNovo?`, demonstrando interesse em ${veiculoNovo}`:''}. Não é um lead novo — é o mesmo cliente que você já está atendendo (${ativo._id}).`,
+            enviadaEm:'',
+            criadaEm:new Date().toISOString(),
+          });
+        }
+
+        res.status(200).send('mesclado com lead existente');
+        return;
+      }
+    }
 
     /* 20/08/2026: leads com essas origens sao, na pratica, clientes que o
        vendedor ja atende pessoalmente e cadastrou manualmente no CRM — o
@@ -82,6 +132,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
         origem,
         clienteNome:body.name||'',
         clienteTel:body.mobile_phone||body.phone||'',
+        clienteTelNorm:normalizarTel(body.mobile_phone||body.phone)||'',
         clienteEmail:body.email||'',
         veiculo:montarVeiculo(body),
         valor:'',
