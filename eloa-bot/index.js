@@ -684,11 +684,53 @@ async function notificarErroWebhook(erro) {
   }
 }
 
+/* Mecanismo simples pra mandar um aviso avulso (não automático) pra um
+   vendedor, reaproveitando a conexão do WhatsApp que já está ativa — sem
+   isso, não tem como mandar mensagem manual sem arriscar derrubar a sessão
+   rodando (Baileys não permite duas conexões na mesma pasta ./auth). Usado
+   pela primeira vez em 22/08/2026 pra avisar Janderson/Maicon/Milena sobre
+   o efeito colateral das notificações de leads antigos. Documentos são
+   criados manualmente na coleção mensagens_avulsas: campo "destino" (nome
+   do vendedor, chave de WHATSAPP_VENDEDORES) e "texto" (a mensagem). */
+async function getMensagensAvulsasParaEnviar() {
+  const msgs = await fbList('mensagens_avulsas');
+  return msgs.filter((m) => !m.enviadaEm && m.destino && m.texto);
+}
+
+async function enviarMensagemAvulsa(msg) {
+  const docId = (msg._docName || '').split('/').pop();
+  const numeroVendedorCru = WHATSAPP_VENDEDORES[msg.destino];
+  if (!numeroVendedorCru) {
+    console.error(`Destino desconhecido pra mensagem avulsa: ${msg.destino}`);
+    return;
+  }
+  let jid = numeroVendedorCru;
+  try {
+    const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+    if (check?.[0]?.exists) jid = check[0].jid;
+  } catch (e) {
+    console.error(`Erro ao validar número de ${msg.destino} pra mensagem avulsa:`, e.message);
+  }
+  try {
+    await sock.sendMessage(jid, { text: msg.texto });
+    if (docId) await fbUpdate('mensagens_avulsas', docId, { enviadaEm: new Date().toISOString() });
+    console.log(`✅ Mensagem avulsa enviada pra ${msg.destino}.`);
+  } catch (e) {
+    console.error(`Erro ao enviar mensagem avulsa pra ${msg.destino}:`, e.message);
+  }
+}
+
 async function cicloPoll() {
   const inicioDoCiclo = new Date().toISOString();
   let novos = [];
   let ultimoOk = null;
   let todosOk = true;
+  try {
+    const mensagensAvulsas = await getMensagensAvulsasParaEnviar();
+    for (const msg of mensagensAvulsas) await enviarMensagemAvulsa(msg);
+  } catch (e) {
+    console.error('Erro ao enviar mensagens avulsas:', e.message);
+  }
   try {
     const errosParaNotificar = await getErrosWebhookParaNotificar();
     for (const erro of errosParaNotificar) await notificarErroWebhook(erro);
