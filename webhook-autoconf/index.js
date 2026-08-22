@@ -54,54 +54,72 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     const origem=intencaoCompra?'Compra':origemBruta;
     const vaiDiretoAtendimento=intencaoCompra||cadastroManual;
 
-    // 20/08/2026: o rodizio (Janderson/Maicon) NAO e mais sorteado aqui. So
-    // o lead de "Compra" ja sai com vendedor definido (Milena). Os demais
-    // ficam com captador vazio ate o cliente responder de verdade pra Eva —
-    // o sorteio acontece no eloa-bot nesse momento, pra um lead nunca
-    // respondido nao consumir a vez de ninguem no rodizio.
-    const {novoId,captador}=await db.runTransaction(async tx=>{
+    // 22/08/2026: a criacao do lead inteiro agora acontece DENTRO da mesma
+    // transacao que reserva o numero de sequencia. Antes eram duas operacoes
+    // separadas (reservar o numero, depois gravar o lead) - qualquer falha
+    // entre uma e outra "gastava" o numero sem nunca criar o lead de
+    // verdade, de forma silenciosa (bug real: 13 numeros de sequencia
+    // perdidos entre 18-22/08/2026, incluindo um cliente real - Maycon -
+    // que so foi notado por acaso dias depois). Agora ou as duas coisas
+    // acontecem juntas, ou nenhuma acontece - o Firestore desfaz tudo
+    // sozinho se der erro no meio.
+    await db.runTransaction(async tx=>{
       const refSeq=db.collection('leads_config').doc('mk');
       const snapSeq=await tx.get(refSeq);
 
       const seq=((snapSeq.exists&&snapSeq.data().leadSeq)||0)+1;
+      const novoId=`LEAD-${pad3(seq)}`;
+      const captador=intencaoCompra?'Milena':'';
+
+      const lead={
+        id:novoId,
+        dt:hojeBR(),
+        dtISO:hojeISO(),
+        st:vaiDiretoAtendimento?'atendimento':'ia',
+        by:'',
+        captador,
+        uid:'',
+        origem,
+        clienteNome:body.name||'',
+        clienteTel:body.mobile_phone||body.phone||'',
+        clienteEmail:body.email||'',
+        veiculo:montarVeiculo(body),
+        valor:'',
+        obs:montarObs(body),
+        convertido:false,
+        dtVenda:'',
+        motivoPerda:'',
+        historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`),by:'Autoconf'}],
+        pendente_at:'',
+        pendente_end:'',
+        atendimento_at:vaiDiretoAtendimento?new Date().toISOString():'',
+        atendimento_end:'',
+        notificacaoVendedorEm:'',
+        autoconfLeadId:body.lead_id,
+      };
+
       tx.set(refSeq,{leadSeq:seq},{merge:true});
-
-      if(intencaoCompra)return{novoId:`LEAD-${pad3(seq)}`,captador:'Milena'};
-
-      return {novoId:`LEAD-${pad3(seq)}`,captador:''};
+      tx.set(db.collection('leads').doc(novoId),lead);
     });
 
-    const lead={
-      id:novoId,
-      dt:hojeBR(),
-      dtISO:hojeISO(),
-      st:vaiDiretoAtendimento?'atendimento':'ia',
-      by:'',
-      captador,
-      uid:'',
-      origem,
-      clienteNome:body.name||'',
-      clienteTel:body.mobile_phone||body.phone||'',
-      clienteEmail:body.email||'',
-      veiculo:montarVeiculo(body),
-      valor:'',
-      obs:montarObs(body),
-      convertido:false,
-      dtVenda:'',
-      motivoPerda:'',
-      historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`),by:'Autoconf'}],
-      pendente_at:'',
-      pendente_end:'',
-      atendimento_at:vaiDiretoAtendimento?new Date().toISOString():'',
-      atendimento_end:'',
-      notificacaoVendedorEm:'',
-      autoconfLeadId:body.lead_id,
-    };
-
-    await db.collection('leads').doc(novoId).set(lead);
     res.status(200).send('ok');
   }catch(e){
     console.error(e);
+    // 22/08/2026: antes, um erro aqui so ficava no log do Cloud Functions
+    // (que ninguem olha no dia a dia) - o lead sumia sem ninguem saber.
+    // Agora grava o corpo bruto recebido numa colecao separada, pra nunca
+    // perder o dado de verdade, e o eloa-bot avisa por WhatsApp assim que
+    // encontrar um erro novo aqui (ver getErrosWebhookParaNotificar).
+    try{
+      await db.collection('erros_webhook').add({
+        criadoEm:new Date().toISOString(),
+        erro:String((e&&e.message)||e),
+        body,
+        notificadoEm:'',
+      });
+    }catch(e2){
+      console.error('Falha ao registrar erro do webhook:',e2);
+    }
     res.status(500).send('erro interno');
   }
 });

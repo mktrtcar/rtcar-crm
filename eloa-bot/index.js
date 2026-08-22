@@ -659,11 +659,42 @@ async function notificarCadastroManual(lead) {
   }
 }
 
+/* Se o webhook-autoconf falhar de verdade (mesmo com a transação atômica
+   que agora protege a criação do lead — 22/08/2026), ele grava um registro
+   em erros_webhook em vez de deixar o lead sumir silenciosamente. Aqui a
+   Eva fica de olho nesses erros e avisa o Rubens por WhatsApp assim que
+   encontrar um novo, pra dar pra recuperar manualmente rápido, sem depender
+   de alguém notar por acaso dias depois (foi assim que perdemos o Maycon). */
+async function getErrosWebhookParaNotificar() {
+  const erros = await fbList('erros_webhook');
+  return erros.filter((e) => !e.notificadoEm);
+}
+
+async function notificarErroWebhook(erro) {
+  const nome = (erro.body && erro.body.name) || 'desconhecido';
+  const tel = (erro.body && (erro.body.mobile_phone || erro.body.phone)) || 'desconhecido';
+  const texto = `⚠️ Falha ao criar um lead vindo do Autoconf!\nCliente: ${nome}\nTelefone: ${tel}\nErro: ${erro.erro}\nVerifique e recupere manualmente se for um lead real.`;
+  const docId = (erro._docName || '').split('/').pop();
+  try {
+    await sock.sendMessage(NOTIFICACAO_PESSOAL, { text: texto });
+    if (docId) await fbUpdate('erros_webhook', docId, { notificadoEm: new Date().toISOString() });
+    console.log(`⚠️ Notificação de erro do webhook enviada — cliente ${nome}.`);
+  } catch (e) {
+    console.error('Erro ao notificar falha do webhook:', e.message);
+  }
+}
+
 async function cicloPoll() {
   const inicioDoCiclo = new Date().toISOString();
   let novos = [];
   let ultimoOk = null;
   let todosOk = true;
+  try {
+    const errosParaNotificar = await getErrosWebhookParaNotificar();
+    for (const erro of errosParaNotificar) await notificarErroWebhook(erro);
+  } catch (e) {
+    console.error('Erro ao notificar falhas do webhook:', e.message);
+  }
   try {
     const parasNotificar = await getLeadsParaNotificarVendedor();
     for (const lead of parasNotificar) await notificarVendedorAtribuido(lead);
