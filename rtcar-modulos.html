@@ -892,6 +892,8 @@ function renderMarketing(){
     <button class="btn btn-red btn-sm" onclick="abrirModalLead()"><i class="ti ti-plus"></i> Novo Lead</button>
   `;
   const cnt=document.getElementById('cnt');
+  G.mk._scrollAnterior={};
+  cnt.querySelectorAll('.kb-col-body').forEach(b=>{G.mk._scrollAnterior[b.dataset.col]=b.scrollTop;});
   cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanMk(cnt);
   else if(view==='lista') renderListaMk(cnt);
@@ -930,6 +932,7 @@ function mkLeadsFiltrados(){
 }
 
 function renderKanbanMk(cnt){
+  const scrollAnterior=G.mk._scrollAnterior||{};
   const wrap=document.createElement('div');wrap.className='kanban-wrap';
   COLS_MK.filter(col=>!(escondeColunaIA()&&col.id==='ia')).forEach(col=>{
     const leads=mkLeadsFiltrados().filter(l=>l.st===col.id);
@@ -983,6 +986,7 @@ function renderKanbanMk(cnt){
     wrap.appendChild(div);
   });
   cnt.appendChild(wrap);
+  cnt.querySelectorAll('.kb-col-body').forEach(b=>{if(scrollAnterior[b.dataset.col])b.scrollTop=scrollAnterior[b.dataset.col];});
   iniciarTimerCRM();
 }
 
