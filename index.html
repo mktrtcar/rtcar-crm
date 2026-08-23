@@ -972,7 +972,14 @@ function renderKanbanMk(cnt){
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
         ${col.id==='perdido'?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
-        ${col.id==='agendamento'?`<div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap">
+        ${col.id==='agendamento'?`<div style="margin:4px 0">
+          <div style="display:flex;align-items:center;gap:5px">
+            <i class="ti ti-calendar" style="font-size:12px;color:var(--tx3)"></i>
+            <input type="date" value="${l.agendamentoData||''}" onclick="event.stopPropagation()" onchange="setAgendamentoDataMk('${l.id}',this.value,event)" style="font-size:11px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f)">
+          </div>
+          ${l.agendamentoData&&!l.agendamentoStatus&&l.agendamentoData<new Date().toISOString().split('T')[0]?'<div style="color:#e8431e;font-weight:700;font-size:11px;margin-top:2px">⚠ Atrasado</div>':''}
+        </div>
+        <div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap">
           <button class="card-btn card-btn-label" onclick="setAgendamentoStatusMk('${l.id}','compareceu',event)" style="${l.agendamentoStatus==='compareceu'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">✅ Compareceu</button>
           <button class="card-btn card-btn-label" onclick="setAgendamentoStatusMk('${l.id}','nao_compareceu',event)" style="${l.agendamentoStatus==='nao_compareceu'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">❌ Não compareceu</button>
           <button class="card-btn card-btn-label" onclick="setAgendamentoStatusMk('${l.id}','reagendado',event)" style="${l.agendamentoStatus==='reagendado'?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">🔄 Reagendamento</button>
@@ -1437,6 +1444,14 @@ async function setAgendamentoStatusMk(id,valor,e){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead.agendamentoStatus=lead.agendamentoStatus===valor?'':valor;
   await salvarCamposMk(id,{agendamentoStatus:lead.agendamentoStatus});
+  renderMarketing();
+}
+async function setAgendamentoDataMk(id,valor,e){
+  if(e)e.stopPropagation();
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead.agendamentoData=valor;
+  await salvarCamposMk(id,{agendamentoData:valor});
+  await regHistMk(lead,'📅 Data de agendamento definida',valor?isoParaBR(valor):'(removida)',G.user?.n||'','gold');
   renderMarketing();
 }
 async function toggleEncantamentoMk(id,campo,e){
