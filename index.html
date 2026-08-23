@@ -1256,10 +1256,18 @@ async function salvarLead(){
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
   if(!captador&&!G.mk.editandoId)captador=await proximoVendedorRodizio();
   const dtISO=new Date().toISOString().split('T')[0];
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:document.getElementById('f-etapa').value||'aguardando',dtISO,obs:document.getElementById('f-obs').value.trim()};
+  const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
+  const agora=new Date().toISOString();
+  const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,obs:document.getElementById('f-obs').value.trim()};
+  // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
+  // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
+  // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
+  if(stEscolhido==='atendimento'&&!(leadExistente&&leadExistente.atendimento_at))data.atendimento_at=agora;
+  if(stEscolhido==='agendamento'&&!(leadExistente&&leadExistente.pendente_at))data.pendente_at=agora;
   try{
     if(G.mk.editandoId){Object.assign(G.mk.leads.find(l=>l.id===G.mk.editandoId),data);await salvarCamposMk(G.mk.editandoId,data);toast('Lead atualizado!');}
-    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,dt:hoje(),convertido:false,dtVenda:'',motivoPerda:'',historico:[],...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,data.captador||G.user?.n||'');toast(`Lead ${id} criado!`);}
+    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,dt:hoje(),convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,data.captador||G.user?.n||'');toast(`Lead ${id} criado!`);}
     fecharModal('ov-lead');renderMarketing();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
