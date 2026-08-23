@@ -1045,21 +1045,50 @@ function renderListaMk(cnt){
   }
   wrap.appendChild(tw);cnt.appendChild(wrap);
 }
+/* Planilha nativa do Excel (SpreadsheetML 2003 - .xls), gerada sem
+   biblioteca nenhuma: e um XML simples (nao ZIP como o .xlsx real), mas o
+   Excel abre e edita normalmente, sem os avisos de formato/separador que um
+   .csv costuma dar. "numCols" marca por indice quais colunas sao numero
+   (pra alinhar a direita e permitir soma) - todo o resto (inclusive
+   telefone/ID, mesmo so com digitos) fica como texto de propósito, senao
+   Excel mostra telefone em notacao cientifica ou corta o zero da frente. */
+function xlsEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function gerarLinhaXLS(valores,numCols,ehCabecalho){
+  const cels=valores.map((v,i)=>{
+    const numero=!ehCabecalho&&numCols&&numCols.includes(i)&&v!==''&&v!=null&&!isNaN(v);
+    const styleAttr=ehCabecalho?' ss:StyleID="Cab"':'';
+    return `<Cell${styleAttr}><Data ss:Type="${numero?'Number':'String'}">${xlsEsc(v)}</Data></Cell>`;
+  }).join('');
+  return `<Row>${cels}</Row>`;
+}
+function baixarXMLWorkbook(nomeArquivo,nomeAba,linhasXml){
+  const xml=`<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Cab"><Font ss:Bold="1"/></Style></Styles><Worksheet ss:Name="${xlsEsc(nomeAba)}"><Table>${linhasXml}</Table></Worksheet></Workbook>`;
+  const blob=new Blob([xml],{type:'application/vnd.ms-excel;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=nomeArquivo;document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+}
+function baixarXLS(nomeArquivo,nomeAba,cabecalho,linhas,numCols){
+  const linhasXml=gerarLinhaXLS(cabecalho,numCols,true)+linhas.map(l=>gerarLinhaXLS(l,numCols,false)).join('');
+  baixarXMLWorkbook(nomeArquivo,nomeAba,linhasXml);
+}
+/* Variante pra planilhas "livres" (linhas com larguras diferentes, sem um
+   cabecalho fixo unico) - caso do relatorio, que empilha varias mini-tabelas.
+   Aqui o numero e detectado por celula (sem risco de telefone, e um relatorio
+   só com contagens/percentuais). */
+function baixarXLSLivre(nomeArquivo,nomeAba,linhas){
+  const linhasXml=linhas.map(l=>gerarLinhaXLS(l,l.map((_,i)=>i),false)).join('');
+  baixarXMLWorkbook(nomeArquivo,nomeAba,linhasXml);
+}
 function exportarLeadsCSV(){
   const leads=mkLeadsFiltrados().sort((a,b)=>(b.id||'').localeCompare(a.id||''));
   if(!leads.length){toast('Nenhum lead pra exportar com esses filtros','gold');return;}
-  const linhas=[['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Motivo/Resultado']];
-  leads.forEach(l=>{
+  const linhas=leads.map(l=>{
     const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
     const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
-    linhas.push([l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'',l.captador||l.by||'',col.label,resultado]);
+    return[l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'',l.captador||l.by||'',col.label,resultado];
   });
-  const csv=linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
-  const bom=String.fromCharCode(0xFEFF);
-  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`leads_${hoje().replace(/\//g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();
-  URL.revokeObjectURL(url);
+  baixarXLS(`leads_${hoje().replace(/\//g,'-')}.xls`,'Leads',['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Motivo/Resultado'],linhas);
   toast(`${leads.length} lead(s) exportado(s)!`);
 }
 
@@ -1193,12 +1222,7 @@ function exportarRelatorioCSV(){
   linhas.push([]);
   linhas.push(['Motivos de Perda','Quantidade']);
   Object.entries(motivosPerda).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>linhas.push([k,v]));
-  const csv=linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
-  const bom=String.fromCharCode(0xFEFF);
-  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`relatorio_leads_${hoje().replace(/\//g,'-')}.csv`;document.body.appendChild(a);a.click();a.remove();
-  URL.revokeObjectURL(url);
+  baixarXLSLivre(`relatorio_leads_${hoje().replace(/\//g,'-')}.xls`,'Relatório',linhas);
   toast('Relatório exportado!');
 }
 </script>
@@ -1670,14 +1694,8 @@ function exportarClientesCSV(){
   const col=COLS_REL.find(x=>x.id===colId);
   const clis=relClisFiltrados().filter(c=>colAtualRel(c).id===colId);
   if(!clis.length){toast('Nenhum cliente nessa coluna','gold');return;}
-  const linhas=[['Nome','Data da compra','Data de nascimento','Carro','Telefone']];
-  clis.forEach(c=>linhas.push([c.clienteNome||'',isoParaBR(c.dtCompra),isoParaBR(c.dtNascimento),c.veiculo||'',c.clienteTel||'']));
-  const csv=linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
-  const bom=String.fromCharCode(0xFEFF);
-  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`relacionamento_${col.label.replace(/\s+/g,'_')}.csv`;document.body.appendChild(a);a.click();a.remove();
-  URL.revokeObjectURL(url);
+  const linhas=clis.map(c=>[c.clienteNome||'',isoParaBR(c.dtCompra),isoParaBR(c.dtNascimento),c.veiculo||'',c.clienteTel||'']);
+  baixarXLS(`relacionamento_${col.label.replace(/\s+/g,'_')}.xls`,col.label,['Nome','Data da compra','Data de nascimento','Carro','Telefone'],linhas);
   toast(`${clis.length} cliente(s) exportado(s)!`);
 }
 function camposIndicFeedbackRel(col){
