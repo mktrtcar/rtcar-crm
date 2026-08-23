@@ -926,7 +926,11 @@ function mkLeadsFiltrados(){
   if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
   // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
   if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
-  if(G.mk.busca){const b=G.mk.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b));}
+  if(G.mk.busca){
+    const b=G.mk.busca.toLowerCase();
+    const bDigits=G.mk.busca.replace(/\D/g,'');
+    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(l.clienteTel||'').replace(/\D/g,'').includes(bDigits)));
+  }
   if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
   if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');
   if(G.mk.filtro==='perdidos')ls=ls.filter(l=>l.st==='perdido');
@@ -2720,7 +2724,11 @@ function iaLeadsFiltrados(){
   if(G.ia.filtroStatus==='ia')ls=ls.filter(l=>l.st==='ia');
   else if(G.ia.filtroStatus==='atendimento')ls=ls.filter(l=>l.st==='atendimento');
   if(G.ia.filtroVendedor)ls=ls.filter(l=>l.captador===G.ia.filtroVendedor);
-  if(G.ia.busca){const b=G.ia.busca.toLowerCase();ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.clienteTel||'').includes(b)||(l.id||'').toLowerCase().includes(b));}
+  if(G.ia.busca){
+    const b=G.ia.busca.toLowerCase();
+    const bDigits=G.ia.busca.replace(/\D/g,'');
+    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(l.clienteTel||'').replace(/\D/g,'').includes(bDigits)));
+  }
   return ls.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
 }
 async function initIA(){
