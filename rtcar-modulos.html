@@ -599,6 +599,7 @@ const USUARIOS=[
   {id:'u11',n:'Derivan', e:'derivan@rtcar.com.br',          r:'seller'},
   {id:'u12',n:'Tiago',   e:'tiago@rtcar.com.br',            r:'master'},
   {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev'},
+  {id:'u14',n:'Jean',    e:'rtcargarantia@gmail.com',       r:'seller'},
 ];
 
 /* COLUNAS MARKETING */
@@ -782,7 +783,7 @@ function popularSelects(){
   const vendedores=USUARIOS.filter(u=>['seller','manager','master'].includes(u.r));
   // vendedor do lead
   const selCap=document.getElementById('f-captador');
-  if(selCap){selCap.innerHTML='<option value="">Automático (rodízio)</option><option value="Marcela">Marcela</option><option value="Rafael">Rafael</option><option value="Aline">Aline</option><option value="Milena">Milena</option><option value="Janderson">Janderson</option><option value="Maicon">Maicon</option><option value="Rubens">Rubens</option>';}
+  if(selCap){selCap.innerHTML='<option value="">Automático (rodízio)</option>'+VENDEDORES_ATIVOS.map(v=>`<option value="${v}">${v}</option>`).join('');}
   // responsável no relacionamento
   const selResp=document.getElementById('rc-resp');
   if(selResp){
@@ -1328,7 +1329,7 @@ async function salvarLead(){
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
 }
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
 let _transferPopup=null;
 function abrirTransferirLead(id,e){
   e.stopPropagation();
