@@ -32,7 +32,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
 const { fbList, fbGet, fbUpdate } = require('./firestore');
-const { gerarResposta, gerarFollowUp } = require('./claude');
+const { gerarResposta, gerarFollowUp, classificarPrimeiraResposta } = require('./claude');
 const { gerarNotaDeVoz } = require('./voz');
 const { buscarDadosReais } = require('./dadosVeiculo');
 const ESTOQUE_RTCAR = require('./estoque.json');
@@ -398,6 +398,17 @@ async function cumprimentarLead(lead) {
   }
 }
 
+/* 24/08/2026, a pedido do Rubens: quando o cliente já resolveu sozinho
+   (comprou em outro lugar, ou não tem mais interesse) na própria primeira
+   resposta, o lead vai direto pra coluna "Perdidos" do CRM — não faz
+   sentido tratar como um encaminhamento novo pro vendedor, nem gerar
+   notificação de "lead novo" pra um caso já encerrado. */
+async function marcarComoPerdido(lead, motivoPerda) {
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'red', acao: '❌ Perdido (Eloá)', obs: motivoPerda, by: 'Eloá' }];
+  await fbUpdate('leads', lead.id, { st: 'perdido', motivoPerda, historico });
+  console.log(`❌ Lead ${lead.id} movido de "I.A." para "Perdido" — ${motivoPerda}`);
+}
+
 async function encaminharParaConsultor(lead, motivoResumo) {
   if (!lead.captador) {
     // Lead ainda não passou pelo rodízio (cliente "não qualificado" até este
@@ -495,13 +506,25 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
      false. */
   if (MODO_SIMPLES_ATIVO && primeiraRespostaDoCliente) {
     const primeiroNome = (lead.clienteNome || '').trim().split(' ')[0];
-    const mensagens = [`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou te conectar agora com um consultor da nossa equipe, que já te passa todos os detalhes 😊`];
+
+    // 24/08/2026, a pedido do Rubens: antes de decidir a mensagem fixa,
+    // classifica (só um rótulo, sem texto livre — ver classificarPrimeiraResposta)
+    // se o cliente já resolveu sozinho, pra não transferir isso pro vendedor
+    // como se fosse lead novo.
+    const rotulo = await classificarPrimeiraResposta(mensagemCliente);
+    const ehPerdido = rotulo === 'perdido_comprou' || rotulo === 'perdido_sem_interesse';
+
+    const mensagens = ehPerdido
+      ? rotulo === 'perdido_comprou'
+        ? [`Que ótima notícia${primeiroNome ? ', ' + primeiroNome : ''}! Parabéns pela compra 😊 Obrigada por avisar — qualquer coisa que precisar no futuro, é só chamar!`]
+        : [`Sem problema${primeiroNome ? ', ' + primeiroNome : ''}! Fico à disposição se mudar de ideia ou se surgir interesse mais pra frente 😊`]
+      : [`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou te conectar agora com um consultor da nossa equipe, que já te passa todos os detalhes 😊`];
 
     let completou;
     let fotosEnviadas = false;
     try {
       completou = await enviarMensagens(jid, mensagens, aindaValido);
-      if (completou && dadosVeiculo?.fotos?.length) {
+      if (!ehPerdido && completou && dadosVeiculo?.fotos?.length) {
         await enviarFotoVeiculo(jid, dadosVeiculo);
         fotosEnviadas = true;
       }
@@ -518,7 +541,12 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
     await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
 
     const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico };
-    await encaminharParaConsultor(leadAtualizado, `Modo simplificado ativo — encaminha assim que o cliente responde qualquer coisa, sem continuar a conversa${fotosEnviadas ? ' (foto do veículo já enviada)' : ''}.`);
+    if (ehPerdido) {
+      const motivoPerda = rotulo === 'perdido_comprou' ? 'Comprou em outro lugar' : 'Sem interesse no momento';
+      await marcarComoPerdido(leadAtualizado, motivoPerda);
+    } else {
+      await encaminharParaConsultor(leadAtualizado, `Modo simplificado ativo — encaminha assim que o cliente responde qualquer coisa, sem continuar a conversa${fotosEnviadas ? ' (foto do veículo já enviada)' : ''}.`);
+    }
     return;
   }
 
