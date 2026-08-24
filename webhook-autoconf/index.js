@@ -125,6 +125,12 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
         id:novoId,
         dt:hojeBR(),
         dtISO:hojeISO(),
+        // 23/08/2026: o CRM passou a acessar o Firestore pelo SDK (nao mais
+        // por REST cru), e o SDK do navegador nao expoe a data de criacao
+        // real do documento (isso so existia no formato REST antigo) - sem
+        // este campo, o cronometro da coluna I.A. no CRM para de funcionar
+        // pra leads novos.
+        _criadoEm:new Date().toISOString(),
         st:vaiDiretoAtendimento?'atendimento':'ia',
         by:'',
         captador,
