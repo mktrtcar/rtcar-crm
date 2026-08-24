@@ -1,6 +1,7 @@
 node_modules/
 .firebase/
 *.log
+.claude/
 eloa-bot/auth/
 eloa-bot/auth-backup*/
 eloa-bot/qr.png

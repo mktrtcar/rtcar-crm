@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/tabler-icons.min.css" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;
@@ -292,14 +295,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     <div class="login-error" id="login-error">E-mail ou senha incorretos.</div>
     <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-senha" placeholder="Sua senha" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
-    <button class="btn btn-red btn-w" onclick="fazerLogin()">→ Entrar</button>
-    <div class="login-access">
-      <p>Acesso rápido:</p>
-      <button class="btn-acesso" onclick="preenchLogin('contato@rtcar.com.br','rtcar2024')">▸ Aline (Master)</button>
-      <button class="btn-acesso" onclick="preenchLogin('milena@rtcar.com.br','rtcar2024')">▸ Milena (Coordenadora)</button>
-      <button class="btn-acesso" onclick="preenchLogin('janderson@rtcar.com.br','Rtcar2022')">▸ Janderson (Vendedor)</button>
-      <button class="btn-acesso" onclick="preenchLogin('maicon.meske@rtcar.com.br','Rtcar2021')">▸ Maicon (Vendedor)</button>
-    </div>
+    <button class="btn btn-red btn-w" id="btn-entrar" onclick="fazerLogin()">→ Entrar</button>
   </div>
 </div>
 
@@ -574,24 +570,32 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
    ============================================================ */
 
 const FB={projectId:'rtcarprograma',apiKey:'AIzaSyAHswK1g0CnOJYiN3smElfDL1XQFrOR-Y8'};
-const FB_URL=`https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
 const fbOk=()=>FB.projectId!=='COLE-SEU-PROJECT-ID-AQUI';
+/* Login real (Firebase Authentication) + acesso ao Firestore via SDK, em vez
+   de fetch cru com só a API key — a regra de seguranca do projeto agora
+   exige request.auth != null, entao so o SDK autenticado consegue ler/gravar. */
+firebase.initializeApp({apiKey:FB.apiKey,authDomain:`${FB.projectId}.firebaseapp.com`,projectId:FB.projectId});
+const fbAuth=firebase.auth();
+const db=firebase.firestore();
 
-/* USUÁRIOS */
+/* USUÁRIOS — perfil/permissão de cada pessoa. A senha não fica mais aqui
+   (nunca mais em texto puro no código) — a autenticação de verdade é feita
+   pelo Firebase Authentication; esta lista só serve pra achar nome/cargo
+   depois que o login real já foi aceito. */
 const USUARIOS=[
-  {id:'u01',n:'Aline',   e:'contato@rtcar.com.br',         r:'master',  senha:'rtcar2024'},
-  {id:'u02',n:'Marcela', e:'marcela@rtcar.com.br',          r:'master',  senha:'rtcar2024'},
-  {id:'u03',n:'Rafael',  e:'rafael@rtcar.com.br',           r:'master',  senha:'rtcar2024'},
-  {id:'u04',n:'Milena',  e:'milena@rtcar.com.br',           r:'coordenadora', senha:'rtcar2024'},
-  {id:'u05',n:'Janderson',e:'janderson@rtcar.com.br',       r:'seller',  senha:'Rtcar2022'},
-  {id:'u06',n:'Maicon',  e:'maicon.meske@rtcar.com.br',     r:'seller',  senha:'Rtcar2021'},
-  {id:'u07',n:'Anderson',e:'anderson@rtcar.com.br',         r:'seller',  senha:'rtcar2024'},
-  {id:'u08',n:'Guilherme',e:'guilhermefleck@rtcar.com.br',  r:'seller',  senha:'rtcar2024'},
-  {id:'u09',n:'Marco Caetano',e:'marcocaetano@rtcar.com.br',r:'seller',  senha:'rtcar2024'},
-  {id:'u10',n:'Carlos',  e:'carlos@rtcar.com.br',           r:'seller',  senha:'rtcar2024'},
-  {id:'u11',n:'Derivan', e:'derivan@rtcar.com.br',          r:'seller',  senha:'rtcar2024'},
-  {id:'u12',n:'Tiago',   e:'tiago@rtcar.com.br',            r:'master',  senha:'rtcar2024'},
-  {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev',     senha:'Rubens@2026'},
+  {id:'u01',n:'Aline',   e:'contato@rtcar.com.br',         r:'master'},
+  {id:'u02',n:'Marcela', e:'marcela@rtcar.com.br',          r:'master'},
+  {id:'u03',n:'Rafael',  e:'rafael@rtcar.com.br',           r:'master'},
+  {id:'u04',n:'Milena',  e:'milena@rtcar.com.br',           r:'coordenadora'},
+  {id:'u05',n:'Janderson',e:'janderson@rtcar.com.br',       r:'seller'},
+  {id:'u06',n:'Maicon',  e:'maicon.meske@rtcar.com.br',     r:'seller'},
+  {id:'u07',n:'Anderson',e:'anderson@rtcar.com.br',         r:'seller'},
+  {id:'u08',n:'Guilherme',e:'guilhermefleck@rtcar.com.br',  r:'seller'},
+  {id:'u09',n:'Marco Caetano',e:'marcocaetano@rtcar.com.br',r:'seller'},
+  {id:'u10',n:'Carlos',  e:'carlos@rtcar.com.br',           r:'seller'},
+  {id:'u11',n:'Derivan', e:'derivan@rtcar.com.br',          r:'seller'},
+  {id:'u12',n:'Tiago',   e:'tiago@rtcar.com.br',            r:'master'},
+  {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev'},
 ];
 
 /* COLUNAS MARKETING */
@@ -660,48 +664,28 @@ const G={
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
 };
 
-/* ---- FIREBASE HELPERS ---- */
-function toFV(v){
-  if(v===null||v===undefined)return{nullValue:null};
-  if(typeof v==='string')return{stringValue:v};
-  if(typeof v==='boolean')return{booleanValue:v};
-  if(typeof v==='number')return Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v};
-  if(Array.isArray(v))return{arrayValue:{values:v.map(toFV)}};
-  if(typeof v==='object')return{mapValue:{fields:toFF(v)}};
-  return{stringValue:String(v)};
-}
-function toFF(obj){const f={};for(const[k,v]of Object.entries(obj))if(v!==undefined)f[k]=toFV(v);return f;}
-function fromFV(v){
-  if(!v)return null;
-  if('stringValue'in v)return v.stringValue;if('booleanValue'in v)return v.booleanValue;
-  if('integerValue'in v)return parseInt(v.integerValue);if('doubleValue'in v)return v.doubleValue;
-  if('nullValue'in v)return null;if('arrayValue'in v)return(v.arrayValue.values||[]).map(fromFV);
-  if('mapValue'in v)return fromFF(v.mapValue.fields||{});return null;
-}
-function fromFF(fields){if(!fields)return{};return Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,fromFV(v)]));}
+/* ---- FIREBASE HELPERS (via SDK autenticado — nunca mais fetch cru) ---- */
 async function fbList(col){
-  const r=await fetch(`${FB_URL}/${col}?key=${FB.apiKey}&pageSize=300`);
-  if(!r.ok)throw new Error(await r.text());
-  return((await r.json()).documents||[]).map(d=>({...fromFF(d.fields),_docName:d.name,_criadoEm:d.createTime}));
+  const snap=await db.collection(col).get();
+  return snap.docs.map(d=>({...d.data(),_docName:d.ref.path}));
 }
 async function fbCreate(col,id,data){
-  const r=await fetch(`${FB_URL}/${col}?documentId=${id}&key=${FB.apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:toFF(data)})});
-  if(!r.ok)throw new Error(await r.text());
+  await db.collection(col).doc(id).set(data);
 }
 async function fbUpdate(col,id,data){
-  const q=Object.keys(data).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
-  const r=await fetch(`${FB_URL}/${col}/${id}?${q}&key=${FB.apiKey}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:toFF(data)})});
-  if(!r.ok)throw new Error(await r.text());
+  await db.collection(col).doc(id).set(data,{merge:true});
 }
 async function proximoId(prefixo,lista,col_config,campo){
   if(G.mk.modoDemo||G.rel.modoDemo){
     const max=lista.reduce((m,x)=>{const n=parseInt((x.id||`${prefixo}-000`).split('-')[1]||0);return n>m?n:m;},0);
     return`${prefixo}-${String(max+1).padStart(3,'0')}`;
   }
+  const[colConfig,docConfig]=col_config.split('/');
   try{
-    const r=await fetch(`${FB_URL}/${col_config}?key=${FB.apiKey}`);
-    const j=await r.json();const seq=(fromFV((j.fields||{})[campo])||0)+1;
-    await fbUpdate(col_config.split('/')[0],col_config.split('/')[1],{[campo]:seq});
+    const ref=db.collection(colConfig).doc(docConfig);
+    const snap=await ref.get();
+    const seq=((snap.exists&&snap.data()[campo])||0)+1;
+    await ref.set({[campo]:seq},{merge:true});
     return`${prefixo}-${String(seq).padStart(3,'0')}`;
   }catch{await fbCreate(col_config.split('/')[0],col_config.split('/')[1],{[campo]:1});return`${prefixo}-001`;}
 }
@@ -722,13 +706,32 @@ function toast(msg,tipo='green',ms=3000){
 }
 
 /* ---- AUTH ---- */
-function preenchLogin(e,s){document.getElementById('login-email').value=e;document.getElementById('login-senha').value=s;fazerLogin();}
-function fazerLogin(){
+async function fazerLogin(){
   const e=document.getElementById('login-email').value.trim().toLowerCase();
   const s=document.getElementById('login-senha').value;
-  const u=USUARIOS.find(x=>x.e.toLowerCase()===e&&x.senha===s);
-  if(!u){document.getElementById('login-error').style.display='block';return;}
+  const erroEl=document.getElementById('login-error');
+  const btn=document.getElementById('btn-entrar');
+  erroEl.style.display='none';
+  if(!e||!s)return;
+  btn.disabled=true;const txtOriginal=btn.textContent;btn.textContent='Entrando...';
+  try{
+    await fbAuth.signInWithEmailAndPassword(e,s);
+  }catch(err){
+    erroEl.textContent='E-mail ou senha incorretos.';erroEl.style.display='block';
+    btn.disabled=false;btn.textContent=txtOriginal;
+    return;
+  }
+  const u=USUARIOS.find(x=>x.e.toLowerCase()===e);
+  if(!u){
+    // Login no Firebase deu certo, mas essa pessoa nao esta cadastrada como
+    // perfil/permissao do CRM (ex: conta que so existe no sistema irmao).
+    await fbAuth.signOut();
+    erroEl.textContent='Esse login não tem acesso a este CRM.';erroEl.style.display='block';
+    btn.disabled=false;btn.textContent=txtOriginal;
+    return;
+  }
   G.user=u;
+  btn.disabled=false;btn.textContent=txtOriginal;
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
@@ -744,7 +747,8 @@ function fazerLogin(){
   });
   trocarModulo('marketing');
 }
-function logout(){
+async function logout(){
+  await fbAuth.signOut().catch(()=>{});
   G.user=null;G.mk.leads=[];G.rel.clientes=[];
   // Resetar visibilidade das tabs para o próximo login
   ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
@@ -1262,17 +1266,13 @@ async function proximoVendedorRodizio(){
     return RODIZIO_VENDEDORES[i];
   }
   try{
-    const r=await fetch(`${FB_URL}:commit?key=${FB.apiKey}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({writes:[{transform:{
-        document:`projects/${FB.projectId}/databases/(default)/documents/leads_config/rodizio`,
-        fieldTransforms:[{fieldPath:'idx',increment:{integerValue:1}}]
-      }}]})
+    const idx=await db.runTransaction(async tx=>{
+      const ref=db.collection('leads_config').doc('rodizio');
+      const snap=await tx.get(ref);
+      const atual=(snap.exists&&snap.data().idx)||0;
+      tx.set(ref,{idx:atual+1},{merge:true});
+      return atual%RODIZIO_VENDEDORES.length;
     });
-    if(!r.ok)throw new Error(await r.text());
-    const j=await r.json();
-    const novoIdx=Number(j.writeResults[0].transformResults[0].integerValue);
-    const idx=(novoIdx-1)%RODIZIO_VENDEDORES.length;
     return RODIZIO_VENDEDORES[idx];
   }catch{
     await fbCreate('leads_config','rodizio',{idx:1});
@@ -2734,11 +2734,7 @@ async function excluirAn(id){
 
 async function salvarCamposAn(id,campos){
   if(!fbOk())return;
-  const fields={};
-  Object.entries(campos).forEach(function(e){fields[e[0]]=toFV(e[1]);});
-  const keys=Object.keys(campos).join('&updateMask.fieldPaths=');
-  await fetch(FB_URL+'/anuncios/'+id+'?key='+FB.apiKey+'&updateMask.fieldPaths='+keys,
-    {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})});
+  await fbUpdate('anuncios',id,campos);
 }
 </script>
 
