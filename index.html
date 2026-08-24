@@ -296,6 +296,9 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-senha" placeholder="Sua senha" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <button class="btn btn-red btn-w" id="btn-entrar" onclick="fazerLogin()">→ Entrar</button>
+    <div style="text-align:center;margin-top:14px">
+      <a href="#" style="color:var(--tx3);font-size:12px;text-decoration:underline" onclick="event.preventDefault();recuperarSenha()">Esqueci minha senha</a>
+    </div>
   </div>
 </div>
 
@@ -711,7 +714,7 @@ async function fazerLogin(){
   const s=document.getElementById('login-senha').value;
   const erroEl=document.getElementById('login-error');
   const btn=document.getElementById('btn-entrar');
-  erroEl.style.display='none';
+  erroEl.style.display='none';erroEl.style.color='var(--red)';erroEl.style.background='var(--redl)';
   if(!e||!s)return;
   btn.disabled=true;const txtOriginal=btn.textContent;btn.textContent='Entrando...';
   try{
@@ -746,6 +749,24 @@ async function fazerLogin(){
     if(el) el.style.display=podeVerModulo(mod)?'':'none';
   });
   trocarModulo('marketing');
+}
+async function recuperarSenha(){
+  const erroEl=document.getElementById('login-error');
+  const e=document.getElementById('login-email').value.trim().toLowerCase();
+  erroEl.style.display='none';
+  if(!e){
+    erroEl.style.color='var(--red)';erroEl.style.background='var(--redl)';
+    erroEl.textContent='Preencha o e-mail acima antes de clicar em "Esqueci minha senha".';erroEl.style.display='block';
+    return;
+  }
+  try{
+    await fbAuth.sendPasswordResetEmail(e);
+  }catch(err){}
+  // Nao informar se o e-mail existe ou nao (mesma protecao contra enumeracao
+  // que o Firebase ja usa) - sempre mostra a mesma mensagem de sucesso.
+  erroEl.style.color='var(--green)';erroEl.style.background='var(--greenl)';
+  erroEl.textContent='Se esse e-mail tiver acesso ao CRM, enviamos um link pra redefinir a senha. Confira sua caixa de entrada (e o spam).';
+  erroEl.style.display='block';
 }
 async function logout(){
   await fbAuth.signOut().catch(()=>{});
