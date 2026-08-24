@@ -93,6 +93,56 @@ const SCHEMA_RESGATE = {
   additionalProperties: false,
 };
 
+/* 24/08/2026, a pedido do Rubens: no modo simplificado, a primeira resposta
+   do cliente sempre virava "transferir pro vendedor", mesmo quando o
+   cliente já tinha resolvido sozinho ("já comprei em outro lugar") ou não
+   tinha mais interesse — o vendedor recebia notificação de "lead novo" pra
+   um caso já encerrado. Esta classificação NÃO gera texto livre (só um
+   rótulo fixo), pra não reabrir a porta de a Eva "negociar" como vendedora
+   (mesmo problema que gerou o modo simplificado, incidente da Mislene) — as
+   mensagens de resposta continuam sendo templates fixos escolhidos pelo
+   código, nunca escritos pela IA nesta etapa. */
+const SCHEMA_CLASSIFICACAO_PRIMEIRA_RESPOSTA = {
+  type: 'object',
+  properties: {
+    rotulo: { type: 'string', enum: ['normal', 'perdido_comprou', 'perdido_sem_interesse'] },
+  },
+  required: ['rotulo'],
+  additionalProperties: false,
+};
+
+async function classificarPrimeiraResposta(mensagemCliente) {
+  const sistema = `Classifique a PRIMEIRA resposta de um cliente a um contato inicial de uma concessionária de carros (RT Car) pelo WhatsApp. Não converse, não escreva nada além do rótulo. Escolha exatamente um destes três rótulos:
+
+- "perdido_comprou": o cliente diz claramente que já comprou o veículo em outro lugar, ou que não precisa mais porque já resolveu a compra em outro lugar.
+- "perdido_sem_interesse": o cliente diz claramente que não tem interesse (agora, ou de forma geral) — mesmo que mencione possível interesse futuro.
+- "normal": qualquer outra coisa — perguntas, saudações, interesse no veículo, dúvidas, ou qualquer mensagem ambígua. Na dúvida, use "normal".`;
+
+  try {
+    const response = await client.messages.create(
+      {
+        model: MODELO,
+        max_tokens: 32,
+        system: sistema,
+        messages: [{ role: 'user', content: `Mensagem do cliente: "${mensagemCliente}"` }],
+        output_config: {
+          effort: 'low',
+          format: { type: 'json_schema', schema: SCHEMA_CLASSIFICACAO_PRIMEIRA_RESPOSTA },
+        },
+      },
+      { timeout: 15000 },
+    );
+    if (response.stop_reason === 'refusal') return 'normal';
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock) return 'normal';
+    const parsed = JSON.parse(textBlock.text);
+    return ['normal', 'perdido_comprou', 'perdido_sem_interesse'].includes(parsed.rotulo) ? parsed.rotulo : 'normal';
+  } catch (e) {
+    console.error('Erro ao classificar primeira resposta, seguindo como "normal":', e.message);
+    return 'normal'; // falha na classificação nunca deve travar o fluxo normal
+  }
+}
+
 function interpretarJson(texto, origem) {
   const parsed = JSON.parse(texto);
   const mensagens = Array.isArray(parsed.mensagens) ? parsed.mensagens.filter(Boolean) : [];
@@ -194,4 +244,4 @@ Não repita literalmente o que já foi dito no histórico. Mantenha o mesmo tom 
   return interpretarJson(textBlock.text, 'Claude (follow-up)');
 }
 
-module.exports = { gerarResposta, gerarFollowUp };
+module.exports = { gerarResposta, gerarFollowUp, classificarPrimeiraResposta };
