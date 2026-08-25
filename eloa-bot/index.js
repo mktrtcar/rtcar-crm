@@ -131,17 +131,30 @@ function normalizarTxt(s) {
 function buscarVeiculoEstoque(veiculoTexto) {
   const alvo = normalizarTxt(veiculoTexto);
   if (!alvo) return null;
-  const palavras = alvo.split(' ').filter((p) => p.length >= 3);
-  if (!palavras.length) return null;
   let melhor = null, melhorScore = 0;
   ESTOQUE_RTCAR.forEach((item) => {
-    const texto = normalizarTxt(item.b + ' ' + item.m);
-    const score = palavras.reduce((s, p) => s + (texto.includes(p) ? 1 : 0), 0);
-    if (score > melhorScore) { melhorScore = score; melhor = item; }
+    // 25/08/2026: antes exigia que TODAS as palavras do texto do lead
+    // batessem no nosso estoque.json (marca + modelo curto, ex: "Jaecoo 7
+    // Prestige") — mas o texto do lead costuma vir bem mais detalhado (ex:
+    // "Jaecoo 7 Prestige1.5 TB 16v Aut (Híbrido)", direto do Autoconf), com
+    // palavras de motorização/versão que nunca vão existir no nosso
+    // cadastro curto. Isso fazia o match falhar silenciosamente mesmo pro
+    // carro certo, e a Eva nunca mandava foto (caso real: Jean Carlos
+    // Gattis, LEAD-100, 25/08/2026 — carro certo, mas sem foto). Agora é ao
+    // contrário: exige que TODAS as palavras do NOSSO cadastro (que é
+    // sempre curto, marca + modelo) apareçam dentro do texto do lead —
+    // continua rejeitando "Volvo XC90" pra um estoque com só "Volvo XC60",
+    // mas não quebra mais com detalhes extras de versão/motorização.
+    // Sem filtro de tamanho mínimo aqui — o nosso cadastro é sempre curto e
+    // pode ter tokens de 1-2 caracteres essenciais pra identificar o modelo
+    // certo (ex: "XC" e "60" em "Volvo XC 60" — filtrar isso fazia "Volvo
+    // XC90" casar errado com "Volvo XC 60", já que só sobrava "volvo").
+    const palavrasItem = normalizarTxt(item.b + ' ' + item.m).split(' ').filter(Boolean);
+    if (!palavrasItem.length) return;
+    const score = palavrasItem.reduce((s, p) => s + (alvo.includes(p) ? 1 : 0), 0);
+    if (score === palavrasItem.length && palavrasItem.length > melhorScore) { melhorScore = palavrasItem.length; melhor = item; }
   });
-  // Exige que TODAS as palavras significativas casem — um match parcial (ex: só a marca)
-  // fazia "Volvo XC90" (que não existe) casar erroneamente com "Volvo XC60" (que existe).
-  return melhorScore === palavras.length ? melhor : null;
+  return melhor;
 }
 /* Enriquece o lead com dados reais do site (fotos múltiplas + specs), além
    do que já vem do estoque.json. Se a busca no site falhar por qualquer
