@@ -474,6 +474,24 @@ async function encaminharParaConsultor(lead, motivoResumo) {
    continua até terminar, só o resultado é descartado). */
 const turnoPorLead = new Map();
 
+/* 25/08/2026: se o cliente manda duas mensagens quase juntas (comum —
+   "Boa tarde" e, segundos depois, "Desculpa a demora"), duas chamadas de
+   responderComIA rodavam em paralelo pro mesmo lead. A primeira salva a
+   conversa e SÓ DEPOIS muda o status pra "atendimento" (duas escritas
+   separadas no Firestore) — nesse intervalo entre as duas escritas, a
+   segunda chamada podia ler "st ainda é ia" + "conversa já tem resposta do
+   cliente" e cair no fluxo completo de IA, voltando a negociar (incidente
+   real: Adeliria, LEAD-087, 24/08/2026). Serializa por lead — a segunda
+   mensagem só começa a ser processada depois que a primeira terminou
+   completamente (todas as escritas já aconteceram). */
+const filaPorLead = new Map();
+function processarMensagemSequencial(leadId, tarefa) {
+  const anterior = filaPorLead.get(leadId) || Promise.resolve();
+  const atual = anterior.then(tarefa, tarefa);
+  filaPorLead.set(leadId, atual.catch(() => {})); // erro numa mensagem nao pode travar a fila das proximas
+  return atual;
+}
+
 async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
   const leads = await fbList('leads');
   const lead = leads.find((l) => l.id === leadId);
@@ -950,7 +968,7 @@ async function start() {
     if (!texto) return; // figurinha, áudio, reação, mensagem automática de ausência etc. — não é fala real do cliente
     const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;
     turnoPorLead.set(leadId, meuTurno);
-    responderComIA(jid, leadId, texto, meuTurno).catch(console.error);
+    processarMensagemSequencial(leadId, () => responderComIA(jid, leadId, texto, meuTurno)).catch(console.error);
   });
 }
 
