@@ -556,9 +556,18 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
     const respostaCompleta = mensagens.join(' ');
     const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
     const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
-    await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
 
-    const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico };
+    // 25/08/2026, a pedido do Rubens: se o cliente disse qual veículo quer
+    // (nome ou link reconhecido) e o lead ainda não tinha isso registrado,
+    // grava agora — sem isso, o campo "veículo" chegava vazio pro vendedor
+    // na notificação, e ele perguntava de novo algo que o cliente já tinha
+    // respondido pra Eva, gerando uma repetição chata.
+    const veiculoIdentificado = dadosVeiculo?.m ? [dadosVeiculo.b, dadosVeiculo.m].filter(Boolean).join(' ') : null;
+    const atualizacoesLead = { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 };
+    if (veiculoIdentificado && !lead.veiculo) atualizacoesLead.veiculo = veiculoIdentificado;
+    await fbUpdate('leads', leadId, atualizacoesLead);
+
+    const leadAtualizado = { ...lead, conversaEloa: novaConversa, historico, ...(atualizacoesLead.veiculo ? { veiculo: atualizacoesLead.veiculo } : {}) };
     if (ehPerdido) {
       const motivoPerda = rotulo === 'perdido_comprou' ? 'Comprou em outro lugar' : 'Sem interesse no momento';
       await marcarComoPerdido(leadAtualizado, motivoPerda);
