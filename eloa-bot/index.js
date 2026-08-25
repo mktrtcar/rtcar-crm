@@ -409,6 +409,17 @@ async function marcarComoPerdido(lead, motivoPerda) {
   console.log(`❌ Lead ${lead.id} movido de "I.A." para "Perdido" — ${motivoPerda}`);
 }
 
+/* 25/08/2026, a pedido do Rubens: além de tentar preencher campos como
+   "veículo" a partir da conversa, manda a conversa inteira até aqui junto
+   da notificação — "cerca de todos os lados": mesmo se algum dado não foi
+   identificado/propagado corretamente, o vendedor consegue ler o que o
+   cliente já disse antes de puxar assunto, sem repetir pergunta. */
+function formatarConversaResumo(conversaEloa) {
+  if (!conversaEloa || !conversaEloa.length) return '';
+  const linhas = conversaEloa.map((m) => `${m.role === 'model' ? 'Eva' : 'Cliente'}: ${m.texto}`);
+  return `\n\n📝 Conversa até aqui:\n${linhas.join('\n')}`;
+}
+
 async function encaminharParaConsultor(lead, motivoResumo) {
   if (!lead.captador) {
     // Lead ainda não passou pelo rodízio (cliente "não qualificado" até este
@@ -441,9 +452,10 @@ async function encaminharParaConsultor(lead, motivoResumo) {
   }
 
   const destino = vendedorJid || NOTIFICACAO_PESSOAL;
-  const texto = vendedorJid
+  const texto = (vendedorJid
     ? `🔔 Novo atendimento pra você! A Eva encaminhou ${lead.clienteNome || lead.id} pra você assumir.\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}\nTelefone do cliente: ${lead.clienteTel || '-'}`
-    : `🔔 A Eloá encaminhou ${lead.clienteNome || lead.id} pra atendimento humano (vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele).\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}`;
+    : `🔔 A Eloá encaminhou ${lead.clienteNome || lead.id} pra atendimento humano (vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele).\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}`
+  ) + formatarConversaResumo(lead.conversaEloa);
 
   try {
     await sock.sendMessage(destino, { text: texto });
@@ -654,11 +666,12 @@ async function notificarVendedorAtribuido(lead) {
   const destino = vendedorJid || NOTIFICACAO_PESSOAL;
   const primeiraLinhaObs = (lead.obs || '').split('\n')[0];
   const ehCompra = lead.origem === 'Compra';
-  const texto = vendedorJid
+  const texto = (vendedorJid
     ? (ehCompra
       ? `🔔 Novo lead de COMPRA (avaliação/venda de veículo) pra você!\nCliente: ${lead.clienteNome || lead.id}\nTelefone: ${lead.clienteTel || '-'}${primeiraLinhaObs ? '\n' + primeiraLinhaObs : ''}`
       : `🔔 Novo lead atribuído pra você!\nCliente: ${lead.clienteNome || lead.id}\nOrigem: ${lead.origem || '-'}\nVeículo: ${lead.veiculo || '-'}\nTelefone: ${lead.clienteTel || '-'}${primeiraLinhaObs ? '\n' + primeiraLinhaObs : ''}`)
-    : `🔔 Lead (${lead.clienteNome || lead.id}) sem WhatsApp válido cadastrado pro vendedor "${lead.captador || 'não definido'}" — confira o número dele.\nTelefone do cliente: ${lead.clienteTel || '-'}`;
+    : `🔔 Lead (${lead.clienteNome || lead.id}) sem WhatsApp válido cadastrado pro vendedor "${lead.captador || 'não definido'}" — confira o número dele.\nTelefone do cliente: ${lead.clienteTel || '-'}`
+  ) + formatarConversaResumo(lead.conversaEloa);
 
   try {
     await sock.sendMessage(destino, { text: texto });
