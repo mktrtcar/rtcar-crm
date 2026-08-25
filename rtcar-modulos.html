@@ -1529,6 +1529,7 @@ function abrirDetailLead(id){
           <div class="d-field"><span class="lbl">Data</span><span class="val">${lead.dt||'—'}</span></div>
           <div class="d-field"><span class="lbl">Origem</span><span class="val">${lead.origem||'—'}</span></div>
           <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`:'—'}</span></div>
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
           ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
           ${lead.resgateMotivo?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Estratégia de resgate</span><span class="val" style="color:var(--purple)">${lead.resgateMotivo}${lead.resgateData?` · Contato previsto: ${isoParaBR(lead.resgateData)}`:''}</span></div>`:''}
