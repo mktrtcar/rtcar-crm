@@ -12,10 +12,21 @@ function hojeISO(){return new Date().toISOString().slice(0,10);}
 // etapa no painel de acompanhamento, nao so o dia).
 function agoraBR(){const d=new Date();return `${hojeBR()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 
+// 25/08/2026: contato feito pelo botao de WhatsApp direto na pagina de um
+// carro especifico nao vem com "interested_in_vehicle" preenchido - o unico
+// lugar que menciona o veiculo e' o link da pagina, dentro de "message"
+// (ex: "...pagina: https://rtcar.com.br/carros/ford/fiesta-se-1-6-16v-flex-5p/2018/1092057").
+// Sem isso, esses leads ficavam sem nenhum veiculo de interesse gravado.
+function veiculoDaUrlDaPagina(mensagem){
+  const m=(mensagem||'').match(/rtcar\.com\.br\/carros\/([a-z0-9-]+)\/([a-z0-9-]+)\/(\d{4})\//i);
+  if(!m)return '';
+  const titleCase=s=>s.split('-').map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(' ');
+  return `${titleCase(m[1])} ${titleCase(m[2])} ${m[3]}`;
+}
 function montarVeiculo(lead){
   const v=(lead.interested_in_vehicle||[])[0];
-  if(!v)return '';
-  return [v.brand,v.model,v.version].filter(Boolean).join(' ');
+  if(v)return [v.brand,v.model,v.version].filter(Boolean).join(' ');
+  return veiculoDaUrlDaPagina(lead.message);
 }
 
 // So os ultimos 8 digitos - mesmo criterio ja usado no eloa-bot (chaveTel)
