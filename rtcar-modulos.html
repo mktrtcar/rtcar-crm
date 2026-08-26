@@ -359,7 +359,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
         <div class="field-row">
           <div class="field"><label>Faixa de valor</label><input type="text" id="f-valor" placeholder="Ex: 80.000 - 100.000"></div>
           <div class="field"><label>Etapa inicial</label>
-            <select id="f-etapa"><option value="ia">I.A.</option><option value="atendimento">Atendimento</option><option value="encantamento">Encantamento</option><option value="agendamento">Agendamento</option><option value="visita">Visita</option><option value="negociacao">Negociação</option><option value="vendido">Venda</option><option value="perdido">Perdido</option><option value="resgate">Resgate</option></select>
+            <select id="f-etapa"><option value="ia">I.A.</option><option value="atendimento">Atendimento</option><option value="encantamento">Encantamento</option><option value="agendamento">Agendamento</option><option value="negociacao">Negociação</option><option value="vendido">Venda</option><option value="perdido">Perdido</option><option value="resgate">Resgate</option></select>
           </div>
         </div>
       </div>
@@ -870,7 +870,7 @@ function iniciarTimerCRM(){
     if(G.modulo!=='marketing'){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;return;}
     document.querySelectorAll('.live-timer').forEach(el=>{
       const start=el.dataset.start;
-      if(start) el.textContent=calcElapsed(start,null);
+      if(start) el.textContent=(el.dataset.prefix||'')+calcElapsed(start,null);
     });
   },1000);
 }
@@ -937,6 +937,15 @@ function renderMarketing(){
 
 function isSeller(){return G.user?.r==='seller';}
 function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora';}
+/* 24/08/2026: "Visita" saiu de uso (a pedido da Aline) - fica oculta pra
+   todo mundo, mas os leads que ja estavam nessa etapa continuam com os
+   dados intactos, so nao aparecem mais no quadro. "Resgate" continua em
+   uso, mas so pra quem nao e vendedor (coordenadora/gestao cuidam disso). */
+function colunaOculta(colId){
+  if(colId==='visita')return true;
+  if(colId==='resgate')return isSeller();
+  return false;
+}
 function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora'||G.user?.r==='dev';}
 function isMaster(){return G.user?.r==='master';}
 function podeVerModulo(mod){
@@ -972,7 +981,7 @@ function mkLeadsFiltrados(){
 function renderKanbanMk(cnt){
   const scrollAnterior=G.mk._scrollAnterior||{};
   const wrap=document.createElement('div');wrap.className='kanban-wrap';
-  COLS_MK.filter(col=>!(escondeColunaIA()&&col.id==='ia')).forEach(col=>{
+  COLS_MK.filter(col=>!(escondeColunaIA()&&col.id==='ia')&&!colunaOculta(col.id)).forEach(col=>{
     const leads=mkLeadsFiltrados().filter(l=>l.st===col.id);
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
@@ -994,9 +1003,15 @@ function renderKanbanMk(cnt){
         (col.timer&&timerStart&&timerEnd?
           `<span style="color:var(--tx3);font-size:10px"><i class="ti ti-clock"></i> ${calcElapsed(timerStart,timerEnd)}</span>`:
         '');
+      const iaAguardando=col.id==='ia'&&l.conversaEloa&&l.conversaEloa.length&&l.conversaEloa[l.conversaEloa.length-1].role==='model';
+      const tagAguardando=iaAguardando?
+        `<span class="badge live-timer" data-start="${l.ultimaMensagemEm||l._criadoEm}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:
+        (col.id==='atendimento'&&l.aguardandoRetornoDesde?
+          `<span class="badge live-timer" data-start="${l.aguardandoRetornoDesde}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:'');
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
-        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}</div>
+        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}${tagAguardando}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
+        ${col.id==='atendimento'?`<button class="card-btn card-btn-label" onclick="toggleAguardandoRetornoMk('${l.id}',event)" style="margin:4px 0;${l.aguardandoRetornoDesde?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">⏳ ${l.aguardandoRetornoDesde?'Cliente respondeu':'Marcar aguardando retorno'}</button>`:''}
         ${col.id==='perdido'?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
         ${col.id==='agendamento'?`<div style="margin:4px 0">
           <div style="display:flex;align-items:center;gap:5px">
@@ -1454,6 +1469,14 @@ function abrirWhatsappLead(id){
   const msg=`Olá, ${primeiroNome}! 😊 Aqui é da RT Car. Vi seu interesse${l.veiculo?` no ${l.veiculo}`:''} e quero te ajudar a encontrar a melhor condição. Podemos conversar?`;
   window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,'_blank');
 }
+async function toggleAguardandoRetornoMk(id,e){
+  e.stopPropagation();
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  lead.aguardandoRetornoDesde=lead.aguardandoRetornoDesde?'':new Date().toISOString();
+  await salvarCamposMk(id,{aguardandoRetornoDesde:lead.aguardandoRetornoDesde});
+  if(lead.aguardandoRetornoDesde)await regHistMk(lead,'⏳ Aguardando retorno do cliente','Vendedor marcou que mandou mensagem e está esperando resposta.',G.user?.n||'');
+  renderMarketing();
+}
 async function toggleNuncaRespondeuMk(id,e){
   e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
@@ -1497,7 +1520,7 @@ function abrirDetailLead(id){
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
   const SEQ_MK=['ia','atendimento','encantamento','agendamento','visita','negociacao','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
-  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))&&!(escondeColunaIA()&&c.id==='ia')).map(c=>{
+  const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))&&!(escondeColunaIA()&&c.id==='ia')&&!colunaOculta(c.id)).map(c=>{
     if(c.id==='resgate')return`<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`;
     const seqIdx=SEQ_MK.indexOf(c.id);
     const cor=seqIdx>-1?(seqIdx<=idxAtualMk?'var(--green)':'var(--red)'):c.cor;
