@@ -557,17 +557,24 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
     const rotulo = await classificarPrimeiraResposta(mensagemCliente);
     const ehPerdido = rotulo === 'perdido_comprou' || rotulo === 'perdido_sem_interesse';
 
+    // 26/08/2026, a pedido do Rubens: a Eva já sabe, antes de mandar a
+    // mensagem, se vai conseguir mandar foto (dadosVeiculo já foi calculado
+    // acima) — então a mensagem de transferência já pode citar isso, em vez
+    // de ficar genérica mesmo quando a foto está sendo mandada.
+    const vaiMandarFoto = !ehPerdido && !!dadosVeiculo?.fotos?.length;
     const mensagens = ehPerdido
       ? rotulo === 'perdido_comprou'
         ? [`Que ótima notícia${primeiroNome ? ', ' + primeiroNome : ''}! Parabéns pela compra 😊 Obrigada por avisar — qualquer coisa que precisar no futuro, é só chamar!`]
         : [`Sem problema${primeiroNome ? ', ' + primeiroNome : ''}! Fico à disposição se mudar de ideia ou se surgir interesse mais pra frente 😊`]
-      : [`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou te conectar agora com um consultor da nossa equipe, que já te passa todos os detalhes 😊`];
+      : vaiMandarFoto
+        ? [`Certo${primeiroNome ? ', ' + primeiroNome : ''}! Vou te mandar as fotos agora e já te conectar com um consultor da nossa equipe, que te passa todos os detalhes 😊`]
+        : [`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou te conectar agora com um consultor da nossa equipe, que já te passa todos os detalhes 😊`];
 
     let completou;
     let fotosEnviadas = false;
     try {
       completou = await enviarMensagens(jid, mensagens, aindaValido);
-      if (!ehPerdido && completou && dadosVeiculo?.fotos?.length) {
+      if (vaiMandarFoto && completou) {
         await enviarFotoVeiculo(jid, dadosVeiculo);
         fotosEnviadas = true;
       }
