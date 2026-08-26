@@ -362,6 +362,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
             <select id="f-etapa"><option value="ia">I.A.</option><option value="atendimento">Atendimento</option><option value="encantamento">Encantamento</option><option value="negociacao">Negociação</option><option value="agendamento">Agendamento</option><option value="vendido">Venda</option><option value="perdido">Perdido</option><option value="resgate">Resgate</option></select>
           </div>
         </div>
+        <div class="field"><label>Data do contato (só mude se estiver cadastrando algo de um dia anterior)</label><input type="date" id="f-data-contato"></div>
       </div>
       <div class="mod-section">
         <div class="mod-section-title"><i class="ti ti-notes"></i> Observações</div>
@@ -661,7 +662,7 @@ const COLS_WS=[
 /* ESTADO GLOBAL */
 const G={
   user:null, modulo:'marketing',
-  mk:{leads:[],_timerInterval:null,view:'kanban',busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
+  mk:{leads:[],_timerInterval:null,view:'hoje',busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
   rel:{clientes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
@@ -771,6 +772,11 @@ async function recuperarSenha(){
 }
 async function logout(){
   await fbAuth.signOut().catch(()=>{});
+  // Sem isso, o auto-refresh e o cronometro continuavam tentando rodar
+  // depois do logout (sem sessao valida pro Firestore), gerando erro de
+  // "permission-denied" sem parar sozinho.
+  if(G.mk._autoRefreshInterval){clearInterval(G.mk._autoRefreshInterval);G.mk._autoRefreshInterval=null;}
+  if(G.mk._timerInterval){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;}
   G.user=null;G.mk.leads=[];G.rel.clientes=[];
   // Resetar visibilidade das tabs para o próximo login
   ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
@@ -905,6 +911,7 @@ function renderMarketing(){
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
+      <div class="tb-tab${view==='hoje'?' on':''}" onclick="G.mk.view='hoje';renderMarketing()"><i class="ti ti-calendar-stats"></i> Hoje</div>
       <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
       <div class="tb-tab${view==='lista'?' on':''}" onclick="G.mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
       <div class="tb-tab${view==='rel'?' on':''}" onclick="G.mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
@@ -929,7 +936,8 @@ function renderMarketing(){
   G.mk._scrollAnterior={};
   cnt.querySelectorAll('.kb-col-body').forEach(b=>{G.mk._scrollAnterior[b.dataset.col]=b.scrollTop;});
   cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
-  if(view==='kanban') renderKanbanMk(cnt);
+  if(view==='hoje') renderDashboardHoje(cnt);
+  else if(view==='kanban') renderKanbanMk(cnt);
   else if(view==='lista') renderListaMk(cnt);
   else if(view==='visitas') renderVisitasDashboard(cnt,'','');
   else renderRelatoriosMk(cnt);
@@ -1140,6 +1148,72 @@ function exportarLeadsCSV(){
   toast(`${leads.length} lead(s) exportado(s)!`);
 }
 
+/* 26/08/2026, a pedido da Aline: painel "Hoje" com numeros do dia, ja que
+   o filtro de data do Funil/Relatorios confundia (misturava lead recebido
+   hoje com lead so ATUALIZADO/transferido hoje). Vendedor ve so os
+   proprios numeros; Milena ve so os dela; master/gestao ve o total de
+   todo mundo (vendedores + Milena) mais dois indicadores extras
+   (leads que chegaram na I.A. hoje e quantos estao em atendimento agora,
+   somando todos os vendedores). */
+function statsDoDiaMk(nomes){
+  const hojeISO=new Date().toISOString().slice(0,10);
+  const hojeBRstr=hoje();
+  const ls=G.mk.leads.filter(l=>nomes.includes(l.captador));
+  const recebidosHoje=ls.filter(l=>l.dtISO===hojeISO);
+  return{
+    marketing:recebidosHoje.filter(l=>tipoOrigem(l.origem)==='marketing').length,
+    outros:recebidosHoje.filter(l=>tipoOrigem(l.origem)!=='marketing').length,
+    visitas:ls.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu').length,
+    agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO).length,
+    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr).length,
+  };
+}
+function renderDashboardHoje(cnt){
+  const wrap=document.createElement('div');wrap.className='rel-wrap';
+  function kpiCard(val,label,color,bg){
+    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:${color}">${val}</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
+    </div>`;
+  }
+  function blocoStats(titulo,st){
+    return`<div class="d-section"><div class="d-section-title">${titulo}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:8px">
+        ${kpiCard(st.marketing,'Leads · Marketing','var(--blue)','var(--bluel)')}
+        ${kpiCard(st.outros,'Leads · Outros','var(--purple)','var(--purplel)')}
+        ${kpiCard(st.visitas,'Visitas','var(--gold)','var(--goldl)')}
+        ${kpiCard(st.agendamentos,'Agendamentos','var(--gold)','var(--goldl)')}
+        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)')}
+      </div>
+    </div>`;
+  }
+  let html=`<div style="padding:20px;overflow:auto"><h2 style="font-size:18px;margin-bottom:4px">📅 Hoje — ${hoje()}</h2>`;
+  if(G.user?.r==='master'){
+    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
+    const stTodos=statsDoDiaMk(TODOS_VENDEDORES);
+    const hojeISO=new Date().toISOString().slice(0,10);
+    // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
+    // (cadastro manual de vendedor) - o resto passa pela I.A. normalmente.
+    const ORIGENS_PULA_IA=['Loja','Carteira de clientes','Passante'];
+    const iaHoje=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)).length;
+    const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
+    html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
+    html+=blocoStats('Equipe toda',stTodos);
+    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+        ${kpiCard(iaHoje,'Chegaram na I.A. hoje','var(--purple)','var(--purplel)')}
+        ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)')}
+      </div>
+    </div>`;
+  }else{
+    const meusNomes=[G.user?.n];
+    const st=statsDoDiaMk(meusNomes);
+    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st);
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+  cnt.appendChild(wrap);
+}
 function renderRelatoriosMk(cnt){
   const wrap=document.createElement('div');wrap.className='rel-wrap';
   const all=mkLeadsFiltrados();
@@ -1287,6 +1361,7 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';
   document.getElementById('f-valor').value=l?.valor||'';document.getElementById('f-etapa').value=l?.st||etapa||'ia';
   document.getElementById('f-obs').value=l?.obs||'';
+  document.getElementById('f-data-contato').value=l?.dtISO||new Date().toISOString().slice(0,10);
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
 }
 /* RODÍZIO DE VENDEDORES — lead sem vendedor definido cai automaticamente no próximo da fila.
@@ -1327,11 +1402,11 @@ async function salvarLead(){
   const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
   if(!captador&&!G.mk.editandoId)captador=await proximoVendedorRodizio();
-  const dtISO=new Date().toISOString().split('T')[0];
+  const dtISO=document.getElementById('f-data-contato').value||new Date().toISOString().split('T')[0];
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
   const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,obs:document.getElementById('f-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
   // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
   // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
   // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
@@ -1339,7 +1414,7 @@ async function salvarLead(){
   if(stEscolhido==='agendamento'&&!(leadExistente&&leadExistente.pendente_at))data.pendente_at=agora;
   try{
     if(G.mk.editandoId){Object.assign(G.mk.leads.find(l=>l.id===G.mk.editandoId),data);await salvarCamposMk(G.mk.editandoId,data);toast('Lead atualizado!');}
-    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,dt:hoje(),convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,data.captador||G.user?.n||'');toast(`Lead ${id} criado!`);}
+    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,data.captador||G.user?.n||'');toast(`Lead ${id} criado!`);}
     fecharModal('ov-lead');renderMarketing();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
