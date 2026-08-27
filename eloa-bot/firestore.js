@@ -65,10 +65,23 @@ function fromFF(fields) {
   if (!fields) return {};
   return Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fromFV(v)]));
 }
+// 27/08/2026: antes buscava so os primeiros 300 documentos, sem nenhum
+// jeito de buscar o resto - com a colecao "leads" passando de 300, a Eloa
+// ia parar de enxergar leads novos silenciosamente (sem erro nenhum, so
+// parava de responder). Agora segue as paginas (nextPageToken) ate acabar,
+// nao importa quantos documentos a colecao tenha.
 async function fbList(col) {
-  const r = await fbFetch(`${FB_URL}/${col}?pageSize=300`);
-  if (!r.ok) throw new Error(await r.text());
-  return ((await r.json()).documents || []).map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
+  let documentos = [];
+  let pageToken;
+  do {
+    const url = `${FB_URL}/${col}?pageSize=300${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    const r = await fbFetch(url);
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    documentos = documentos.concat(j.documents || []);
+    pageToken = j.nextPageToken;
+  } while (pageToken);
+  return documentos.map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
 }
 async function fbGet(col, id) {
   const r = await fbFetch(`${FB_URL}/${col}/${id}`);
