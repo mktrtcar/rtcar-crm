@@ -52,6 +52,19 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
   if(!body.lead_id){res.status(400).send('lead_id ausente');return;}
 
   try{
+    /* 27/08/2026, a pedido da Aline: cadastro feito na tela de "Avaliacao"
+       do Autoconf (avaliar um carro que o cliente quer vender/trocar - ver
+       app.autoconf.com.br/avaliacao/create) nao e' um lead novo de verdade -
+       o carro ja fica registrado la dentro do proprio Autoconf, e a
+       avaliacao em si acontece depois, direto no CRM. Esse webhook so
+       dispara como aviso de rotina do sistema deles; criar lead aqui so
+       duplicava a informacao sem necessidade nenhuma. Identificado pelo
+       campo "evaluated_vehicles" vir preenchido. */
+    if(Array.isArray(body.evaluated_vehicles)&&body.evaluated_vehicles.length){
+      res.status(200).send('cadastro de avaliacao, ignorado (nao vira lead)');
+      return;
+    }
+
     const dup=await db.collection('leads').where('autoconfLeadId','==',body.lead_id).limit(1).get();
     if(!dup.empty){res.status(200).send('duplicado, ignorado');return;}
 
