@@ -607,8 +607,8 @@ const USUARIOS=[
 const COLS_MK=[
   {id:'ia',          label:'I.A.',         emoji:'🤖', desc:'Lead recebido — triagem por I.A.',              cor:'#6b3db8', bg:'#f3e8fb', timer:true},
   {id:'atendimento', label:'Atendimento',  emoji:'💬', desc:'Vendedor em atendimento ativo',                 cor:'#1e4d8c', bg:'#e8f0fb', timer:true},
-  {id:'encantamento',label:'Encantamento', emoji:'✨', desc:'Construindo relacionamento com o cliente',      cor:'#0b7ba8', bg:'#e8f8fb'},
-  {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee'},
+  {id:'encantamento',label:'Encantamento', emoji:'✨', desc:'Construindo relacionamento com o cliente',      cor:'#0b7ba8', bg:'#e8f8fb', timer:true},
+  {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee', timer:true},
   {id:'agendamento', label:'Agendamento',  emoji:'📅', desc:'Agendamento feito — timer de resposta ativo',  cor:'#b8860b', bg:'#faf6e8', timer:true},
   {id:'visita',      label:'Visita',       emoji:'🚗', desc:'Cliente veio à loja',                           cor:'#4a4a4a', bg:'#f0f0f0'},
   {id:'vendido',     label:'Venda',        emoji:'🏆', desc:'Negócio fechado com sucesso',                   cor:'#1a6b3c', bg:'#e8f5ee', fim:true},
@@ -617,7 +617,10 @@ const COLS_MK=[
 ];
 /* CATEGORIAS DE ORIGEM */
 const ORIGENS_MK={
-  marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','Webmotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
+  // "Webmotors" e "WebMotors" sao a mesma origem, grafada diferente em
+  // lugares diferentes do sistema - as duas precisam estar aqui, senao uma
+  // delas cai errado em "Outros" (achado ao revisar o painel Hoje com a Aline).
+  marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','Webmotors','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
   compra:['Compra'],
   outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação']
 };
@@ -915,7 +918,7 @@ function renderMarketing(){
       <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
       <div class="tb-tab${view==='lista'?' on':''}" onclick="G.mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
       <div class="tb-tab${view==='rel'?' on':''}" onclick="G.mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
-      <div class="tb-tab${view==='visitas'?' on':''}" onclick="G.mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Visitas</div>
+      <div class="tb-tab${view==='visitas'?' on':''}" onclick="G.mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
@@ -1004,8 +1007,13 @@ function renderKanbanMk(cnt){
       c.addEventListener('dragstart',()=>{G.mk.dragId=l.id;c.classList.add('dragging')});
       c.addEventListener('dragend',()=>{G.mk.dragId=null;c.classList.remove('dragging')});
       c.onclick=e=>{if(!e.target.closest('.card-btn'))abrirDetailLead(l.id)};
-      const timerStart=col.id==='atendimento'?l.atendimento_at:(col.id==='ia'?l._criadoEm:l.pendente_at);
-      const timerEnd=col.id==='atendimento'?l.atendimento_end:(col.id==='ia'?null:l.pendente_end);
+      // Campos start/end de cada coluna com cronometro - cada uma grava o
+      // proprio par de campos (ver moverLead) pra saber quanto tempo o lead
+      // ficou especificamente naquela etapa.
+      const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','atendimento_end'],encantamento:['encantamento_at','encantamento_end'],negociacao:['negociacao_at','negociacao_end'],agendamento:['pendente_at','pendente_end']};
+      const [campoStart,campoEnd]=CAMPOS_TIMER_COL[col.id]||[null,null];
+      const timerStart=campoStart?l[campoStart]:null;
+      const timerEnd=campoEnd?l[campoEnd]:null;
       const timerInline=col.timer&&timerStart&&!timerEnd?
         `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
         (col.timer&&timerStart&&timerEnd?
@@ -1155,17 +1163,31 @@ function exportarLeadsCSV(){
    todo mundo (vendedores + Milena) mais dois indicadores extras
    (leads que chegaram na I.A. hoje e quantos estao em atendimento agora,
    somando todos os vendedores). */
+// Data de hoje no horario local (Brasilia), nao em UTC - com toISOString()
+// (UTC) o "dia" virava 3h antes da meia-noite local de verdade, fazendo o
+// painel "Hoje" mostrar tudo zerado no fim da tarde/noite (bug encontrado
+// e corrigido a pedido da Aline, 27/08/2026).
+function hojeISOlocal(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+const ORIGENS_PULA_IA=['Loja','Carteira de clientes','Passante']; // mesma lista do webhook-autoconf
 function statsDoDiaMk(nomes){
-  const hojeISO=new Date().toISOString().slice(0,10);
+  const hojeISO=hojeISOlocal();
   const hojeBRstr=hoje();
   const ls=G.mk.leads.filter(l=>nomes.includes(l.captador));
   const recebidosHoje=ls.filter(l=>l.dtISO===hojeISO);
+  const porCanal=lista=>{const m={};lista.forEach(l=>{m[l.origem||'(sem origem)']=(m[l.origem||'(sem origem)']||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
+  const marketingLeads=recebidosHoje.filter(l=>tipoOrigem(l.origem)==='marketing');
+  const outrosLeads=recebidosHoje.filter(l=>tipoOrigem(l.origem)!=='marketing');
   return{
-    marketing:recebidosHoje.filter(l=>tipoOrigem(l.origem)==='marketing').length,
-    outros:recebidosHoje.filter(l=>tipoOrigem(l.origem)!=='marketing').length,
-    visitas:ls.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu').length,
-    agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO).length,
-    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr).length,
+    marketing:marketingLeads.length,
+    marketingPorCanal:porCanal(marketingLeads),
+    outros:outrosLeads.length,
+    outrosPorCanal:porCanal(outrosLeads),
+    visitas:ls.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem!=='Compra').length,
+    visitasCompra:ls.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem==='Compra').length,
+    agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra').length,
+    agendamentosCompra:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra').length,
+    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra').length,
+    compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
   };
 }
 function renderDashboardHoje(cnt){
@@ -1176,14 +1198,29 @@ function renderDashboardHoje(cnt){
       <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
     </div>`;
   }
+  function listaCanais(porCanal){
+    if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
+    return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2)"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
+  }
   function blocoStats(titulo,st){
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(st.marketing,'Leads · Marketing','var(--blue)','var(--bluel)')}
-        ${kpiCard(st.outros,'Leads · Outros','var(--purple)','var(--purplel)')}
-        ${kpiCard(st.visitas,'Visitas','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.agendamentos,'Agendamentos','var(--gold)','var(--goldl)')}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+        <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+          <div style="font-size:26px;font-weight:700;color:var(--blue);text-align:center">${st.marketing}</div>
+          <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Marketing</div>
+          ${listaCanais(st.marketingPorCanal)}
+        </div>
+        <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+          <div style="font-size:26px;font-weight:700;color:var(--purple);text-align:center">${st.outros}</div>
+          <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Outros</div>
+          ${listaCanais(st.outrosPorCanal)}
+        </div>
+        ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)')}
+        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)')}
+        ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)')}
+        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)')}
         ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)')}
+        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)')}
       </div>
     </div>`;
   }
@@ -1191,17 +1228,24 @@ function renderDashboardHoje(cnt){
   if(G.user?.r==='master'){
     const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
     const stTodos=statsDoDiaMk(TODOS_VENDEDORES);
-    const hojeISO=new Date().toISOString().slice(0,10);
+    const hojeISO=hojeISOlocal();
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
     // (cadastro manual de vendedor) - o resto passa pela I.A. normalmente.
-    const ORIGENS_PULA_IA=['Loja','Carteira de clientes','Passante'];
-    const iaHoje=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)).length;
+    const chegaramHoje=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
+    const aindaNaIA=chegaramHoje.filter(l=>l.st==='ia').length;
+    const jaSairamDaIA=chegaramHoje.length-aindaNaIA;
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
     html+=blocoStats('Equipe toda',stTodos);
-    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora)</div>
+    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram hoje na I.A.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(iaHoje,'Chegaram na I.A. hoje','var(--purple)','var(--purplel)')}
+        ${kpiCard(chegaramHoje.length,'Chegaram na I.A. hoje','var(--purple)','var(--purplel)')}
+        ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)')}
+        ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)')}
+      </div>
+    </div>
+    <div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)')}
       </div>
     </div>`;
@@ -1268,13 +1312,15 @@ function renderRelatoriosMk(cnt){
       <div class="rp-section">
         <div class="rp-sec-title">📅 Agendamentos</div>
         <div class="rp-row"><span>Agend. compra ou vendedor</span><strong>${agendamentos.length}</strong></div>
-        <div class="rp-sec-title" style="margin-top:14px">🚗 Visitas</div>
-        <div class="rp-row"><span>Total de visitas</span><strong>${visitas.length}</strong></div>
-        <div class="rp-row"><span>Visitas compra</span><strong>${visitasCompra.length}</strong></div>
-        <div class="rp-row"><span>Relacionamento (0 visitas)</span><strong>${semVisitas.length}</strong></div>
         <div class="rp-sec-title" style="margin-top:14px">✅ Vendas</div>
         <div class="rp-row rp-total"><span>Vendas (total)</span><strong style="color:#1a6b3c">${vendas.length}</strong></div>
         <div class="rp-row rp-total"><span>Compra (Milena)</span><strong style="color:#1a6b3c">${vendaCompra.length}</strong></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-sec-title">🚗 Visita</div>
+        <div class="rp-row"><span>Total de visitas</span><strong>${visitas.length}</strong></div>
+        <div class="rp-row"><span>Visitas compra</span><strong>${visitasCompra.length}</strong></div>
+        <div class="rp-row"><span>Relacionamento (0 visitas)</span><strong>${semVisitas.length}</strong></div>
       </div>
     </div>
   </div>
@@ -1412,6 +1458,13 @@ async function salvarLead(){
   // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
   if(stEscolhido==='atendimento'&&!(leadExistente&&leadExistente.atendimento_at))data.atendimento_at=agora;
   if(stEscolhido==='agendamento'&&!(leadExistente&&leadExistente.pendente_at))data.pendente_at=agora;
+  if(stEscolhido==='encantamento'&&!(leadExistente&&leadExistente.encantamento_at))data.encantamento_at=agora;
+  if(stEscolhido==='negociacao'&&!(leadExistente&&leadExistente.negociacao_at))data.negociacao_at=agora;
+  // Sem isso, marcar "Venda" direto pelo dropdown de Etapa (em vez do botao
+  // "✅ Vendido") nunca gravava a data da venda - achado ao investigar por
+  // que o painel "Hoje" nao batia com vendas que a Aline sabia que tinham
+  // acontecido (27/08/2026).
+  if(stEscolhido==='vendido'&&!(leadExistente&&leadExistente.dtVenda))data.dtVenda=hoje();
   try{
     if(G.mk.editandoId){Object.assign(G.mk.leads.find(l=>l.id===G.mk.editandoId),data);await salvarCamposMk(G.mk.editandoId,data);toast('Lead atualizado!');}
     else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,data.captador||G.user?.n||'');toast(`Lead ${id} criado!`);}
@@ -1530,6 +1583,17 @@ async function moverLead(id,novaCol){
   if(novaCol!=='atendimento'&&lead.atendimento_at&&!lead.atendimento_end){
     lead.atendimento_end=new Date().toISOString();extras.atendimento_end=lead.atendimento_end;
   }
+  // Mesmo padrao do Atendimento, agora tambem pro cronometro de
+  // Encantamento e Negociacao (a pedido da Aline, 27/08/2026).
+  ['encantamento','negociacao'].forEach(colId=>{
+    const campoAt=colId+'_at',campoEnd=colId+'_end';
+    if(novaCol===colId&&!lead[campoAt]){
+      lead[campoAt]=new Date().toISOString();extras[campoAt]=lead[campoAt];
+    }
+    if(novaCol!==colId&&lead[campoAt]&&!lead[campoEnd]){
+      lead[campoEnd]=new Date().toISOString();extras[campoEnd]=lead[campoEnd];
+    }
+  });
   lead.st=novaCol;
   await salvarCamposMk(id,Object.assign({st:novaCol},extras));
   await regHistMk(lead,`${COLS_MK.find(c=>c.id===novaCol)?.emoji} Movido para ${COLS_MK.find(c=>c.id===novaCol)?.label}`,`Anterior: ${oldLabel}`,G.user?.n||'','blue');
