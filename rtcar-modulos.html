@@ -319,6 +319,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
       <div class="ni-sep"></div>
       <div class="ni-lbl">Sistema</div>
       <div class="ni ni-sistema-principal" onclick="window.open('https://marcelartcar.github.io/rtcar/','_blank')"><i class="ti ti-external-link"></i> Sistema Principal</div>
+      <div class="ni ni-integracoes" id="ni-integracoes" onclick="abrirModalIntegracoes()" style="display:none"><i class="ti ti-plug"></i> Integrações</div>
     </nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -435,6 +436,38 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
       <button class="btn btn-outline" onclick="fecharModal('ov-resgate')">Cancelar</button>
       <button class="btn" style="background:var(--purple);color:#fff" onclick="confirmarResgate()"><i class="ti ti-refresh"></i> Iniciar Resgate</button>
     </div>
+  </div>
+</div>
+
+<div id="ov-lead-duplicado" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-lead-duplicado')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>⚠️ Esse cliente já tem atendimento</h3><button class="mod-close" onclick="fecharModal('ov-lead-duplicado')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <p style="font-size:13px;color:var(--tx2);line-height:1.6" id="lead-duplicado-msg"></p>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-red" id="btn-duplicado-entendi" onclick="fecharModal('ov-lead-duplicado')">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-excluir-lead" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-excluir-lead')">
+  <div class="mod" style="max-width:400px">
+    <div class="mod-head"><h3>🗑️ Excluir lead?</h3><button class="mod-close" onclick="fecharModal('ov-excluir-lead')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <p style="font-size:13px;color:var(--tx2);line-height:1.6">Tem certeza que quer excluir o lead <strong id="excluir-lead-nome"></strong>? <span style="color:var(--red);font-weight:600">Essa ação não pode ser desfeita — o histórico todo se perde.</span></p>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" id="btn-excluir-nao" onclick="fecharModal('ov-excluir-lead')">Não, cancelar</button>
+      <button class="btn btn-red" onclick="executarExclusaoLead()">Sim, excluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-integracoes" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-integracoes')">
+  <div class="mod" style="max-width:520px">
+    <div class="mod-head"><h3><i class="ti ti-plug"></i> Integrações</h3><button class="mod-close" onclick="fecharModal('ov-integracoes')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body" id="integracoes-body">Carregando...</div>
   </div>
 </div>
 
@@ -746,6 +779,7 @@ async function fazerLogin(){
   document.getElementById('sb-name').textContent=u.n;
   document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor'}[u.r]||u.r);
   document.querySelectorAll('.ni-sistema-principal').forEach(el=>el.style.display=(u.r==='dev'?'none':''));
+  document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
   ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{
@@ -1424,18 +1458,79 @@ async function proximoVendedorRodizio(){
     return RODIZIO_VENDEDORES[i];
   }
   try{
-    const idx=await db.runTransaction(async tx=>{
+    const escolhido=await db.runTransaction(async tx=>{
       const ref=db.collection('leads_config').doc('rodizio');
       const snap=await tx.get(ref);
-      const atual=(snap.exists&&snap.data().idx)||0;
+      const dados=snap.exists?snap.data():{};
+      // So entra no sorteio quem estiver marcado ativo na fila (painel
+      // Integracoes) - por padrao todo mundo do RODIZIO_VENDEDORES esta
+      // ativo, a nao ser que tenha sido desligado explicitamente.
+      const ativos=RODIZIO_VENDEDORES.filter(n=>dados.ativos?.[n]!==false);
+      const lista=ativos.length?ativos:RODIZIO_VENDEDORES;
+      const atual=dados.idx||0;
       tx.set(ref,{idx:atual+1},{merge:true});
-      return atual%RODIZIO_VENDEDORES.length;
+      return lista[atual%lista.length];
     });
-    return RODIZIO_VENDEDORES[idx];
+    return escolhido;
   }catch{
     await fbCreate('leads_config','rodizio',{idx:1});
     return RODIZIO_VENDEDORES[0];
   }
+}
+async function toggleVendedorEsteira(nome){
+  const ref=db.collection('leads_config').doc('rodizio');
+  const snap=await ref.get();
+  const dados=snap.exists?snap.data():{};
+  const ativos=dados.ativos||{};
+  const estavaAtivo=ativos[nome]!==false;
+  ativos[nome]=!estavaAtivo;
+  await ref.set({ativos},{merge:true});
+  abrirModalIntegracoes();
+}
+async function abrirModalIntegracoes(){
+  document.getElementById('ov-integracoes').classList.remove('hidden');
+  const body=document.getElementById('integracoes-body');
+  body.innerHTML='Carregando...';
+  const [rodizioSnap,errosSnap]=await Promise.all([
+    db.collection('leads_config').doc('rodizio').get(),
+    db.collection('erros_webhook').get(),
+  ]);
+  const ativos=(rodizioSnap.exists&&rodizioSnap.data().ativos)||{};
+  const agora=Date.now();
+  const erros48h=errosSnap.docs.map(d=>d.data()).filter(e=>e.criadoEm&&(agora-new Date(e.criadoEm).getTime())<48*3600*1000).sort((a,b)=>b.criadoEm.localeCompare(a.criadoEm));
+  const leadsAutoconf=G.mk.leads.filter(l=>l.autoconfLeadId).sort((a,b)=>(b._criadoEm||'').localeCompare(a._criadoEm||''));
+  const ultimoLead=leadsAutoconf[0];
+  const horasSemLead=ultimoLead&&ultimoLead._criadoEm?Math.floor((agora-new Date(ultimoLead._criadoEm).getTime())/3600000):null;
+  const semLeadHaMuito=horasSemLead!==null&&horasSemLead>24;
+  const tudoOk=!erros48h.length&&!semLeadHaMuito;
+  body.innerHTML=`
+    <div class="d-section">
+      <div class="d-section-title">Status Autoconf</div>
+      <div style="background:${tudoOk?'var(--greenl)':'var(--redl)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;margin-top:8px">
+        <div style="font-weight:700;color:${tudoOk?'var(--green)':'var(--red)'};font-size:14px">${tudoOk?'✅ Tudo certo':'⚠️ Precisa de atenção'}</div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:6px">
+          ${ultimoLead?`Último lead recebido há ${horasSemLead<1?'menos de 1 hora':horasSemLead+'h'}${semLeadHaMuito?' <strong style="color:var(--red)">(mais de 24h sem receber nada — verifique se a integração caiu)</strong>':''}`:'Nenhum lead do Autoconf encontrado ainda'}
+        </div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:4px">${erros48h.length?`<strong style="color:var(--red)">${erros48h.length} erro(s) registrado(s)</strong> nas últimas 48h`:'Nenhum erro registrado nas últimas 48h'}</div>
+      </div>
+      ${erros48h.length?`<div style="margin-top:8px;max-height:140px;overflow:auto">${erros48h.slice(0,10).map(e=>`<div style="font-size:11px;color:var(--tx3);padding:4px 0;border-bottom:1px solid var(--bdr)">${new Date(e.criadoEm).toLocaleString('pt-BR')} — ${(e.erro||'').slice(0,120)}</div>`).join('')}</div>`:''}
+    </div>
+    <div class="d-section" style="margin-top:16px">
+      <div class="d-section-title">Fila de atendimento (rodízio)</div>
+      <p style="font-size:12px;color:var(--tx3);margin-top:4px">Desative quem não estiver atendendo hoje — ele para de receber lead novo automaticamente até você reativar.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+        ${RODIZIO_VENDEDORES.map(nome=>{
+          const ativo=ativos[nome]!==false;
+          return`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:var(--r);padding:10px 14px">
+            <span style="font-weight:600;font-size:13px">${nome}</span>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:${ativo?'var(--green)':'var(--tx3)'}">
+              ${ativo?'Na fila':'Fora da fila'}
+              <input type="checkbox" ${ativo?'checked':''} onchange="toggleVendedorEsteira('${nome}')">
+            </label>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
 async function salvarLead(){
   const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
@@ -1443,7 +1538,13 @@ async function salvarLead(){
   if(!G.mk.editandoId){
     const telDigits=tel.replace(/\D/g,'');
     const dup=G.mk.leads.find(l=>l.clienteTel&&l.clienteTel.replace(/\D/g,'')===telDigits&&!['vendido','perdido'].includes(l.st));
-    if(dup){toast(`Já existe um lead em aberto com esse telefone: ${dup.id} — ${dup.clienteNome} (${dup.st})`,'red',5000);return;}
+    if(dup){
+      const colDup=COLS_MK.find(c=>c.id===dup.st);
+      document.getElementById('lead-duplicado-msg').innerHTML=`Já existe um lead em aberto com esse telefone: <strong>${dup.id} — ${dup.clienteNome||'(sem nome)'}</strong>, na etapa <strong>${colDup?.label||dup.st}</strong>${dup.captador?` com <strong>${dup.captador}</strong>`:''}.<br><br>Avise o Master pra confirmar quem deve continuar esse atendimento, em vez de cadastrar de novo.`;
+      document.getElementById('ov-lead-duplicado').classList.remove('hidden');
+      setTimeout(()=>document.getElementById('btn-duplicado-entendi').focus(),50);
+      return;
+    }
   }
   const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
@@ -1706,7 +1807,26 @@ function abrirDetailLead(id){
     <div class="detail-foot">
       <button class="btn btn-outline btn-sm" onclick="abrirModalLead('${id}')"><i class="ti ti-pencil"></i> Editar</button>
       <button class="btn btn-red btn-sm" onclick="abrirModalObs('${id}')"><i class="ti ti-message-circle"></i> Registrar</button>
+      <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="confirmarExclusaoLead('${id}')"><i class="ti ti-trash"></i> Excluir</button>
     </div>`;
+}
+function confirmarExclusaoLead(id){
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  G.mk._excluindoId=id;
+  document.getElementById('excluir-lead-nome').textContent=`${lead.id} — ${lead.clienteNome||'(sem nome)'}`;
+  document.getElementById('ov-excluir-lead').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('btn-excluir-nao').focus(),50);
+}
+async function executarExclusaoLead(){
+  const id=G.mk._excluindoId;if(!id)return;
+  try{
+    if(!G.mk.modoDemo)await db.collection('leads').doc(id).delete();
+    G.mk.leads=G.mk.leads.filter(l=>l.id!==id);
+    fecharModal('ov-excluir-lead');
+    fecharDetail();
+    toast('Lead excluído');
+    renderMarketing();
+  }catch(e){console.error(e);toast('Erro ao excluir','red');}
 }
 </script>
 <script>
