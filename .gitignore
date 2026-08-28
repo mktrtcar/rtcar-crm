@@ -2,6 +2,9 @@ node_modules/
 .firebase/
 *.log
 .claude/
+# copia gerada na hora do deploy de teste (staging) - fonte de verdade
+# continua sendo index.html na raiz, ver README sobre "firebase deploy --only hosting:crm-staging"
+crm-staging-hosting/
 eloa-bot/auth/
 eloa-bot/auth-backup*/
 eloa-bot/qr.png

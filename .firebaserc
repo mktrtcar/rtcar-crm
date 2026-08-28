@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "rtcarprograma"
-  }
+  },
+  "targets": {
+    "rtcarprograma": {
+      "hosting": {
+        "crm-staging": [
+          "rtcar-crm-staging"
+        ],
+        "painel-eva": [
+          "rtcarprograma"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

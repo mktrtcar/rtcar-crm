@@ -6,8 +6,16 @@
       "runtime": "nodejs22"
     }
   ],
-  "hosting": {
-    "public": "painel-eva",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
-  }
+  "hosting": [
+    {
+      "target": "painel-eva",
+      "public": "painel-eva",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    },
+    {
+      "target": "crm-staging",
+      "public": "crm-staging-hosting",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    }
+  ]
 }
