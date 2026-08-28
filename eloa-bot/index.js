@@ -72,9 +72,17 @@ let filaRodizio = Promise.resolve(); // serializa leitura+escrita do contador �
 function atribuirVendedorRodizio() {
   const proxima = filaRodizio.then(async () => {
     const doc = await fbGet('leads_config', 'rodizio').catch(() => null);
-    const idx = ((doc && doc.idx) || 0) % RODIZIO_VENDEDORES.length;
-    await fbUpdate('leads_config', 'rodizio', { idx: idx + 1 });
-    return RODIZIO_VENDEDORES[idx];
+    // 28/08/2026, a pedido da Aline: painel "Integracoes" do CRM deixa
+    // tirar um vendedor da fila (ex: nao esta trabalhando hoje) - so entra
+    // no sorteio quem nao estiver marcado como false em "ativos". Se todo
+    // mundo estiver desligado (erro de operacao), cai no fallback com todo
+    // mundo, pra nunca deixar lead sem vendedor nenhum.
+    const ativos = RODIZIO_VENDEDORES.filter((n) => !doc || doc.ativos?.[n] !== false);
+    const lista = ativos.length ? ativos : RODIZIO_VENDEDORES;
+    const idxAtual = (doc && doc.idx) || 0;
+    const escolhido = lista[idxAtual % lista.length];
+    await fbUpdate('leads_config', 'rodizio', { idx: idxAtual + 1 });
+    return escolhido;
   });
   filaRodizio = proxima.catch(() => {}); // erro num sorteio não pode travar a fila pros próximos
   return proxima;
