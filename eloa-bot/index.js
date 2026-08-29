@@ -28,7 +28,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
 const { fbList, fbGet, fbUpdate } = require('./firestore');
@@ -959,6 +959,34 @@ async function cicloFollowUp() {
   setTimeout(cicloFollowUp, INTERVALO_FOLLOWUP_MS);
 }
 
+/* 29/08/2026: transcreve nota de voz do cliente via Gemini (multimodal —
+   aceita áudio direto, sem precisar de um serviço de transcrição à parte).
+   Usa GOOGLE_AI_API_KEY, a mesma chave já configurada pra Eva conversar —
+   não precisa de nenhuma chave nova. Efeito colateral aceitável: se essa
+   chave ficar sem cota, a transcrição falha e o áudio só é ignorado (mesmo
+   comportamento de antes), sem quebrar o resto da conversa. */
+async function transcreverAudio(buffer, mimetype) {
+  const base64 = buffer.toString('base64');
+  const modelo = 'gemini-3.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${process.env.GOOGLE_AI_API_KEY}`;
+  const body = {
+    contents: [
+      {
+        parts: [
+          { text: 'Transcreva o áudio abaixo, em português do Brasil. Responda SÓ com a transcrição do que foi falado, sem nenhum comentário, aspas ou formatação extra. Se não der pra entender nada (ruído, silêncio, etc.), responda exatamente: (áudio incompreensível)' },
+          { inline_data: { mime_type: mimetype || 'audio/ogg', data: base64 } },
+        ],
+      },
+    ],
+  };
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('Falha ao transcrever áudio: ' + (await r.text()));
+  const j = await r.json();
+  const texto = j.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!texto) throw new Error('Gemini não retornou transcrição: ' + JSON.stringify(j));
+  return texto.trim();
+}
+
 let pollJaIniciado = false;
 function iniciarPollUmaVez() {
   if (pollJaIniciado) return;
@@ -1015,10 +1043,38 @@ async function start() {
     const leadId = telParaLeadId.get(chave);
     if (!leadId) return; // não é um número que a Eloá cumprimentou
     const texto = msg.message.conversation || msg.message.extendedTextMessage?.text;
-    if (!texto) return; // figurinha, áudio, reação, mensagem automática de ausência etc. — não é fala real do cliente
-    const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;
-    turnoPorLead.set(leadId, meuTurno);
-    processarMensagemSequencial(leadId, () => responderComIA(jid, leadId, texto, meuTurno)).catch(console.error);
+    if (texto) {
+      const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;
+      turnoPorLead.set(leadId, meuTurno);
+      processarMensagemSequencial(leadId, () => responderComIA(jid, leadId, texto, meuTurno)).catch(console.error);
+      return;
+    }
+    // 29/08/2026, a pedido do Rubens: cliente que responde por nota de voz
+    // antes só era ignorado (nem respondia, nem contava como resposta —
+    // caso real: Thiago, LEAD-189, 28/08/2026, respondeu por áudio e a Eva
+    // nunca soube). Transcreve via Gemini e trata como mensagem de texto
+    // normal daqui pra frente. Figurinha/foto/reação continuam ignoradas —
+    // só áudio ganha esse tratamento.
+    if (msg.message.audioMessage) {
+      const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;
+      turnoPorLead.set(leadId, meuTurno);
+      processarMensagemSequencial(leadId, async () => {
+        let textoTranscrito;
+        try {
+          const buffer = await downloadMediaMessage(msg, 'buffer', {});
+          textoTranscrito = await transcreverAudio(buffer, msg.message.audioMessage.mimetype);
+        } catch (e) {
+          console.error(`Erro ao transcrever áudio de ${leadId}:`, e.message);
+          return;
+        }
+        if (!textoTranscrito || /áudio incompreensível/i.test(textoTranscrito)) {
+          console.log(`[áudio] não deu pra entender o áudio de ${leadId} — ignorando.`);
+          return;
+        }
+        console.log(`[áudio] transcrito de ${leadId}: "${textoTranscrito}"`);
+        await responderComIA(jid, leadId, `[Áudio transcrito] ${textoTranscrito}`, meuTurno);
+      }).catch(console.error);
+    }
   });
 }
 
