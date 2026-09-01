@@ -698,7 +698,7 @@ const COLS_WS=[
 /* ESTADO GLOBAL */
 const G={
   user:null, modulo:'marketing',
-  mk:{leads:[],_timerInterval:null,view:'hoje',busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
+  mk:{leads:[],_timerInterval:null,view:'hoje',hojeOffset:0,busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
   rel:{clientes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
@@ -1213,11 +1213,14 @@ function exportarLeadsCSV(){
 // (UTC) o "dia" virava 3h antes da meia-noite local de verdade, fazendo o
 // painel "Hoje" mostrar tudo zerado no fim da tarde/noite (bug encontrado
 // e corrigido a pedido da Aline, 27/08/2026).
-function hojeISOlocal(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function hojeISOlocal(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const ORIGENS_PULA_IA=['Loja','Carteira de clientes','Passante']; // mesma lista do webhook-autoconf
-function statsDoDiaMk(nomes){
-  const hojeISO=hojeISOlocal();
-  const hojeBRstr=hoje();
+// 28/08/2026, a pedido da Aline: setas pra ver o painel "Hoje" de ate 7
+// dias atras (ontem, anteontem...), sem precisar ir no Funil/Relatorios
+// (que misturam lead recebido com lead so atualizado naquele dia).
+function statsDoDiaMk(nomes,offset=0){
+  const hojeISO=hojeISOlocal(offset);
+  const hojeBRstr=hoje(offset);
   const ls=G.mk.leads.filter(l=>nomes.includes(l.captador));
   const recebidosHoje=ls.filter(l=>l.dtISO===hojeISO);
   const porCanal=lista=>{const m={};lista.forEach(l=>{m[l.origem||'(sem origem)']=(m[l.origem||'(sem origem)']||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
@@ -1270,34 +1273,42 @@ function renderDashboardHoje(cnt){
       </div>
     </div>`;
   }
-  let html=`<div style="padding:20px;overflow:auto"><h2 style="font-size:18px;margin-bottom:4px">📅 Hoje — ${hoje()}</h2>`;
+  const offset=G.mk.hojeOffset||0;
+  const rotuloDia=offset===0?'Hoje':(offset===-1?'Ontem':`${Math.abs(offset)} dias atrás`);
+  let html=`<div style="padding:20px;overflow:auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.mk.hojeOffset=(G.mk.hojeOffset||0)-1;renderMarketing()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <h2 style="font-size:18px">📅 ${rotuloDia} — ${hoje(offset)}</h2>
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.mk.hojeOffset=(G.mk.hojeOffset||0)+1;renderMarketing()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
+    </div>`;
   if(G.user?.r==='master'){
     const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
-    const stTodos=statsDoDiaMk(TODOS_VENDEDORES);
-    const hojeISO=hojeISOlocal();
+    const stTodos=statsDoDiaMk(TODOS_VENDEDORES,offset);
+    const diaISO=hojeISOlocal(offset);
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
     // (cadastro manual de vendedor) - o resto passa pela I.A. normalmente.
-    const chegaramHoje=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
-    const aindaNaIA=chegaramHoje.filter(l=>l.st==='ia').length;
-    const jaSairamDaIA=chegaramHoje.length-aindaNaIA;
+    const chegaramNoDia=G.mk.leads.filter(l=>l.dtISO===diaISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
+    const aindaNaIA=chegaramNoDia.filter(l=>l.st==='ia').length;
+    const jaSairamDaIA=chegaramNoDia.length-aindaNaIA;
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
     html+=blocoStats('Equipe toda',stTodos);
-    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram hoje na I.A.</div>
+    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(chegaramHoje.length,'Chegaram na I.A. hoje','var(--purple)','var(--purplel)')}
+        ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)')}
         ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)')}
         ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)')}
       </div>
     </div>
-    <div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
+    ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)')}
       </div>
-    </div>`;
+    </div>`:''}`;
   }else{
     const meusNomes=[G.user?.n];
-    const st=statsDoDiaMk(meusNomes);
+    const st=statsDoDiaMk(meusNomes,offset);
     html+=blocoStats(`Seus números — ${G.user?.n||''}`,st);
   }
   html+='</div>';
