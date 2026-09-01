@@ -944,6 +944,18 @@ function renderMarketing(){
   const buscaFocada=document.activeElement&&document.activeElement.id==='mk-busca';
   const buscaSelStart=buscaFocada?document.activeElement.selectionStart:null;
   const buscaSelEnd=buscaFocada?document.activeElement.selectionEnd:null;
+  // Reconstruir a tela (barra de ferramentas OU o conteudo - ex: o campo de
+  // data dentro de um card de Agendamento) enquanto a pessoa esta no meio
+  // de digitar uma data (dia/mes/ano em campo type="date") derruba o campo
+  // e joga o foco pro <body> antes do ano ser digitado - o "onchange"
+  // desses campos dispara antes da data estar completa. Sem isso, era
+  // impossivel terminar de digitar o ano (achado a pedido da Aline,
+  // 28/08/2026). Solucao: enquanto o foco estiver em QUALQUER campo de
+  // data, pula a reconstrucao inteira dessa chamada (o valor digitado ja
+  // foi salvo no estado/Firestore pelo onchange; a tela so vai refletir
+  // isso no proximo render de verdade, ex: proximo auto-refresh).
+  const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
+  if(dataFocada)return;
   tb.innerHTML=`
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
     <div class="tb-sep"></div>
@@ -957,8 +969,8 @@ function renderMarketing(){
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
       ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="G.mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
-      <input type="date" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="G.mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
-      <input type="date" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="G.mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
+      <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="G.mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
+      <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="G.mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
       ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.mk.filtroCaptador=\'\';G.mk.filtroDataInicio=\'\';G.mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
     <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="G.mk.busca=this.value;renderMarketing()"></div>
@@ -1862,6 +1874,11 @@ async function initRelacionamento(){
 function renderRelacionamento(){
   if(G.modulo!=='relacionamento')return;
   const tb=document.getElementById('tb');const view=G.rel.view;
+  // Mesma correcao do CRM (ver renderMarketing): reconstruir a tela
+  // inteira enquanto a pessoa esta digitando dentro de um campo de data
+  // derruba o campo antes do ano ser digitado.
+  const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
+  if(dataFocada)return;
   tb.innerHTML=`
     <div class="tb-title"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
     <div class="tb-sep"></div>
@@ -1872,8 +1889,8 @@ function renderRelacionamento(){
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      <input type="date" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="G.rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
-      <input type="date" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="G.rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
+      <input type="date" id="rel-data-inicio" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="G.rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
+      <input type="date" id="rel-data-fim" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="G.rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
       ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.rel.filtroDataInicio=\'\';G.rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
     <div class="tb-filters-inline">
