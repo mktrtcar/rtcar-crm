@@ -634,6 +634,7 @@ const USUARIOS=[
   {id:'u12',n:'Tiago',   e:'tiago@rtcar.com.br',            r:'master'},
   {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev'},
   {id:'u14',n:'Jean',    e:'rtcargarantia@gmail.com',       r:'seller'},
+  {id:'u15',n:'Victor',  e:'victor@rtcar.com.br',           r:'seller'},
 ];
 
 /* COLUNAS MARKETING */
@@ -1000,7 +1001,10 @@ function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenador
    uso, mas so pra quem nao e vendedor (coordenadora/gestao cuidam disso). */
 function colunaOculta(colId){
   if(colId==='visita')return true;
-  if(colId==='resgate')return isSeller();
+  // Resgate fica escondido do vendedor normalmente, mas o Victor e' excecao
+  // (a pedido da Aline, 01/09/2026): o trabalho dele e' justamente resgatar
+  // lead perdido, entao ele precisa ver e mover leads pra essa coluna.
+  if(colId==='resgate')return isSeller()&&G.user?.n!=='Victor';
   return false;
 }
 function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora'||G.user?.r==='dev';}
@@ -1472,7 +1476,7 @@ function abrirModalLead(id=null,etapa=null){
    O contador é incrementado via fieldTransform atômico do Firestore (increment), em vez de
    ler-e-gravar em duas chamadas separadas — assim duas criações de lead ao mesmo tempo nunca
    leem o mesmo número e caem no mesmo vendedor. */
-const RODIZIO_VENDEDORES=['Janderson','Maicon'];
+const RODIZIO_VENDEDORES=['Janderson','Maicon','Victor'];
 async function proximoVendedorRodizio(){
   if(!RODIZIO_VENDEDORES.length)return'';
   if(G.mk.modoDemo){
@@ -1596,7 +1600,7 @@ async function salvarLead(){
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
 }
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor'];
 let _transferPopup=null;
 function abrirTransferirLead(id,e){
   e.stopPropagation();
