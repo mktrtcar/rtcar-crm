@@ -67,7 +67,12 @@ const WHATSAPP_VENDEDORES = {
    lead nunca respondido não consome vez de ninguém. O webhook-autoconf não
    assina mais vendedor nenhum pra leads que não sejam de "Compra" (deixa
    captador vazio até aqui). */
-const RODIZIO_VENDEDORES = ['Janderson', 'Maicon'];
+// Victor entrou desativado (ver leads_config/rodizio.ativos, painel
+// Integracoes do CRM) - so participa do sorteio quando a Aline ligar ele
+// la. ATENCAO: falta o WhatsApp dele em WHATSAPP_VENDEDORES acima - sem
+// isso, se ele for ativado antes disso ser preenchido, a notificacao de
+// lead atribuido a ele cai no fallback (Rubens) em vez de chegar pra ele.
+const RODIZIO_VENDEDORES = ['Janderson', 'Maicon', 'Victor'];
 let filaRodizio = Promise.resolve(); // serializa leitura+escrita do contador — evita dois clientes respondendo quase juntos "empatarem" no mesmo vendedor
 function atribuirVendedorRodizio() {
   const proxima = filaRodizio.then(async () => {
