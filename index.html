@@ -2386,8 +2386,8 @@ async function salvarNps(){
   const btn=document.getElementById('btn-salvar-nps');btn.disabled=true;document.getElementById('btn-salvar-nps-txt').innerHTML='<span class="spin"></span>';
   const data={nome,tel:document.getElementById('rc-nps-tel').value.trim(),obs:document.getElementById('rc-nps-obs').value.trim()};
   try{
-    if(G.rel.editandoNpsId){Object.assign(G.rel.nps.find(x=>x.id===G.rel.editandoNpsId),data);if(!G.rel.modoDemo)await db.collection('nps_rel').doc(G.rel.editandoNpsId).set(data,{merge:true});toast('Registro atualizado!');}
-    else{const id=await proximoId('NPS',G.rel.nps,'rel_config/seq','npsSeq');const n={id,dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.nps.push(n);if(!G.rel.modoDemo)await db.collection('nps_rel').doc(id).set(n);toast(`${nome} adicionado ao NPS!`);}
+    if(G.rel.editandoNpsId){Object.assign(G.rel.nps.find(x=>x.id===G.rel.editandoNpsId),data);if(!G.rel.modoDemo)await fbUpdate('nps_rel',G.rel.editandoNpsId,data);toast('Registro atualizado!');}
+    else{const id=await proximoId('NPS',G.rel.nps,'rel_config/seq','npsSeq');const n={id,dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.nps.push(n);if(!G.rel.modoDemo)await fbCreate('nps_rel',id,n);toast(`${nome} adicionado ao NPS!`);}
     fecharModal('ov-nps');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-nps-txt').textContent=G.rel.editandoNpsId?'Salvar Alterações':'Salvar';}
