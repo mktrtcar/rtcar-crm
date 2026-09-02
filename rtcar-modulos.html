@@ -538,6 +538,24 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
   </div>
 </div>
 
+<div id="ov-ind" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-ind')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3 id="mod-ind-titulo">Nova indicação</h3><button class="mod-close" onclick="fecharModal('ov-ind')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="mod-section">
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Controle de indicações recebidas de clientes — não faz parte da jornada.</div>
+        <div class="field"><label>Nome indicado *</label><input type="text" id="ri-nome" placeholder="Nome da pessoa indicada"></div>
+        <div class="field"><label>Telefone indicado</label><input type="tel" id="ri-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
+        <div class="field"><label>Nome de quem indicou</label><input type="text" id="ri-por" placeholder="Cliente que indicou"></div>
+      </div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-ind')">Cancelar</button>
+      <button class="btn btn-red" id="btn-salvar-ind" onclick="salvarIndicacao()"><i class="ti ti-check"></i> <span id="btn-salvar-ind-txt">Salvar</span></button>
+    </div>
+  </div>
+</div>
+
 <div id="ov-int" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-int')">
   <div class="mod" style="max-width:440px">
     <div class="mod-head"><h3 id="int-titulo">Registrar Interação</h3><button class="mod-close" onclick="fecharModal('ov-int')"><i class="ti ti-x"></i></button></div>
@@ -718,7 +736,7 @@ const COLS_WS=[
 const G={
   user:null, modulo:'marketing',
   mk:{leads:[],_timerInterval:null,view:'hoje',hojeOffset:0,busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
-  rel:{clientes:[],nps:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,detailId:null,dragId:null,modoDemo:false},
+  rel:{clientes:[],nps:[],indicacoes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,editandoIndId:null,detailId:null,dragId:null,modoDemo:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
@@ -1897,6 +1915,10 @@ function initDemoRelacionamento(){
     {id:'NPS-001',nome:'Juliana Prado',tel:'(47) 99111-2233',obs:'Pediu feedback por WhatsApp.',dt:d(-2),by:'Aline'},
     {id:'NPS-002',nome:'Marcos Vieira',tel:'',obs:'',dt:d(0),by:'Aline'},
   ];
+  G.rel.indicacoes=[
+    {id:'IND-001',nomeIndicado:'Rafael Nunes',telIndicado:'(47) 98888-1122',indicadoPor:'Pedro Henrique Santos',tag:'compareceu',dt:d(-5),by:'Aline'},
+    {id:'IND-002',nomeIndicado:'Camila Rocha',telIndicado:'',indicadoPor:'Ana Lucia Costa',tag:'',dt:d(0),by:'Aline'},
+  ];
 }
 function mkCli(id,clienteNome,clienteTel,clienteEmail,dtNascimento,veiculo,responsavel,dtCompra,st,obs){
   return{id,clienteNome,clienteTel,clienteEmail,dtNascimento,veiculo,responsavel,by:responsavel,uid:'demo',dtCompra,st,obs,valor:'',historico:[],d7Enviado:false,d7Recebido:false,d90Enviado:false,d3anosEnviado:false,visita1ano:'',visita2anos:'',visita4anos:''};
@@ -1905,7 +1927,7 @@ async function initRelacionamento(){
   document.getElementById('tb').innerHTML='';
   document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando clientes...</div>';
   if(!fbOk()){initDemoRelacionamento();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
-  else{try{G.rel.clientes=await fbList('clientes_rel');G.rel.nps=await fbList('nps_rel');}catch(e){console.error(e);toast('Erro ao carregar.','red');}}
+  else{try{G.rel.clientes=await fbList('clientes_rel');G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');}catch(e){console.error(e);toast('Erro ao carregar.','red');}}
   renderRelacionamento();
 }
 function renderRelacionamento(){
@@ -2001,6 +2023,7 @@ function renderKanbanRel(cnt){
     wrap.appendChild(div);
   });
   wrap.appendChild(colNps());
+  wrap.appendChild(colIndicacoes());
   cnt.appendChild(wrap);
 }
 /* Coluna NPS — separada da jornada, existe só para contar quantas vezes o feedback foi pedido */
@@ -2035,6 +2058,48 @@ function colNps(){
   });
   div.appendChild(head);div.appendChild(desc);div.appendChild(body);
   const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Adicionar';add.onclick=()=>abrirModalNps();
+  div.appendChild(add);
+  return div;
+}
+/* Coluna Indicações — separada da jornada, controle de quem foi indicado por clientes e se compareceu */
+function indicacoesFiltradas(){
+  let ls=[...G.rel.indicacoes];
+  if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(n=>(n.nomeIndicado||'').toLowerCase().includes(b)||(n.telIndicado||'').toLowerCase().includes(b)||(n.indicadoPor||'').toLowerCase().includes(b)||(n.id||'').toLowerCase().includes(b));}
+  return ls.sort((a,b)=>(b.dt||'').localeCompare(a.dt||''));
+}
+function colIndicacoes(){
+  const cor='#c2185b',bg='#fde8f0';
+  const ls=indicacoesFiltradas();
+  const div=document.createElement('div');div.className='kb-col';
+  const head=document.createElement('div');head.className='kb-col-head';
+  head.innerHTML=`<span style="font-size:16px">🎯</span><span class="col-lbl" style="color:${cor}">Indicações</span><span class="col-cnt" style="background:${bg};color:${cor}">${ls.length}</span>`;
+  const desc=document.createElement('div');desc.className='kb-col-desc';desc.style.borderBottomColor=cor;desc.textContent='Pessoas indicadas por clientes — controle de comparecimento, não faz parte da jornada';
+  const body=document.createElement('div');body.className='kb-col-body';
+  ls.forEach(n=>{
+    const card=document.createElement('div');card.className='ccard';card.style.borderLeftColor=cor;
+    card.onclick=e=>{if(!e.target.closest('.card-btn'))abrirModalIndicacao(n.id)};
+    card.innerHTML=`
+      <div class="card-id">${n.id}</div>
+      <div class="card-nome">${n.nomeIndicado||'(sem nome)'}</div>
+      <div class="card-sub"><i class="ti ti-phone"></i>${n.telIndicado||'Telefone não informado'}</div>
+      <div class="card-sub"><i class="ti ti-user"></i>Indicado por: ${n.indicadoPor||'—'}</div>
+      <div style="margin:6px 0 2px">
+        <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🎯 Status:</div>
+        <div style="display:flex;gap:4px">
+          <button class="card-btn card-btn-label" onclick="setTagIndicacao('${n.id}','compareceu',event)" style="${n.tag==='compareceu'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">${n.tag==='compareceu'?'✅ Compareceu':'Compareceu'}</button>
+          <button class="card-btn card-btn-label" onclick="setTagIndicacao('${n.id}','nao_compareceu',event)" style="${n.tag==='nao_compareceu'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">${n.tag==='nao_compareceu'?'❌ Não compareceu':'Não compareceu'}</button>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="badge" style="background:${bg};color:${cor}">${isoParaBR(n.dt)}</span>
+        <div class="card-actions">
+          <button class="card-btn" onclick="event.stopPropagation();excluirIndicacao('${n.id}')" title="Excluir"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`;
+    body.appendChild(card);
+  });
+  div.appendChild(head);div.appendChild(desc);div.appendChild(body);
+  const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Adicionar';add.onclick=()=>abrirModalIndicacao();
   div.appendChild(add);
   return div;
 }
@@ -2258,6 +2323,15 @@ function renderDashboardRel(cnt){
   const indicacoesMes=contarMes('indicacao1ano')+contarMes('indicacao2anos')+contarMes('indicacaoGeral');
   const npsMes=contarMes('feedback1ano')+contarMes('feedback2anos')+contarMes('feedbackGeral');
 
+  // Contagem diária/mensal das colunas NPS e Indicações (Aline)
+  function dentroDoDia(dataISO){if(!dataISO)return false;return dataISO===new Date().toISOString().split('T')[0];}
+  const npsHoje=G.rel.nps.filter(n=>dentroDoDia(n.dt)).length;
+  const npsMesRegistrado=G.rel.nps.filter(n=>dentroDoMes(n.dt)).length;
+  const indHoje=G.rel.indicacoes.filter(n=>dentroDoDia(n.dt)).length;
+  const indMesRegistrado=G.rel.indicacoes.filter(n=>dentroDoMes(n.dt)).length;
+  const indCompareceuMes=G.rel.indicacoes.filter(n=>n.tag==='compareceu'&&dentroDoMes(n.dt)).length;
+  const indNaoCompareceuMes=G.rel.indicacoes.filter(n=>n.tag==='nao_compareceu'&&dentroDoMes(n.dt)).length;
+
   cnt.innerHTML=`
     <!-- KPIs do mês (Milena) -->
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
@@ -2269,6 +2343,21 @@ function renderDashboardRel(cnt){
         ${kpiCard(indicacoesMes,'🤝 Indicações','#1a6b3c','#e8f5ee')}
         ${kpiCard(npsMes,'💬 NPS (feedbacks)','#1e4d8c','#e8f0fb')}
         ${kpiCard(vitrificacoesMes,'✨ Vitrificações','#0b7ba8','#e8f8fb')}
+      </div>
+    </div>
+
+    <!-- Contagem NPS e Indicações — colunas do Jornada (Milena) -->
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-clipboard-list" style="color:var(--purple)"></i> NPS e Indicações (colunas do Jornada)
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+        ${kpiCard(npsHoje,'📊 NPS pedidos hoje','#0b7ba8','#e8f8fb')}
+        ${kpiCard(npsMesRegistrado,'📊 NPS pedidos no mês','#0b7ba8','#e8f8fb')}
+        ${kpiCard(indHoje,'🎯 Indicações hoje','#c2185b','#fde8f0')}
+        ${kpiCard(indMesRegistrado,'🎯 Indicações no mês','#c2185b','#fde8f0')}
+        ${kpiCard(indCompareceuMes,'✅ Compareceram no mês','#1a6b3c','#e8f5ee')}
+        ${kpiCard(indNaoCompareceuMes,'❌ Não compareceram no mês','#e8431e','#fff0ec')}
       </div>
     </div>
 
@@ -2398,6 +2487,41 @@ async function excluirNps(id){
   try{if(!G.rel.modoDemo)await db.collection('nps_rel').doc(id).delete();}catch(e){console.error(e);}
   toast('Registro removido');renderRelacionamento();
 }
+/* CRUD Indicações — registro isolado, apenas controle de comparecimento (não faz parte da jornada) */
+function abrirModalIndicacao(id=null){
+  G.rel.editandoIndId=id;const n=id?G.rel.indicacoes.find(x=>x.id===id):null;
+  document.getElementById('mod-ind-titulo').textContent=id?'Editar indicação':'Nova indicação';
+  document.getElementById('ri-nome').value=n?.nomeIndicado||'';
+  document.getElementById('ri-tel').value=n?.telIndicado||'';
+  document.getElementById('ri-por').value=n?.indicadoPor||'';
+  document.getElementById('btn-salvar-ind-txt').textContent=id?'Salvar Alterações':'Salvar';
+  document.getElementById('ov-ind').classList.remove('hidden');setTimeout(()=>document.getElementById('ri-nome').focus(),50);
+}
+async function salvarIndicacao(){
+  const nomeIndicado=document.getElementById('ri-nome').value.trim();
+  if(!nomeIndicado){toast('Informe o nome indicado','red');return;}
+  const btn=document.getElementById('btn-salvar-ind');btn.disabled=true;document.getElementById('btn-salvar-ind-txt').innerHTML='<span class="spin"></span>';
+  const data={nomeIndicado,telIndicado:document.getElementById('ri-tel').value.trim(),indicadoPor:document.getElementById('ri-por').value.trim()};
+  try{
+    if(G.rel.editandoIndId){Object.assign(G.rel.indicacoes.find(x=>x.id===G.rel.editandoIndId),data);if(!G.rel.modoDemo)await fbUpdate('indicacoes_rel',G.rel.editandoIndId,data);toast('Indicação atualizada!');}
+    else{const id=await proximoId('IND',G.rel.indicacoes,'rel_config/seq','indSeq');const n={id,tag:'',dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.indicacoes.push(n);if(!G.rel.modoDemo)await fbCreate('indicacoes_rel',id,n);toast(`${nomeIndicado} adicionado!`);}
+    fecharModal('ov-ind');renderRelacionamento();
+  }catch(e){console.error(e);toast('Erro ao salvar','red');}
+  finally{btn.disabled=false;document.getElementById('btn-salvar-ind-txt').textContent=G.rel.editandoIndId?'Salvar Alterações':'Salvar';}
+}
+async function setTagIndicacao(id,valor,e){
+  e.stopPropagation();
+  const n=G.rel.indicacoes.find(x=>x.id===id);if(!n)return;
+  n.tag=n.tag===valor?'':valor;
+  if(!G.rel.modoDemo)await fbUpdate('indicacoes_rel',id,{tag:n.tag});
+  renderRelacionamento();
+}
+async function excluirIndicacao(id){
+  if(!confirm('Excluir esta indicação?'))return;
+  G.rel.indicacoes=G.rel.indicacoes.filter(x=>x.id!==id);
+  try{if(!G.rel.modoDemo)await db.collection('indicacoes_rel').doc(id).delete();}catch(e){console.error(e);}
+  toast('Indicação removida');renderRelacionamento();
+}
 function abrirModalInt(id){G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);document.getElementById('int-titulo').textContent=`Registrar — ${c?.clienteNome||id}`;document.getElementById('int-tipo').value='📞 Ligação realizada';document.getElementById('int-obs').value='';document.getElementById('ov-int').classList.remove('hidden');setTimeout(()=>document.getElementById('int-obs').focus(),50);}
 async function salvarInteracao(){
   const id=G.rel.detailId,c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
@@ -2467,7 +2591,7 @@ function abrirDetailCliente(id){
 
 /* KEYBOARD */
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['ov-lead','ov-obs','ov-vendido','ov-perda','ov-cliente','ov-nps','ov-int','ov-evento','ov-convidado','ov-obs-ws'].forEach(id=>fecharModal(id));fecharDetail();}
+  if(e.key==='Escape'){['ov-lead','ov-obs','ov-vendido','ov-perda','ov-cliente','ov-nps','ov-ind','ov-int','ov-evento','ov-convidado','ov-obs-ws'].forEach(id=>fecharModal(id));fecharDetail();}
   if(e.key==='n'&&!e.ctrlKey&&!e.metaKey&&document.activeElement.tagName==='BODY'){G.modulo==='marketing'?abrirModalLead():abrirModalCliente();}
 });
 </script>
