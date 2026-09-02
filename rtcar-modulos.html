@@ -520,6 +520,24 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
   </div>
 </div>
 
+<div id="ov-nps" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-nps')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3 id="mod-nps-titulo">Novo registro NPS</h3><button class="mod-close" onclick="fecharModal('ov-nps')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="mod-section">
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Apenas para contagem de quantas vezes o feedback (NPS) foi pedido — não faz parte da jornada do cliente.</div>
+        <div class="field"><label>Nome *</label><input type="text" id="rc-nps-nome" placeholder="Nome do cliente"></div>
+        <div class="field"><label>Telefone</label><input type="tel" id="rc-nps-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
+        <div class="field"><label>Observação</label><textarea id="rc-nps-obs" placeholder="Informações adicionais..."></textarea></div>
+      </div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-nps')">Cancelar</button>
+      <button class="btn btn-red" id="btn-salvar-nps" onclick="salvarNps()"><i class="ti ti-check"></i> <span id="btn-salvar-nps-txt">Salvar</span></button>
+    </div>
+  </div>
+</div>
+
 <div id="ov-int" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-int')">
   <div class="mod" style="max-width:440px">
     <div class="mod-head"><h3 id="int-titulo">Registrar Interação</h3><button class="mod-close" onclick="fecharModal('ov-int')"><i class="ti ti-x"></i></button></div>
@@ -700,7 +718,7 @@ const COLS_WS=[
 const G={
   user:null, modulo:'marketing',
   mk:{leads:[],_timerInterval:null,view:'hoje',hojeOffset:0,busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
-  rel:{clientes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
+  rel:{clientes:[],nps:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,detailId:null,dragId:null,modoDemo:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
@@ -1875,6 +1893,10 @@ function initDemoRelacionamento(){
   ];
   G.rel.clientes[0].historico=[{dt:hoje(),emoji:'📋',acao:'Cliente cadastrado',obs:'Comprou Honda HR-V EX.',by:'Janderson'}];
   G.rel.clientes[5].historico=[{dt:hoje(-730),emoji:'📋',acao:'Cliente cadastrado',obs:'',by:'Maicon'},{dt:hoje(-10),emoji:'✨',acao:'Vitrificação agendada',obs:'Presente de 2 anos agendado.',by:'Maicon'}];
+  G.rel.nps=[
+    {id:'NPS-001',nome:'Juliana Prado',tel:'(47) 99111-2233',obs:'Pediu feedback por WhatsApp.',dt:d(-2),by:'Aline'},
+    {id:'NPS-002',nome:'Marcos Vieira',tel:'',obs:'',dt:d(0),by:'Aline'},
+  ];
 }
 function mkCli(id,clienteNome,clienteTel,clienteEmail,dtNascimento,veiculo,responsavel,dtCompra,st,obs){
   return{id,clienteNome,clienteTel,clienteEmail,dtNascimento,veiculo,responsavel,by:responsavel,uid:'demo',dtCompra,st,obs,valor:'',historico:[],d7Enviado:false,d7Recebido:false,d90Enviado:false,d3anosEnviado:false,visita1ano:'',visita2anos:'',visita4anos:''};
@@ -1883,7 +1905,7 @@ async function initRelacionamento(){
   document.getElementById('tb').innerHTML='';
   document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando clientes...</div>';
   if(!fbOk()){initDemoRelacionamento();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
-  else{try{G.rel.clientes=await fbList('clientes_rel');}catch(e){console.error(e);toast('Erro ao carregar.','red');}}
+  else{try{G.rel.clientes=await fbList('clientes_rel');G.rel.nps=await fbList('nps_rel');}catch(e){console.error(e);toast('Erro ao carregar.','red');}}
   renderRelacionamento();
 }
 function renderRelacionamento(){
@@ -1978,7 +2000,43 @@ function renderKanbanRel(cnt){
     }
     wrap.appendChild(div);
   });
+  wrap.appendChild(colNps());
   cnt.appendChild(wrap);
+}
+/* Coluna NPS — separada da jornada, existe só para contar quantas vezes o feedback foi pedido */
+function npsFiltrados(){
+  let ls=[...G.rel.nps];
+  if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(n=>(n.nome||'').toLowerCase().includes(b)||(n.tel||'').toLowerCase().includes(b)||(n.id||'').toLowerCase().includes(b));}
+  return ls.sort((a,b)=>(b.dt||'').localeCompare(a.dt||''));
+}
+function colNps(){
+  const cor='#0b7ba8',bg='#e8f8fb';
+  const ls=npsFiltrados();
+  const div=document.createElement('div');div.className='kb-col';
+  const head=document.createElement('div');head.className='kb-col-head';
+  head.innerHTML=`<span style="font-size:16px">📊</span><span class="col-lbl" style="color:${cor}">NPS</span><span class="col-cnt" style="background:${bg};color:${cor}">${ls.length}</span>`;
+  const desc=document.createElement('div');desc.className='kb-col-desc';desc.style.borderBottomColor=cor;desc.textContent='Controle de quantas vezes o feedback (NPS) foi pedido — apenas contagem, não faz parte da jornada';
+  const body=document.createElement('div');body.className='kb-col-body';
+  ls.forEach(n=>{
+    const card=document.createElement('div');card.className='ccard';card.style.borderLeftColor=cor;
+    card.onclick=e=>{if(!e.target.closest('.card-btn'))abrirModalNps(n.id)};
+    card.innerHTML=`
+      <div class="card-id">${n.id}</div>
+      <div class="card-nome">${n.nome||'(sem nome)'}</div>
+      <div class="card-sub"><i class="ti ti-phone"></i>${n.tel||'Telefone não informado'}</div>
+      ${n.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;font-size:12px;color:var(--tx2);line-height:1.5;margin-top:8px">${n.obs}</div>`:''}
+      <div class="card-footer">
+        <span class="badge" style="background:${bg};color:${cor}">${isoParaBR(n.dt)}</span>
+        <div class="card-actions">
+          <button class="card-btn" onclick="event.stopPropagation();excluirNps('${n.id}')" title="Excluir"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`;
+    body.appendChild(card);
+  });
+  div.appendChild(head);div.appendChild(desc);div.appendChild(body);
+  const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Adicionar';add.onclick=()=>abrirModalNps();
+  div.appendChild(add);
+  return div;
 }
 
 // Sub-status helpers for Relacionamento kanban
@@ -2312,6 +2370,34 @@ async function salvarCliente(){
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
 }
+/* CRUD NPS — registro isolado, apenas para contagem (não faz parte da jornada) */
+function abrirModalNps(id=null){
+  G.rel.editandoNpsId=id;const n=id?G.rel.nps.find(x=>x.id===id):null;
+  document.getElementById('mod-nps-titulo').textContent=id?'Editar registro NPS':'Novo registro NPS';
+  document.getElementById('rc-nps-nome').value=n?.nome||'';
+  document.getElementById('rc-nps-tel').value=n?.tel||'';
+  document.getElementById('rc-nps-obs').value=n?.obs||'';
+  document.getElementById('btn-salvar-nps-txt').textContent=id?'Salvar Alterações':'Salvar';
+  document.getElementById('ov-nps').classList.remove('hidden');setTimeout(()=>document.getElementById('rc-nps-nome').focus(),50);
+}
+async function salvarNps(){
+  const nome=document.getElementById('rc-nps-nome').value.trim();
+  if(!nome){toast('Informe o nome','red');return;}
+  const btn=document.getElementById('btn-salvar-nps');btn.disabled=true;document.getElementById('btn-salvar-nps-txt').innerHTML='<span class="spin"></span>';
+  const data={nome,tel:document.getElementById('rc-nps-tel').value.trim(),obs:document.getElementById('rc-nps-obs').value.trim()};
+  try{
+    if(G.rel.editandoNpsId){Object.assign(G.rel.nps.find(x=>x.id===G.rel.editandoNpsId),data);if(!G.rel.modoDemo)await db.collection('nps_rel').doc(G.rel.editandoNpsId).set(data,{merge:true});toast('Registro atualizado!');}
+    else{const id=await proximoId('NPS',G.rel.nps,'rel_config/seq','npsSeq');const n={id,dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.nps.push(n);if(!G.rel.modoDemo)await db.collection('nps_rel').doc(id).set(n);toast(`${nome} adicionado ao NPS!`);}
+    fecharModal('ov-nps');renderRelacionamento();
+  }catch(e){console.error(e);toast('Erro ao salvar','red');}
+  finally{btn.disabled=false;document.getElementById('btn-salvar-nps-txt').textContent=G.rel.editandoNpsId?'Salvar Alterações':'Salvar';}
+}
+async function excluirNps(id){
+  if(!confirm('Excluir este registro de NPS?'))return;
+  G.rel.nps=G.rel.nps.filter(x=>x.id!==id);
+  try{if(!G.rel.modoDemo)await db.collection('nps_rel').doc(id).delete();}catch(e){console.error(e);}
+  toast('Registro removido');renderRelacionamento();
+}
 function abrirModalInt(id){G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);document.getElementById('int-titulo').textContent=`Registrar — ${c?.clienteNome||id}`;document.getElementById('int-tipo').value='📞 Ligação realizada';document.getElementById('int-obs').value='';document.getElementById('ov-int').classList.remove('hidden');setTimeout(()=>document.getElementById('int-obs').focus(),50);}
 async function salvarInteracao(){
   const id=G.rel.detailId,c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
@@ -2381,7 +2467,7 @@ function abrirDetailCliente(id){
 
 /* KEYBOARD */
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['ov-lead','ov-obs','ov-vendido','ov-perda','ov-cliente','ov-int','ov-evento','ov-convidado','ov-obs-ws'].forEach(id=>fecharModal(id));fecharDetail();}
+  if(e.key==='Escape'){['ov-lead','ov-obs','ov-vendido','ov-perda','ov-cliente','ov-nps','ov-int','ov-evento','ov-convidado','ov-obs-ws'].forEach(id=>fecharModal(id));fecharDetail();}
   if(e.key==='n'&&!e.ctrlKey&&!e.metaKey&&document.activeElement.tagName==='BODY'){G.modulo==='marketing'?abrirModalLead():abrirModalCliente();}
 });
 </script>
