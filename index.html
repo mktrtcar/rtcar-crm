@@ -10,8 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<style>
-:root{
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<style>#rtcar-crm-root{
   --bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;
   --tx:#1a1814;--tx2:#4a4a4a;--tx3:#888;
   --red:#e8431e;--redl:#fff0ec;
@@ -22,286 +22,30 @@
   --cyan:#0b7ba8;--cyanl:#e8f8fb;
   --bdr:#e0e0e0;--r:10px;--r2:14px;
   --f:'DM Sans',sans-serif;--s:'DM Serif Display',serif;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;font-size:14px}
-.hidden{display:none!important}
-
-/* LOGIN */
-.login-wrap{display:flex;align-items:center;justify-content:center;height:100vh}
-.login-box{background:var(--bg2);border-radius:var(--r2);padding:40px;width:380px;border:1px solid var(--bdr);box-shadow:0 4px 24px rgba(0,0,0,.08)}
-.login-logo{text-align:center;margin-bottom:28px}
-.login-logo .brand{font-family:var(--s);font-size:32px;color:var(--red);letter-spacing:2px}
-.login-logo .sub{font-size:11px;color:var(--tx3);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
-.login-box h2{font-size:15px;font-weight:600;margin-bottom:18px}
-.login-error{background:var(--redl);color:var(--red);padding:9px 12px;border-radius:var(--r);font-size:12px;margin-bottom:14px;display:none;border:1px solid rgba(232,67,30,.2)}
-.login-access{margin-top:18px;padding-top:16px;border-top:1px solid var(--bdr)}
-.login-access p{font-size:11px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.login-access a{display:block;color:var(--blue);cursor:pointer;padding:3px 0;font-size:12px;text-decoration:none}
-.login-access a:hover{text-decoration:underline}
-.btn-acesso{display:block;width:100%;text-align:left;background:none;border:none;color:var(--blue);cursor:pointer;padding:3px 0;font-size:12px;font-family:inherit}
-.btn-acesso:hover{text-decoration:underline}
-
-/* FORMS */
-.field{margin-bottom:14px}
-.field label{display:block;font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;color:var(--tx);background:var(--bg2);transition:border .15s}
-.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--red)}
-.field textarea{resize:vertical;min-height:72px;line-height:1.5}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-
-/* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--r);font-family:var(--f);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
-.btn-red{background:var(--red);color:#fff}.btn-red:hover{opacity:.88}
-.btn-outline{background:transparent;color:var(--tx2);border:1.5px solid var(--bdr)}.btn-outline:hover{background:var(--bg3)}
-.btn-green{background:var(--green);color:#fff}.btn-green:hover{opacity:.88}
-.btn-ghost{background:transparent;color:var(--tx3);border:none;padding:8px 10px}.btn-ghost:hover{color:var(--tx);background:var(--bg3)}
-.btn-sm{padding:6px 12px;font-size:12px}
-.btn-w{width:100%;justify-content:center}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-
-/* APP */
-.app{display:flex;height:100vh;overflow:hidden}
-
-/* SIDEBAR */
-.sb{width:220px;background:var(--bg2);border-right:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0}
-.sb-logo{padding:16px 18px 14px;border-bottom:1px solid var(--bdr)}
-.sb-logo .brand{font-family:var(--s);font-size:22px;color:var(--red);letter-spacing:1px}
-.sb-logo .tag{font-size:10px;color:var(--tx3);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
-.nav{flex:1;padding:10px 0;overflow-y:auto}
-.ni{display:flex;align-items:center;gap:9px;margin:2px 10px;padding:9px 12px;border-radius:8px;font-size:13px;color:var(--tx2);cursor:pointer;transition:all .15s;user-select:none}
-.ni:hover{background:var(--bg3);color:var(--tx)}
-.ni.on{color:var(--red);background:linear-gradient(90deg,var(--redl),transparent);font-weight:600}
-.ni .ti{font-size:17px;flex-shrink:0}
-.ni-sep{height:1px;background:var(--bdr);margin:8px 16px}
-.ni-lbl{font-size:10px;color:var(--tx3);font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:10px 22px 4px}
-.sb-foot{padding:13px 16px;border-top:1px solid var(--bdr)}
-.sb-user{display:flex;align-items:center;gap:9px}
-.sb-av{width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.sb-info{flex:1;min-width:0}
-.sb-name{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sb-role{font-size:10px;color:var(--tx3)}
-.ti-btn{font-size:18px;color:var(--tx3);cursor:pointer;padding:4px;border-radius:6px;transition:all .15s}
-.ti-btn:hover{color:var(--red);background:var(--redl)}
-
-/* MAIN */
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.tb{height:54px;background:var(--bg2);border-bottom:1px solid var(--bdr);padding:0 22px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.tb-title{font-size:15px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:7px;white-space:nowrap}
-.tb-title .ti{color:var(--red);font-size:18px}
-.tb-sep{width:1px;height:20px;background:var(--bdr);flex-shrink:0}
-.tb-tabs{display:flex;gap:2px}
-.tb-tab{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--tx2);transition:all .15s;user-select:none}
-.tb-tab:hover{background:var(--bg3)}
-.tb-tab.on{background:var(--redl);color:var(--red);font-weight:700}
-.tb-spacer{flex:1}
-.tb-search{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1.5px solid var(--bdr);border-radius:var(--r);padding:7px 12px;width:190px;transition:border .15s}
-.tb-search:focus-within{border-color:var(--red)}
-.tb-search input{border:none;background:transparent;font-family:var(--f);font-size:13px;color:var(--tx);width:100%;outline:none}
-.tb-search .ti{color:var(--tx3);font-size:15px;flex-shrink:0}
-.cnt{flex:1;overflow:hidden;display:flex;flex-direction:column}
-
-/* KANBAN SHARED */
-.kanban-wrap{flex:1;display:flex;gap:12px;padding:16px 20px;overflow-x:auto;overflow-y:hidden;align-items:stretch}
-.kanban-wrap::-webkit-scrollbar{height:7px}
-.kanban-wrap::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:4px}
-.kb-col{display:flex;flex-direction:column;min-width:220px;width:240px;flex-shrink:0;background:var(--bg3);border-radius:var(--r2);overflow:hidden}
-.kb-col-head{padding:11px 12px 0;display:flex;align-items:center;gap:7px}
-.kb-col-head .col-lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;flex:1;line-height:1.2}
-.kb-col-head .col-cnt{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;min-width:22px;text-align:center;flex-shrink:0}
-.kb-col-desc{padding:3px 12px 8px;font-size:10px;color:var(--tx3);line-height:1.4;border-bottom:2px solid transparent}
-.kb-col-body{flex:1;padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:80px;transition:background .15s}
-.kb-col-body::-webkit-scrollbar{width:3px}
-.kb-col-body::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
-.kb-col-body.drag-over{background:rgba(232,67,30,.07)}
-.kb-add{margin:0 8px 8px;padding:7px;border-radius:var(--r);border:1.5px dashed var(--bdr);font-size:11px;color:var(--tx3);cursor:pointer;text-align:center;transition:all .15s;user-select:none}
-.kb-add:hover{border-color:var(--red);color:var(--red);background:var(--redl)}
-
-/* CARDS */
-.lcard,.ccard{background:var(--bg2);border-radius:var(--r);padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:grab;transition:all .15s;border-left:3px solid transparent;position:relative;user-select:none}
-.lcard:active,.ccard:active{cursor:grabbing}
-.lcard:hover,.ccard:hover{box-shadow:0 4px 14px rgba(0,0,0,.1);transform:translateY(-1px)}
-.lcard.dragging,.ccard.dragging{opacity:.45;transform:rotate(1.5deg)}
-.card-id{font-size:9px;color:var(--tx3);margin-bottom:3px;font-weight:600;letter-spacing:.3px}
-.card-nome{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-sub{font-size:11px;color:var(--tx2);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
-.card-sub .ti{font-size:11px;color:var(--tx3)}
-.card-acao{padding:5px 8px;border-radius:6px;font-size:10px;font-weight:600;margin-bottom:6px;line-height:1.4;display:flex;align-items:flex-start;gap:5px}
-.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
-.card-meta{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:3px}
-.card-actions{display:flex;gap:3px}
-.card-btn{height:24px;border-radius:5px;border:none;background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--tx3);transition:all .15s;padding:0 6px;gap:3px}
-.card-btn:hover{background:var(--blue);color:#fff}
-.card-btn-label{font-weight:600}
-.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}
-.transfer-popup{position:fixed;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:0 4px 20px rgba(0,0,0,.15);padding:8px;z-index:9999;min-width:140px}
-.transfer-popup button{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;border-radius:6px;color:var(--tx)}
-.transfer-popup button:hover{background:var(--bg2)}
-.transfer-popup .tp-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;padding:4px 12px 6px}
-
-/* LISTA */
-.lista-wrap{flex:1;display:flex;flex-direction:column;padding:16px 20px;overflow:hidden;gap:12px}
-.lista-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.filter-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--bdr);background:var(--bg2);color:var(--tx2);transition:all .15s;user-select:none}
-.filter-chip:hover,.filter-chip.on{border-color:var(--red);background:var(--redl);color:var(--red)}
-.lista-table-wrap{flex:1;overflow:auto;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--bdr)}
-.lista-table{width:100%;border-collapse:collapse}
-.lista-table th{padding:10px 14px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bdr);text-align:left;background:var(--bg3);white-space:nowrap;position:sticky;top:0;z-index:1}
-.lista-table td{padding:11px 14px;font-size:13px;color:var(--tx);border-bottom:1px solid var(--bg3)}
-.lista-table tbody tr:last-child td{border-bottom:none}
-.lista-table tbody tr{cursor:pointer;transition:background .1s}
-.lista-table tbody tr:hover td{background:var(--bg3)}
-.lista-empty{padding:60px;text-align:center;color:var(--tx3)}
-.lista-empty .ti{font-size:40px;display:block;margin-bottom:10px;opacity:.5}
-
-/* RELATORIOS */
-.rel-wrap{flex:1;overflow-y:auto;padding:16px 20px}
-.rel-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:22px}
-.rel-card{background:var(--bg2);border-radius:var(--r2);padding:18px 20px;border:1px solid var(--bdr)}
-.rel-card .rc-lbl{font-size:10px;color:var(--tx3);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:5px}
-.rel-card .rc-val{font-size:30px;font-weight:700;color:var(--tx);line-height:1;margin-bottom:4px}
-.rel-card .rc-sub{font-size:12px;color:var(--tx2)}
-.rel-card.c-red .rc-val{color:var(--red)}.rel-card.c-green .rc-val{color:var(--green)}
-.rel-card.c-blue .rc-val{color:var(--blue)}.rel-card.c-gold .rc-val{color:var(--gold)}
-.rel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-.rel-section-title{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.rel-section-title .ti{color:var(--red)}
-.chart-box{background:var(--bg2);border-radius:var(--r2);padding:18px 20px;border:1px solid var(--bdr)}
-.bar-item{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.bar-item:last-child{margin-bottom:0}
-.bar-lbl{font-size:12px;color:var(--tx2);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
-.bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
-.bar-val{font-size:12px;font-weight:600;color:var(--tx2);width:28px;text-align:right;flex-shrink:0}
-.funnel-item{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.funnel-lbl{font-size:12px;color:var(--tx2);width:130px;flex-shrink:0}
-.funnel-track{flex:1;height:24px;border-radius:var(--r);overflow:hidden;background:var(--bg3)}
-.funnel-fill{height:100%;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:700;color:#fff;border-radius:var(--r);transition:width .4s ease}
-.no-data{padding:32px;text-align:center;color:var(--tx3);font-size:13px}
-
-/* MODAL */
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:150;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}
-.mod{background:var(--bg2);border-radius:var(--r2);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.18)}
-.mod::-webkit-scrollbar{width:6px}
-.mod::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
-.mod-head{padding:20px 24px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:1}
-.mod-head h3{font-size:16px;font-weight:700}
-.mod-close{width:30px;height:30px;border-radius:var(--r);border:none;background:var(--bg3);cursor:pointer;font-size:15px;color:var(--tx2);display:flex;align-items:center;justify-content:center;transition:all .15s}
-.mod-close:hover{background:var(--red);color:#fff}
-.mod-body{padding:20px 24px}
-.mod-section{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--bg3)}
-.mod-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
-.mod-section-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:5px}
-.mod-foot{padding:14px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--bg2)}
-
-/* DETAIL PANEL */
-.detail-ov{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:140}
-.detail-pnl{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--bg2);box-shadow:-4px 0 32px rgba(0,0,0,.14);display:flex;flex-direction:column;z-index:141;overflow:hidden;animation:slideIn .2s ease}
-@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
-.detail-head{padding:18px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0}
-.detail-head h3{flex:1;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.detail-body{flex:1;overflow-y:auto;padding:18px 20px}
-.detail-body::-webkit-scrollbar{width:4px}
-.detail-body::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
-.d-section{margin-bottom:18px}
-.d-section-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bg3)}
-.d-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.d-field{display:flex;flex-direction:column;gap:2px}
-.d-field .lbl{font-size:10px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
-.d-field .val{font-size:13px;color:var(--tx);font-weight:500}
-.d-field .val.empty{color:var(--tx3);font-style:italic;font-weight:400;font-size:12px}
-.hist-item{display:flex;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--bg3)}
-.hist-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
-.hist-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:1px}
-.hist-info{flex:1}
-.hist-acao{font-size:12px;font-weight:600;color:var(--tx);line-height:1.4}
-.hist-obs{font-size:12px;color:var(--tx2);margin-top:2px;line-height:1.4}
-.hist-meta{font-size:10px;color:var(--tx3);margin-top:4px}
-.col-select{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
-.col-btn{padding:6px 11px;border-radius:var(--r);border:1.5px solid var(--bdr);font-size:11px;font-weight:600;cursor:pointer;background:var(--bg2);color:var(--tx2);transition:all .15s}
-.col-btn:hover{border-color:var(--red);background:var(--redl);color:var(--red)}
-.detail-foot{padding:14px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.milestone-box{background:linear-gradient(135deg,#fff8f0,#fff);border:1.5px solid var(--gold);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px}
-.milestone-box .m-emoji{font-size:22px;margin-bottom:4px;display:block}
-.milestone-box .m-title{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px}
-.milestone-box .m-desc{font-size:12px;color:var(--tx2);line-height:1.5}
-.tag-conv{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:var(--greenl);color:var(--green)}
-.select-sm{padding:6px 10px;border-radius:var(--r);border:1.5px solid var(--bdr);font-family:var(--f);font-size:12px;font-weight:600;color:var(--tx2);cursor:pointer;background:var(--bg2);outline:none}
-.select-sm:focus{border-color:var(--red)}
-.tb-filters-inline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-/* REPORTE */
-.rel-reporte{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:20px 24px;margin-bottom:18px}
-.rp-header{font-size:14px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}
-.rp-period{margin-left:auto;font-size:11px;color:var(--tx3);font-weight:400}
-.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
-.rp-section{background:var(--bg3);border-radius:var(--r);padding:14px 16px}
-.rp-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:10px}
-.rp-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--tx2);border-bottom:1px solid var(--bdr)}
-.rp-row:last-child{border-bottom:none}
-.rp-row strong{font-size:14px;color:var(--tx);min-width:20px;text-align:right}
-.rp-total{background:rgba(0,0,0,.03);margin:4px -4px 0;padding:6px 4px;border-radius:6px;font-weight:600}
-.rp-total strong{color:var(--red)}
-/* Dashboard Geral — versao compacta, pra caber tudo numa tela só (a Aline usa pra printar) */
-.geral-wrap{padding:12px 16px}
-.geral-wrap .rp-grid{gap:10px}
-.geral-wrap .rp-section{padding:8px 10px}
-.geral-wrap .rp-sec-title{margin-bottom:4px}
-.geral-wrap .rp-row{padding:1px 0;font-size:11px}
-.geral-wrap .rp-row strong{font-size:12px}
-.geral-wrap .rp-total{margin:2px -4px 0;padding:3px 4px}
-.geral-cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-.geral-top-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px}
-.geral-top-row>div{flex:1;min-width:0}
-.geral-leads-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.geral-vendas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.geral-ind-box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden}
-.geral-ind-box>.hd{padding:4px 10px;font-size:10px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--bdr)}
-.geral-ind-box>.stat{padding:6px 10px;text-align:center}
-.geral-ind-box>.stat+.stat{border-top:1px solid var(--bdr)}
-.geral-ind-box>.stat .n{font-size:18px;font-weight:700;line-height:1.1}
-.geral-ind-box>.stat .l{font-size:10px;color:var(--tx3);margin-top:1px}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1814;color:#fff;padding:10px 20px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
-.toast.show{opacity:1}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.full-load{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--tx3);font-size:13px}
-@media(max-width:768px){.sb{display:none}.kanban-wrap{padding:10px 12px}.detail-pnl{width:100%}.field-row{grid-template-columns:1fr}}
-
-/* ============================================================
+}#rtcar-crm-root *{box-sizing:border-box;margin:0;padding:0}#rtcar-crm-root{font-family:var(--f);background:var(--bg);color:var(--tx);height:100%;overflow:hidden;font-size:14px}#rtcar-crm-root .hidden{display:none!important}/* LOGIN */
+#rtcar-crm-root .login-wrap{display:flex;align-items:center;justify-content:center;height:100%}#rtcar-crm-root .login-box{background:var(--bg2);border-radius:var(--r2);padding:40px;width:380px;border:1px solid var(--bdr);box-shadow:0 4px 24px rgba(0,0,0,.08)}#rtcar-crm-root .login-logo{text-align:center;margin-bottom:28px}#rtcar-crm-root .login-logo .brand{font-family:var(--s);font-size:32px;color:var(--red);letter-spacing:2px}#rtcar-crm-root .login-logo .sub{font-size:11px;color:var(--tx3);margin-top:4px;text-transform:uppercase;letter-spacing:1px}#rtcar-crm-root .login-box h2{font-size:15px;font-weight:600;margin-bottom:18px}#rtcar-crm-root .login-error{background:var(--redl);color:var(--red);padding:9px 12px;border-radius:var(--r);font-size:12px;margin-bottom:14px;display:none;border:1px solid rgba(232,67,30,.2)}#rtcar-crm-root .login-access{margin-top:18px;padding-top:16px;border-top:1px solid var(--bdr)}#rtcar-crm-root .login-access p{font-size:11px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}#rtcar-crm-root .login-access a{display:block;color:var(--blue);cursor:pointer;padding:3px 0;font-size:12px;text-decoration:none}#rtcar-crm-root .login-access a:hover{text-decoration:underline}#rtcar-crm-root .btn-acesso{display:block;width:100%;text-align:left;background:none;border:none;color:var(--blue);cursor:pointer;padding:3px 0;font-size:12px;font-family:inherit}#rtcar-crm-root .btn-acesso:hover{text-decoration:underline}/* FORMS */
+#rtcar-crm-root .field{margin-bottom:14px}#rtcar-crm-root .field label{display:block;font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}#rtcar-crm-root .field input, #rtcar-crm-root .field select, #rtcar-crm-root .field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;color:var(--tx);background:var(--bg2);transition:border .15s}#rtcar-crm-root .field input:focus, #rtcar-crm-root .field select:focus, #rtcar-crm-root .field textarea:focus{outline:none;border-color:var(--red)}#rtcar-crm-root .field textarea{resize:vertical;min-height:72px;line-height:1.5}#rtcar-crm-root .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}/* BUTTONS */
+#rtcar-crm-root .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--r);font-family:var(--f);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}#rtcar-crm-root .btn-red{background:var(--red);color:#fff}#rtcar-crm-root .btn-red:hover{opacity:.88}#rtcar-crm-root .btn-outline{background:transparent;color:var(--tx2);border:1.5px solid var(--bdr)}#rtcar-crm-root .btn-outline:hover{background:var(--bg3)}#rtcar-crm-root .btn-green{background:var(--green);color:#fff}#rtcar-crm-root .btn-green:hover{opacity:.88}#rtcar-crm-root .btn-ghost{background:transparent;color:var(--tx3);border:none;padding:8px 10px}#rtcar-crm-root .btn-ghost:hover{color:var(--tx);background:var(--bg3)}#rtcar-crm-root .btn-sm{padding:6px 12px;font-size:12px}#rtcar-crm-root .btn-w{width:100%;justify-content:center}#rtcar-crm-root .btn:disabled{opacity:.5;cursor:not-allowed}/* APP */
+#rtcar-crm-root .app{display:flex;height:100%;overflow:hidden}/* SIDEBAR */
+#rtcar-crm-root .sb{width:220px;background:var(--bg2);border-right:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0}#rtcar-crm-root .sb-logo{padding:16px 18px 14px;border-bottom:1px solid var(--bdr)}#rtcar-crm-root .sb-logo .brand{font-family:var(--s);font-size:22px;color:var(--red);letter-spacing:1px}#rtcar-crm-root .sb-logo .tag{font-size:10px;color:var(--tx3);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}#rtcar-crm-root .nav{flex:1;padding:10px 0;overflow-y:auto}#rtcar-crm-root .ni{display:flex;align-items:center;gap:9px;margin:2px 10px;padding:9px 12px;border-radius:8px;font-size:13px;color:var(--tx2);cursor:pointer;transition:all .15s;user-select:none}#rtcar-crm-root .ni:hover{background:var(--bg3);color:var(--tx)}#rtcar-crm-root .ni.on{color:var(--red);background:linear-gradient(90deg,var(--redl),transparent);font-weight:600}#rtcar-crm-root .ni .ti{font-size:17px;flex-shrink:0}#rtcar-crm-root .ni-sep{height:1px;background:var(--bdr);margin:8px 16px}#rtcar-crm-root .ni-lbl{font-size:10px;color:var(--tx3);font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:10px 22px 4px}#rtcar-crm-root .sb-foot{padding:13px 16px;border-top:1px solid var(--bdr)}#rtcar-crm-root .sb-user{display:flex;align-items:center;gap:9px}#rtcar-crm-root .sb-av{width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}#rtcar-crm-root .sb-info{flex:1;min-width:0}#rtcar-crm-root .sb-name{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rtcar-crm-root .sb-role{font-size:10px;color:var(--tx3)}#rtcar-crm-root .ti-btn{font-size:18px;color:var(--tx3);cursor:pointer;padding:4px;border-radius:6px;transition:all .15s}#rtcar-crm-root .ti-btn:hover{color:var(--red);background:var(--redl)}/* MAIN */
+#rtcar-crm-root .main{flex:1;display:flex;flex-direction:column;overflow:hidden}#rtcar-crm-root .tb{height:54px;background:var(--bg2);border-bottom:1px solid var(--bdr);padding:0 22px;display:flex;align-items:center;gap:12px;flex-shrink:0}#rtcar-crm-root .tb-title{font-size:15px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:7px;white-space:nowrap}#rtcar-crm-root .tb-title .ti{color:var(--red);font-size:18px}#rtcar-crm-root .tb-sep{width:1px;height:20px;background:var(--bdr);flex-shrink:0}#rtcar-crm-root .tb-tabs{display:flex;gap:2px}#rtcar-crm-root .tb-tab{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--tx2);transition:all .15s;user-select:none}#rtcar-crm-root .tb-tab:hover{background:var(--bg3)}#rtcar-crm-root .tb-tab.on{background:var(--redl);color:var(--red);font-weight:700}#rtcar-crm-root .tb-spacer{flex:1}#rtcar-crm-root .tb-search{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1.5px solid var(--bdr);border-radius:var(--r);padding:7px 12px;width:190px;transition:border .15s}#rtcar-crm-root .tb-search:focus-within{border-color:var(--red)}#rtcar-crm-root .tb-search input{border:none;background:transparent;font-family:var(--f);font-size:13px;color:var(--tx);width:100%;outline:none}#rtcar-crm-root .tb-search .ti{color:var(--tx3);font-size:15px;flex-shrink:0}#rtcar-crm-root .cnt{flex:1;overflow:hidden;display:flex;flex-direction:column}/* KANBAN SHARED */
+#rtcar-crm-root .kanban-wrap{flex:1;display:flex;gap:12px;padding:16px 20px;overflow-x:auto;overflow-y:hidden;align-items:stretch}#rtcar-crm-root .kanban-wrap::-webkit-scrollbar{height:7px}#rtcar-crm-root .kanban-wrap::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:4px}#rtcar-crm-root .kb-col{display:flex;flex-direction:column;min-width:220px;width:240px;flex-shrink:0;background:var(--bg3);border-radius:var(--r2);overflow:hidden}#rtcar-crm-root .kb-col-head{padding:11px 12px 0;display:flex;align-items:center;gap:7px}#rtcar-crm-root .kb-col-head .col-lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;flex:1;line-height:1.2}#rtcar-crm-root .kb-col-head .col-cnt{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;min-width:22px;text-align:center;flex-shrink:0}#rtcar-crm-root .kb-col-desc{padding:3px 12px 8px;font-size:10px;color:var(--tx3);line-height:1.4;border-bottom:2px solid transparent}#rtcar-crm-root .kb-col-body{flex:1;padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:80px;transition:background .15s}#rtcar-crm-root .kb-col-body::-webkit-scrollbar{width:3px}#rtcar-crm-root .kb-col-body::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}#rtcar-crm-root .kb-col-body.drag-over{background:rgba(232,67,30,.07)}#rtcar-crm-root .kb-add{margin:0 8px 8px;padding:7px;border-radius:var(--r);border:1.5px dashed var(--bdr);font-size:11px;color:var(--tx3);cursor:pointer;text-align:center;transition:all .15s;user-select:none}#rtcar-crm-root .kb-add:hover{border-color:var(--red);color:var(--red);background:var(--redl)}/* CARDS */
+#rtcar-crm-root .lcard, #rtcar-crm-root .ccard{background:var(--bg2);border-radius:var(--r);padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:grab;transition:all .15s;border-left:3px solid transparent;position:relative;user-select:none}#rtcar-crm-root .lcard:active, #rtcar-crm-root .ccard:active{cursor:grabbing}#rtcar-crm-root .lcard:hover, #rtcar-crm-root .ccard:hover{box-shadow:0 4px 14px rgba(0,0,0,.1);transform:translateY(-1px)}#rtcar-crm-root .lcard.dragging, #rtcar-crm-root .ccard.dragging{opacity:.45;transform:rotate(1.5deg)}#rtcar-crm-root .card-id{font-size:9px;color:var(--tx3);margin-bottom:3px;font-weight:600;letter-spacing:.3px}#rtcar-crm-root .card-nome{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rtcar-crm-root .card-sub{font-size:11px;color:var(--tx2);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}#rtcar-crm-root .card-sub .ti{font-size:11px;color:var(--tx3)}#rtcar-crm-root .card-acao{padding:5px 8px;border-radius:6px;font-size:10px;font-weight:600;margin-bottom:6px;line-height:1.4;display:flex;align-items:flex-start;gap:5px}#rtcar-crm-root .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}#rtcar-crm-root .card-meta{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:3px}#rtcar-crm-root .card-actions{display:flex;gap:3px}#rtcar-crm-root .card-btn{height:24px;border-radius:5px;border:none;background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--tx3);transition:all .15s;padding:0 6px;gap:3px}#rtcar-crm-root .card-btn:hover{background:var(--blue);color:#fff}#rtcar-crm-root .card-btn-label{font-weight:600}#rtcar-crm-root .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}#rtcar-crm-root .transfer-popup{position:fixed;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:0 4px 20px rgba(0,0,0,.15);padding:8px;z-index:9999;min-width:140px}#rtcar-crm-root .transfer-popup button{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:13px;border-radius:6px;color:var(--tx)}#rtcar-crm-root .transfer-popup button:hover{background:var(--bg2)}#rtcar-crm-root .transfer-popup .tp-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;padding:4px 12px 6px}/* LISTA */
+#rtcar-crm-root .lista-wrap{flex:1;display:flex;flex-direction:column;padding:16px 20px;overflow:hidden;gap:12px}#rtcar-crm-root .lista-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}#rtcar-crm-root .filter-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--bdr);background:var(--bg2);color:var(--tx2);transition:all .15s;user-select:none}#rtcar-crm-root .filter-chip:hover, #rtcar-crm-root .filter-chip.on{border-color:var(--red);background:var(--redl);color:var(--red)}#rtcar-crm-root .lista-table-wrap{flex:1;overflow:auto;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--bdr)}#rtcar-crm-root .lista-table{width:100%;border-collapse:collapse}#rtcar-crm-root .lista-table th{padding:10px 14px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bdr);text-align:left;background:var(--bg3);white-space:nowrap;position:sticky;top:0;z-index:1}#rtcar-crm-root .lista-table td{padding:11px 14px;font-size:13px;color:var(--tx);border-bottom:1px solid var(--bg3)}#rtcar-crm-root .lista-table tbody tr:last-child td{border-bottom:none}#rtcar-crm-root .lista-table tbody tr{cursor:pointer;transition:background .1s}#rtcar-crm-root .lista-table tbody tr:hover td{background:var(--bg3)}#rtcar-crm-root .lista-empty{padding:60px;text-align:center;color:var(--tx3)}#rtcar-crm-root .lista-empty .ti{font-size:40px;display:block;margin-bottom:10px;opacity:.5}/* RELATORIOS */
+#rtcar-crm-root .rel-wrap{flex:1;overflow-y:auto;padding:16px 20px}#rtcar-crm-root .rel-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:22px}#rtcar-crm-root .rel-card{background:var(--bg2);border-radius:var(--r2);padding:18px 20px;border:1px solid var(--bdr)}#rtcar-crm-root .rel-card .rc-lbl{font-size:10px;color:var(--tx3);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:5px}#rtcar-crm-root .rel-card .rc-val{font-size:30px;font-weight:700;color:var(--tx);line-height:1;margin-bottom:4px}#rtcar-crm-root .rel-card .rc-sub{font-size:12px;color:var(--tx2)}#rtcar-crm-root .rel-card.c-red .rc-val{color:var(--red)}#rtcar-crm-root .rel-card.c-green .rc-val{color:var(--green)}#rtcar-crm-root .rel-card.c-blue .rc-val{color:var(--blue)}#rtcar-crm-root .rel-card.c-gold .rc-val{color:var(--gold)}#rtcar-crm-root .rel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}#rtcar-crm-root .rel-section-title{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:12px;display:flex;align-items:center;gap:6px}#rtcar-crm-root .rel-section-title .ti{color:var(--red)}#rtcar-crm-root .chart-box{background:var(--bg2);border-radius:var(--r2);padding:18px 20px;border:1px solid var(--bdr)}#rtcar-crm-root .bar-item{display:flex;align-items:center;gap:10px;margin-bottom:10px}#rtcar-crm-root .bar-item:last-child{margin-bottom:0}#rtcar-crm-root .bar-lbl{font-size:12px;color:var(--tx2);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rtcar-crm-root .bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}#rtcar-crm-root .bar-fill{height:100%;border-radius:4px;transition:width .4s ease}#rtcar-crm-root .bar-val{font-size:12px;font-weight:600;color:var(--tx2);width:28px;text-align:right;flex-shrink:0}#rtcar-crm-root .funnel-item{display:flex;align-items:center;gap:10px;margin-bottom:8px}#rtcar-crm-root .funnel-lbl{font-size:12px;color:var(--tx2);width:130px;flex-shrink:0}#rtcar-crm-root .funnel-track{flex:1;height:24px;border-radius:var(--r);overflow:hidden;background:var(--bg3)}#rtcar-crm-root .funnel-fill{height:100%;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:700;color:#fff;border-radius:var(--r);transition:width .4s ease}#rtcar-crm-root .no-data{padding:32px;text-align:center;color:var(--tx3);font-size:13px}/* MODAL */
+#rtcar-crm-root .ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:150;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}#rtcar-crm-root .mod{background:var(--bg2);border-radius:var(--r2);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.18)}#rtcar-crm-root .mod::-webkit-scrollbar{width:6px}#rtcar-crm-root .mod::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}#rtcar-crm-root .mod-head{padding:20px 24px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:1}#rtcar-crm-root .mod-head h3{font-size:16px;font-weight:700}#rtcar-crm-root .mod-close{width:30px;height:30px;border-radius:var(--r);border:none;background:var(--bg3);cursor:pointer;font-size:15px;color:var(--tx2);display:flex;align-items:center;justify-content:center;transition:all .15s}#rtcar-crm-root .mod-close:hover{background:var(--red);color:#fff}#rtcar-crm-root .mod-body{padding:20px 24px}#rtcar-crm-root .mod-section{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--bg3)}#rtcar-crm-root .mod-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}#rtcar-crm-root .mod-section-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:5px}#rtcar-crm-root .mod-foot{padding:14px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--bg2)}/* DETAIL PANEL */
+#rtcar-crm-root .detail-ov{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:140}#rtcar-crm-root .detail-pnl{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--bg2);box-shadow:-4px 0 32px rgba(0,0,0,.14);display:flex;flex-direction:column;z-index:141;overflow:hidden;animation:rtcarcrm-slideIn .2s ease}@keyframes rtcarcrm-slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}#rtcar-crm-root .detail-head{padding:18px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0}#rtcar-crm-root .detail-head h3{flex:1;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rtcar-crm-root .detail-body{flex:1;overflow-y:auto;padding:18px 20px}#rtcar-crm-root .detail-body::-webkit-scrollbar{width:4px}#rtcar-crm-root .detail-body::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}#rtcar-crm-root .d-section{margin-bottom:18px}#rtcar-crm-root .d-section-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bg3)}#rtcar-crm-root .d-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}#rtcar-crm-root .d-field{display:flex;flex-direction:column;gap:2px}#rtcar-crm-root .d-field .lbl{font-size:10px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.4px}#rtcar-crm-root .d-field .val{font-size:13px;color:var(--tx);font-weight:500}#rtcar-crm-root .d-field .val.empty{color:var(--tx3);font-style:italic;font-weight:400;font-size:12px}#rtcar-crm-root .hist-item{display:flex;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--bg3)}#rtcar-crm-root .hist-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}#rtcar-crm-root .hist-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:1px}#rtcar-crm-root .hist-info{flex:1}#rtcar-crm-root .hist-acao{font-size:12px;font-weight:600;color:var(--tx);line-height:1.4}#rtcar-crm-root .hist-obs{font-size:12px;color:var(--tx2);margin-top:2px;line-height:1.4}#rtcar-crm-root .hist-meta{font-size:10px;color:var(--tx3);margin-top:4px}#rtcar-crm-root .col-select{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}#rtcar-crm-root .col-btn{padding:6px 11px;border-radius:var(--r);border:1.5px solid var(--bdr);font-size:11px;font-weight:600;cursor:pointer;background:var(--bg2);color:var(--tx2);transition:all .15s}#rtcar-crm-root .col-btn:hover{border-color:var(--red);background:var(--redl);color:var(--red)}#rtcar-crm-root .detail-foot{padding:14px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}#rtcar-crm-root .milestone-box{background:linear-gradient(135deg,#fff8f0,#fff);border:1.5px solid var(--gold);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px}#rtcar-crm-root .milestone-box .m-emoji{font-size:22px;margin-bottom:4px;display:block}#rtcar-crm-root .milestone-box .m-title{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px}#rtcar-crm-root .milestone-box .m-desc{font-size:12px;color:var(--tx2);line-height:1.5}#rtcar-crm-root .tag-conv{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:var(--greenl);color:var(--green)}#rtcar-crm-root .select-sm{padding:6px 10px;border-radius:var(--r);border:1.5px solid var(--bdr);font-family:var(--f);font-size:12px;font-weight:600;color:var(--tx2);cursor:pointer;background:var(--bg2);outline:none}#rtcar-crm-root .select-sm:focus{border-color:var(--red)}#rtcar-crm-root .tb-filters-inline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}/* REPORTE */
+#rtcar-crm-root .rel-reporte{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:20px 24px;margin-bottom:18px}#rtcar-crm-root .rp-header{font-size:14px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}#rtcar-crm-root .rp-period{margin-left:auto;font-size:11px;color:var(--tx3);font-weight:400}#rtcar-crm-root .rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}#rtcar-crm-root .rp-section{background:var(--bg3);border-radius:var(--r);padding:14px 16px}#rtcar-crm-root .rp-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:10px}#rtcar-crm-root .rp-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--tx2);border-bottom:1px solid var(--bdr)}#rtcar-crm-root .rp-row:last-child{border-bottom:none}#rtcar-crm-root .rp-row strong{font-size:14px;color:var(--tx);min-width:20px;text-align:right}#rtcar-crm-root .rp-total{background:rgba(0,0,0,.03);margin:4px -4px 0;padding:6px 4px;border-radius:6px;font-weight:600}#rtcar-crm-root .rp-total strong{color:var(--red)}/* Dashboard Geral — versao compacta, pra caber tudo numa tela só (a Aline usa pra printar) */
+#rtcar-crm-root .geral-wrap{padding:12px 16px}#rtcar-crm-root .geral-wrap .rp-grid{gap:10px}#rtcar-crm-root .geral-wrap .rp-section{padding:8px 10px}#rtcar-crm-root .geral-wrap .rp-sec-title{margin-bottom:4px}#rtcar-crm-root .geral-wrap .rp-row{padding:1px 0;font-size:11px}#rtcar-crm-root .geral-wrap .rp-row strong{font-size:12px}#rtcar-crm-root .geral-wrap .rp-total{margin:2px -4px 0;padding:3px 4px}#rtcar-crm-root .geral-cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}#rtcar-crm-root .geral-top-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px}#rtcar-crm-root .geral-top-row>div{flex:1;min-width:0}#rtcar-crm-root .geral-leads-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}#rtcar-crm-root .geral-vendas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}#rtcar-crm-root .geral-ind-box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden}#rtcar-crm-root .geral-ind-box>.hd{padding:4px 10px;font-size:10px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--bdr)}#rtcar-crm-root .geral-ind-box>.stat{padding:6px 10px;text-align:center}#rtcar-crm-root .geral-ind-box>.stat+.stat{border-top:1px solid var(--bdr)}#rtcar-crm-root .geral-ind-box>.stat .n{font-size:18px;font-weight:700;line-height:1.1}#rtcar-crm-root .geral-ind-box>.stat .l{font-size:10px;color:var(--tx3);margin-top:1px}#rtcar-crm-root .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1814;color:#fff;padding:10px 20px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}#rtcar-crm-root .toast.show{opacity:1}#rtcar-crm-root .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:rtcarcrm-spin .7s linear infinite}@keyframes rtcarcrm-spin{to{transform:rotate(360deg)}}#rtcar-crm-root .full-load{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--tx3);font-size:13px}@media(max-width:768px){#rtcar-crm-root .sb{display:none}#rtcar-crm-root .kanban-wrap{padding:10px 12px}#rtcar-crm-root .detail-pnl{width:100%}#rtcar-crm-root .field-row{grid-template-columns:1fr}}/* ============================================================
    WORKSHOP CSS
    ============================================================ */
-.ws-eventos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:20px}
-.ws-evento-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px 20px;cursor:pointer;transition:all .15s;border-left:4px solid var(--purple)}
-.ws-evento-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-1px)}
-.ws-ev-nome{font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px}
-.ws-ev-meta{font-size:12px;color:var(--tx3);display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
-.ws-ev-stats{display:flex;gap:8px;flex-wrap:wrap}
-.ws-stat{background:var(--bg3);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--tx2)}
-.ws-back{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--blue);cursor:pointer;padding:4px 0}
-.ws-back:hover{color:var(--red)}
-.ws-metrics{display:flex;gap:12px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-wrap:wrap}
-.ws-metric{text-align:center;background:var(--bg3);border-radius:var(--r);padding:8px 16px;min-width:80px}
-.ws-metric-val{font-size:20px;font-weight:700;color:var(--tx)}
-.ws-metric-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
-.ws-kb{display:flex;gap:12px;padding:16px 20px;overflow-x:auto;height:calc(100vh - 200px)}
-.ws-col{flex-shrink:0;width:220px;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--bdr);display:flex;flex-direction:column;max-height:100%}
-.ws-col-hd{padding:12px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
-.ws-col-title{font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px}
-.ws-col-cnt{background:var(--bg3);border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--tx3)}
-.ws-col-body{flex:1;overflow-y:auto;padding:8px}
-.ws-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:grab;transition:all .15s;border-left:3px solid}
-.ws-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.ws-card.dragging{opacity:.4}
-.ws-card-nome{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:4px}
-.ws-card-tel{font-size:11px;color:var(--tx3);display:flex;align-items:center;gap:4px}
-.ws-card-obs{font-size:11px;color:var(--tx2);margin-top:5px;padding-top:5px;border-top:1px solid var(--bdr)}
-.ws-card-actions{display:flex;gap:4px;margin-top:8px}
-.ws-add{padding:8px;text-align:center;color:var(--tx3);font-size:12px;cursor:pointer;border-radius:var(--r);border:1.5px dashed var(--bdr);margin:4px}
-.ws-add:hover{border-color:var(--purple);color:var(--purple)}
+#rtcar-crm-root .ws-eventos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:20px}#rtcar-crm-root .ws-evento-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px 20px;cursor:pointer;transition:all .15s;border-left:4px solid var(--purple)}#rtcar-crm-root .ws-evento-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-1px)}#rtcar-crm-root .ws-ev-nome{font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px}#rtcar-crm-root .ws-ev-meta{font-size:12px;color:var(--tx3);display:flex;flex-direction:column;gap:3px;margin-bottom:12px}#rtcar-crm-root .ws-ev-stats{display:flex;gap:8px;flex-wrap:wrap}#rtcar-crm-root .ws-stat{background:var(--bg3);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--tx2)}#rtcar-crm-root .ws-back{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--blue);cursor:pointer;padding:4px 0}#rtcar-crm-root .ws-back:hover{color:var(--red)}#rtcar-crm-root .ws-metrics{display:flex;gap:12px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-wrap:wrap}#rtcar-crm-root .ws-metric{text-align:center;background:var(--bg3);border-radius:var(--r);padding:8px 16px;min-width:80px}#rtcar-crm-root .ws-metric-val{font-size:20px;font-weight:700;color:var(--tx)}#rtcar-crm-root .ws-metric-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}#rtcar-crm-root .ws-kb{display:flex;gap:12px;padding:16px 20px;overflow-x:auto;height:calc(100% - 200px)}#rtcar-crm-root .ws-col{flex-shrink:0;width:220px;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--bdr);display:flex;flex-direction:column;max-height:100%}#rtcar-crm-root .ws-col-hd{padding:12px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}#rtcar-crm-root .ws-col-title{font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px}#rtcar-crm-root .ws-col-cnt{background:var(--bg3);border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--tx3)}#rtcar-crm-root .ws-col-body{flex:1;overflow-y:auto;padding:8px}#rtcar-crm-root .ws-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:grab;transition:all .15s;border-left:3px solid}#rtcar-crm-root .ws-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}#rtcar-crm-root .ws-card.dragging{opacity:.4}#rtcar-crm-root .ws-card-nome{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:4px}#rtcar-crm-root .ws-card-tel{font-size:11px;color:var(--tx3);display:flex;align-items:center;gap:4px}#rtcar-crm-root .ws-card-obs{font-size:11px;color:var(--tx2);margin-top:5px;padding-top:5px;border-top:1px solid var(--bdr)}#rtcar-crm-root .ws-card-actions{display:flex;gap:4px;margin-top:8px}#rtcar-crm-root .ws-add{padding:8px;text-align:center;color:var(--tx3);font-size:12px;cursor:pointer;border-radius:var(--r);border:1.5px dashed var(--bdr);margin:4px}#rtcar-crm-root .ws-add:hover{border-color:var(--purple);color:var(--purple)}
 
 </style>
 </head>
 <body>
+<div id="rtcar-crm-root" class="hidden">
+
 
 <!-- LOGIN -->
 <div id="login-screen" class="login-wrap">
@@ -507,6 +251,15 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
           <div class="field"><label>Data de nascimento</label><input type="date" id="rc-nasc"></div>
           <div class="field"><label>Responsável</label><select id="rc-resp"><option value="">Selecione...</option></select></div>
         </div>
+        <div class="field"><label>Vendedor (quem atendeu a venda)</label>
+          <select id="rc-vendedor">
+            <option value="">Selecione...</option>
+            <option>Rafael</option>
+            <option>Maicon</option>
+            <option>Janderson</option>
+            <option>Victor</option>
+          </select>
+        </div>
       </div>
       <div class="mod-section">
         <div class="mod-section-title"><i class="ti ti-car"></i> Veículo Comprado</div>
@@ -573,6 +326,13 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
       <button class="btn btn-outline" onclick="fecharModal('ov-ind')">Cancelar</button>
       <button class="btn btn-red" id="btn-salvar-ind" onclick="salvarIndicacao()"><i class="ti ti-check"></i> <span id="btn-salvar-ind-txt">Salvar</span></button>
     </div>
+  </div>
+</div>
+
+<div id="ov-drill" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-drill')">
+  <div class="mod" style="max-width:640px">
+    <div class="mod-head"><h3 id="drill-titulo">Detalhes</h3><button class="mod-close" onclick="fecharModal('ov-drill')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body" id="drill-corpo" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -656,7 +416,25 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
 <div id="detail-ov" class="detail-ov hidden" onclick="fecharDetail()"></div>
 <div id="detail-pnl" class="detail-pnl hidden"></div>
 <div id="toast" class="toast"></div>
+
+</div>
+
+
+
+
+
+
+
+
+<!-- OVERLAY ANUNCIOS -->
+<div class="ov hidden" id="ov-an"><div class="mod" id="mod-an" style="max-width:560px"></div></div>
+
+
+
 <script>
+(function(){
+'use strict';
+
 /* ============================================================
    RT CAR — MARKETING & RELACIONAMENTO v1.1.0
    Arquivo único — login único — navegação sem recarregar
@@ -667,7 +445,7 @@ const fbOk=()=>FB.projectId!=='COLE-SEU-PROJECT-ID-AQUI';
 /* Login real (Firebase Authentication) + acesso ao Firestore via SDK, em vez
    de fetch cru com só a API key — a regra de seguranca do projeto agora
    exige request.auth != null, entao so o SDK autenticado consegue ler/gravar. */
-firebase.initializeApp({apiKey:FB.apiKey,authDomain:`${FB.projectId}.firebaseapp.com`,projectId:FB.projectId});
+if(!firebase.apps.length)firebase.initializeApp({apiKey:FB.apiKey,authDomain:`${FB.projectId}.firebaseapp.com`,projectId:FB.projectId});
 const fbAuth=firebase.auth();
 const db=firebase.firestore();
 
@@ -729,15 +507,16 @@ const COLS_REL=[
    msg:'Olá, [NOME]! 😊 Já faz 7 dias que você levou seu [VEICULO] aqui da RT Car. Como está sendo a experiência? Tem alguma dúvida ou feedback para nos dar? Estamos felizes em ajudar! 🚗'},
   {id:'d90',label:'90 dias',emoji:'🔧',desc:'90 dias após a compra',acao:'Avisar fim da garantia motor/câmbio + bateria estendida por mais 3 meses',acolabel:'Avisar garantia',cor:'#b8860b',bg:'#faf6e8',
    msg:'Olá, [NOME]! A garantia de motor e câmbio do seu [VEICULO] vence em breve (90 dias). Mas fique tranquilo(a): a RT Car oferece garantia estendida da bateria por mais 3 meses, sem custo! Qualquer dúvida, estamos à disposição. 🔧'},
-  {id:'d1ano_enviado',label:'1 ano enviado',emoji:'🎁',desc:'1 ano após a compra — convite enviado',baseId:'d1ano',campo:'visita1ano',valorAtivo:false,acao:'Presentear com cesta especial — cliente deve buscar na loja',acolabel:'Entregar cesta',cor:'#6b3db8',bg:'#f3e8fb',
+  {id:'d1ano_enviado',label:'1 ano',emoji:'🎁',desc:'1 ano após a compra — convite enviado',baseId:'d1ano',campo:'visita1ano',valorAtivo:false,acao:'Presentear com cesta especial — cliente deve buscar na loja',acolabel:'Entregar cesta',cor:'#6b3db8',bg:'#f3e8fb',
    msg:'Olá, [NOME]! 🎉 Faz 1 ano que você faz parte da família RT Car com seu [VEICULO]! Preparamos uma surpresa especial para você — passe na nossa loja em Brusque para retirar seu presente! 🎁'},
-  {id:'avaliacao1ano',label:'Avaliação',emoji:'📝',desc:'Cliente com carro em processo de avaliação',acao:'Avaliação em andamento',acolabel:'Avaliação',cor:'#475569',bg:'#eef2f7'},
+  {id:'avaliacao1ano',label:'1 ano enviado',emoji:'📝',desc:'Cliente com carro em processo de avaliação',acao:'Avaliação em andamento',acolabel:'Avaliação',cor:'#475569',bg:'#eef2f7'},
   {id:'d1ano_retirado',label:'1 ano retirado',emoji:'✅',desc:'Já retirou o presente de 1 ano',baseId:'d1ano',campo:'visita1ano',valorAtivo:true,acao:'Presente já retirado',acolabel:'Retirado',cor:'#1a6b3c',bg:'#e8f5ee'},
   {id:'aniversario',label:'Aniversário',emoji:'🎂',desc:'Entre 1 e 2 anos — aniversário do cliente',acao:'Enviar mensagem de Feliz Aniversário personalizada',acolabel:'Parabenizar',cor:'#e8431e',bg:'#fff0ec',
    msg:'Feliz Aniversário, [NOME]! 🎂🎉 A equipe RT Car deseja um dia muito especial! Que este novo ano seja repleto de conquistas e muitas estradas com seu [VEICULO]. Abraço carinhoso! ❤️'},
-  {id:'d2anos_enviado',label:'2 anos enviado',emoji:'✨',desc:'2 anos após a compra — convite enviado',baseId:'d2anos',campo:'visita2anos',valorAtivo:false,acao:'Presentear com vitrificação completa — sem custo',acolabel:'Vitrificação',cor:'#0b7ba8',bg:'#e8f8fb',
+  {id:'d2anos_enviado',label:'2 anos',emoji:'✨',desc:'2 anos após a compra — convite enviado',baseId:'d2anos',campo:'visita2anos',valorAtivo:false,acao:'Presentear com vitrificação completa — sem custo',acolabel:'Vitrificação',cor:'#0b7ba8',bg:'#e8f8fb',
    msg:'Olá, [NOME]! ✨ Dois anos juntos! Seu [VEICULO] merece brilhar: temos um presente especial — vitrificação completa, sem custo! Agende pelo WhatsApp e venha renovar o visual do seu carro. 😊'},
-  {id:'avaliacao2anos',label:'Avaliação',emoji:'📝',desc:'Cliente com carro em processo de avaliação',acao:'Avaliação em andamento',acolabel:'Avaliação',cor:'#475569',bg:'#eef2f7'},
+  {id:'avaliacao2anos',label:'2 anos enviado',emoji:'📝',desc:'Cliente com carro em processo de avaliação',acao:'Avaliação em andamento',acolabel:'Avaliação',cor:'#475569',bg:'#eef2f7'},
+  {id:'d2anos_agendado',label:'2 anos Agendado',emoji:'📅',desc:'Cliente agendou visita para retirar a vitrificação de 2 anos',acao:'Confirmar agendamento e preparar vitrificação',acolabel:'Agendado',cor:'#b8860b',bg:'#faf6e8'},
   {id:'d2anos_retirado',label:'2 anos retirado',emoji:'✅',desc:'Já retirou a vitrificação de 2 anos',baseId:'d2anos',campo:'visita2anos',valorAtivo:true,acao:'Vitrificação já retirada',acolabel:'Retirado',cor:'#1a6b3c',bg:'#e8f5ee'},
   {id:'d3anos',label:'3 anos',emoji:'🎊',desc:'Entre 2 e 3 anos — aniversário do cliente',acao:'Enviar parabéns pelos 3 anos como cliente RT Car',acolabel:'Parabenizar',cor:'#1a6b3c',bg:'#e8f5ee',
    msg:'Olá, [NOME]! 🎊 Três anos de parceria com a RT Car! É uma satisfação tê-lo(a) como cliente com seu [VEICULO]. Obrigado pela confiança! Com carinho, equipe RT Car ❤️'},
@@ -761,7 +540,7 @@ const COLS_WS=[
 const G={
   user:null, modulo:'marketing',
   mk:{leads:[],_timerInterval:null,view:'hoje',hojeOffset:0,busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
-  rel:{clientes:[],nps:[],indicacoes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,editandoIndId:null,detailId:null,dragId:null,modoDemo:false},
+  rel:{clientes:[],nps:[],indicacoes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,editandoIndId:null,detailId:null,dragId:null,modoDemo:false,importColuna:'',importLinhas:null,importando:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
@@ -847,8 +626,14 @@ async function fazerLogin(){
     btn.disabled=false;btn.textContent=txtOriginal;
     return;
   }
-  G.user=u;
+  entrarNaApp(u);
   btn.disabled=false;btn.textContent=txtOriginal;
+}
+// Passo comum depois de confirmar quem e a pessoa (login por senha OU
+// auto-login quando o sistema principal ja tem sessao no mesmo Firebase
+// Auth) - preenche a tela e entra no CRM.
+function entrarNaApp(u){
+  G.user=u;
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
@@ -944,8 +729,8 @@ async function trocarModulo(mod){
     else renderRelacionamento();
   }
 }
-</script>
-<script>
+
+
 /* ============================================================
    MARKETING — DEMO + INIT + RENDER
    ============================================================ */
@@ -1045,20 +830,20 @@ function renderMarketing(){
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${view==='hoje'?' on':''}" onclick="G.mk.view='hoje';renderMarketing()"><i class="ti ti-calendar-stats"></i> Hoje</div>
-      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
-      <div class="tb-tab${view==='lista'?' on':''}" onclick="G.mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
-      <div class="tb-tab${view==='rel'?' on':''}" onclick="G.mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
-      <div class="tb-tab${view==='visitas'?' on':''}" onclick="G.mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
+      <div class="tb-tab${view==='hoje'?' on':''}" onclick="__G().mk.view='hoje';renderMarketing()"><i class="ti ti-calendar-stats"></i> Hoje</div>
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
+      <div class="tb-tab${view==='lista'?' on':''}" onclick="__G().mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
+      <div class="tb-tab${view==='rel'?' on':''}" onclick="__G().mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
+      <div class="tb-tab${view==='visitas'?' on':''}" onclick="__G().mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="G.mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
-      <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="G.mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
-      <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="G.mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
-      ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.mk.filtroCaptador=\'\';G.mk.filtroDataInicio=\'\';G.mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
+      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
+      <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="__G().mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
+      <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="__G().mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
+      ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().mk.filtroCaptador=\'\';__G().mk.filtroDataInicio=\'\';__G().mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="G.mk.busca=this.value;renderMarketing()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="__G().mk.busca=this.value;renderMarketing()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalLead()"><i class="ti ti-plus"></i> Novo Lead</button>
   `;
   if(buscaFocada){
@@ -1349,6 +1134,100 @@ function statsDoDiaMk(nomes,offset=0){
     compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
   };
 }
+// Clique nos numeros do painel "Hoje" do CRM pra ver quais leads sao esses
+// (a pedido da Aline, 03/09/2026) - reaproveita o mesmo modal "ov-drill" do
+// Dashboard Geral. Clicar numa linha abre o lead de verdade.
+function mostrarDrilldownMk(titulo,leads){
+  document.getElementById('drill-titulo').textContent=`${titulo} (${leads.length})`;
+  const corpo=document.getElementById('drill-corpo');
+  corpo.innerHTML=leads.length
+    ?`<div class="lista-table-wrap"><table class="lista-table"><thead><tr><th>Cliente</th><th>Veículo</th><th>Origem</th><th>Vendedor</th></tr></thead><tbody>${leads.map(l=>`<tr style="cursor:pointer" onclick="fecharModal('ov-drill');abrirDetailLead('${l.id}')" title="Clique pra abrir o lead"><td>${l.clienteNome||'(sem nome)'}</td><td>${l.veiculo||'—'}</td><td>${l.origem||'—'}</td><td>${l.captador||l.by||'—'}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum registro nesse período.</div>';
+  document.getElementById('ov-drill').classList.remove('hidden');
+}
+function abrirDrillMk(tipo,chave,nomesStr,offset){
+  const nomes=nomesStr?nomesStr.split('|'):null;
+  const hojeISO=hojeISOlocal(offset);
+  const hojeBRstr=hoje(offset);
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  let titulo='',leads=[];
+  if(tipo==='canal'){
+    titulo=`Leads — ${chave}`;
+    leads=base.filter(l=>primeiraRespostaVendedorISO(l)===hojeISO&&l.origem===chave);
+  }else if(tipo==='visitas'){
+    titulo='Visita';
+    leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem!=='Compra');
+  }else if(tipo==='visitasCompra'){
+    titulo='Visita Compra';
+    leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem==='Compra');
+  }else if(tipo==='agendamentos'){
+    titulo='Agendamento';
+    leads=base.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra');
+  }else if(tipo==='agendamentosCompra'){
+    titulo='Agendamento Compra';
+    leads=base.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra');
+  }else if(tipo==='vendas'){
+    titulo='Vendas';
+    leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra');
+  }else if(tipo==='compras'){
+    titulo='Compra';
+    leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra');
+  }else if(tipo==='chegaramIA'){
+    titulo='Chegaram na I.A.';
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
+  }else if(tipo==='aindaIA'){
+    titulo='Ainda na I.A.';
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st==='ia');
+  }else if(tipo==='jaSairamIA'){
+    titulo='Já saíram da I.A.';
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st!=='ia');
+  }else if(tipo==='emAtendimento'){
+    titulo='Em atendimento agora';
+    leads=G.mk.leads.filter(l=>l.st==='atendimento');
+  }
+  mostrarDrilldownMk(titulo,leads);
+}
+// Vendas da semana/mes atuais por vendedor - usado no painel "Hoje" do CRM
+// (a pedido da Aline, 03/09/2026: vendedor nao tem acesso ao Dashboard Geral,
+// entao essa informacao tambem precisa aparecer aqui).
+function vendasPorPeriodoMk(nomes,iniISO,fimISO){
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  const vendidos=base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
+  const porVendedor={};
+  vendidos.forEach(l=>{const v=quemVendeu(l);porVendedor[v]=(porVendedor[v]||0)+1;});
+  return{total:vendidos.length,porVendedor};
+}
+function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
+  const nomes=nomesStr?nomesStr.split('|'):null;
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  const leads=chave
+    ?base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeu(l)===chave)
+    :base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
+  mostrarDrilldownMk(chave?`Vendas — ${chave}`:'Vendas do período',leads);
+}
+function blocoVendasPeriodoMk(nomesStr){
+  const nm=nomesStr||'';
+  const nomes=nomesStr?nomesStr.split('|'):null;
+  const semana=limitesSemanaAtual(),mes=limitesMesAtual();
+  const stSemana=vendasPorPeriodoMk(nomes,semana.ini,semana.fim);
+  const stMes=vendasPorPeriodoMk(nomes,mes.ini,mes.fim);
+  function bloco(titulo,st,iniISO,fimISO){
+    const porVendedor=Object.keys(st.porVendedor).length
+      ?Object.entries(st.porVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMkPeriodo('${k}','${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são"><span>${k}</span><strong>${v}</strong></div>`).join('')
+      :'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhuma</div>';
+    return`<div style="background:var(--greenl);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+      <div style="font-size:26px;font-weight:700;color:var(--green);text-align:center;cursor:pointer" onclick="abrirDrillMkPeriodo(null,'${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são">${st.total}</div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center">${titulo}</div>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porVendedor}</div>
+    </div>`;
+  }
+  return`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Vendas — semana e mês atuais (por vendedor)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px">
+      ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim)}
+      ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim)}
+    </div>
+  </div>`;
+}
 // Contagem das colunas NPS e Indicações (Relacionamento) no dia — usada no painel "Hoje" do CRM
 function statsNpsIndDoDia(nomes,offset=0){
   const diaISO=hojeISOlocal(offset);
@@ -1360,35 +1239,38 @@ function statsNpsIndDoDia(nomes,offset=0){
 }
 function renderDashboardHoje(cnt){
   const wrap=document.createElement('div');wrap.className='rel-wrap';
-  function kpiCard(val,label,color,bg){
-    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;text-align:center">
+  function kpiCard(val,label,color,bg,onclick){
+    const clic=onclick?`cursor:pointer;`:'';
+    const attrs=onclick?` onclick="${onclick}" title="Clique pra ver quem são"`:'';
+    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;text-align:center;${clic}"${attrs}>
       <div style="font-size:28px;font-weight:700;color:${color}">${val}</div>
       <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
     </div>`;
   }
-  function listaCanais(porCanal){
+  function listaCanais(porCanal,nomesStr,offset){
     if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
-    return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2)"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
+    return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMk('canal','${canal}','${nomesStr||''}',${offset})" title="Clique pra ver quem são"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
   }
-  function blocoStats(titulo,st){
+  function blocoStats(titulo,st,nomesStr,offset){
+    const nm=nomesStr||'';
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
           <div style="font-size:26px;font-weight:700;color:var(--blue);text-align:center">${st.marketing}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Marketing</div>
-          ${listaCanais(st.marketingPorCanal)}
+          ${listaCanais(st.marketingPorCanal,nm,offset)}
         </div>
         <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
           <div style="font-size:26px;font-weight:700;color:var(--purple);text-align:center">${st.outros}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Outros</div>
-          ${listaCanais(st.outrosPorCanal)}
+          ${listaCanais(st.outrosPorCanal,nm,offset)}
         </div>
-        ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)')}
-        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)')}
+        ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)',`abrirDrillMk('visitas',null,'${nm}',${offset})`)}
+        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
+        ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentos',null,'${nm}',${offset})`)}
+        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
+        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
+        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}
       </div>
     </div>`;
   }
@@ -1396,10 +1278,10 @@ function renderDashboardHoje(cnt){
   const rotuloDia=offset===0?'Hoje':(offset===-1?'Ontem':`${Math.abs(offset)} dias atrás`);
   let html=`<div style="padding:20px;overflow:auto">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.mk.hojeOffset=(G.mk.hojeOffset||0)-1;renderMarketing()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="__G().mk.hojeOffset=(__G().mk.hojeOffset||0)-1;renderMarketing()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
       <h2 style="font-size:18px">📅 ${rotuloDia} — ${hoje(offset)}</h2>
-      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.mk.hojeOffset=(G.mk.hojeOffset||0)+1;renderMarketing()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
-      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="__G().mk.hojeOffset=(__G().mk.hojeOffset||0)+1;renderMarketing()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
     </div>`;
   if(G.user?.r==='master'){
     const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
@@ -1413,12 +1295,12 @@ function renderDashboardHoje(cnt){
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
     const stNpsIndTodos=statsNpsIndDoDia(null,offset);
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
-    html+=blocoStats('Equipe toda',stTodos);
+    html+=blocoStats('Equipe toda',stTodos,TODOS_VENDEDORES.join('|'),offset);
     html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)')}
-        ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)')}
-        ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)')}
+        ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('chegaramIA',null,null,${offset})`)}
+        ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('aindaIA',null,null,${offset})`)}
+        ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)',`abrirDrillMk('jaSairamIA',null,null,${offset})`)}
       </div>
     </div>
     <div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
@@ -1427,22 +1309,24 @@ function renderDashboardHoje(cnt){
         ${kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
     </div>
+    ${blocoVendasPeriodoMk(TODOS_VENDEDORES.join('|'))}
     ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)')}
+        ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)")}
       </div>
     </div>`:''}`;
   }else{
     const meusNomes=[G.user?.n];
     const st=statsDoDiaMk(meusNomes,offset);
     const stNpsInd=statsNpsIndDoDia(meusNomes,offset);
-    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st);
+    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st,meusNomes.join('|'),offset);
     html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(stNpsInd.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
         ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
-    </div>`;
+    </div>
+    ${blocoVendasPeriodoMk(meusNomes.join('|'))}`;
   }
   html+='</div>';
   wrap.innerHTML=html;
@@ -1468,12 +1352,14 @@ async function initGeral(){
 // dia (setas) e o painel "por filtro" (data inicio/fim) usam a mesma
 // funcao, so muda o intervalo passado. dtVenda fica salvo em BR (dd/mm/aaaa),
 // entao precisa converter pra ISO antes de comparar como intervalo.
+function vendaNoPeriodoISO(l,iniISO,fimISO){const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;}
+function leadRecebidoNoPeriodo(l,iniISO,fimISO){const r=primeiraRespostaVendedorISO(l);return!!r&&r>=iniISO&&r<=fimISO;}
 function statsGeralIntervalo(iniISO,fimISO){
   // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
   // vendedor de fato respondeu (nao a data de chegada do lead).
-  const leadsNoPeriodo=G.mk.leads.filter(l=>{const r=primeiraRespostaVendedorISO(l);return r&&r>=iniISO&&r<=fimISO;});
+  const leadsNoPeriodo=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO));
   const clientes=G.rel.clientes;
-  const vendaNoPeriodo=l=>{const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;};
+  const vendaNoPeriodo=l=>vendaNoPeriodoISO(l,iniISO,fimISO);
 
   // Compra entra somada dentro dos leads de Marketing nesse dashboard
   // (a pedido da Aline, 02/09/2026: "compra é do marketing").
@@ -1525,61 +1411,204 @@ function trocarViewGeral(v){
   }
   renderGeral();
 }
-function geralRpRow(label,val,forte){return `<div class="rp-row${forte?' rp-total':''}"><span>${label}</span><strong>${val}</strong></div>`;}
-function geralIndBox(titulo,icone1,label1,val1,cor1,icone2,label2,val2,cor2){
+/* Clique nos numeros do Dashboard Geral pra ver quem esta por tras deles
+   (a pedido da Aline, 03/09/2026: "tivemos 2 vendas, quero saber de quem
+   foi essa venda, que carro foi vendido"). */
+function mostrarDrilldown(titulo,itens,colunas){
+  document.getElementById('drill-titulo').textContent=`${titulo} (${itens.length})`;
+  const corpo=document.getElementById('drill-corpo');
+  corpo.innerHTML=itens.length
+    ?`<div class="lista-table-wrap"><table class="lista-table"><thead><tr>${colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${itens.map(l=>`<tr>${l.map(v=>`<td>${v||'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+    :'<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum registro nesse período.</div>';
+  document.getElementById('ov-drill').classList.remove('hidden');
+}
+const GRUPOS_OUTROS_REL={passante:['Passante','Loja','Evento Externo'],mybusiness:['My Business','Outra'],carteira:['Carteira','Prospecção','Indicação']};
+function abrirDrill(tipo,chave,iniISO,fimISO){
+  const fmtV=l=>l.valor?`R$ ${l.valor}`:'';
+  const vendedorLead=l=>l.captador||l.by||'';
+  let titulo='',itens=[],colunas=[];
+  if(tipo==='leadsCanal'){
+    titulo=`Leads — ${chave}`;
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&l.origem===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Vendedor'];
+  }else if(tipo==='leadsGrupoOutros'){
+    const origens=GRUPOS_OUTROS_REL[chave]||[];
+    titulo=`Leads — ${origens.join(' + ')}`;
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&origens.includes(l.origem))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='leadsTotalMkt'){
+    titulo='Leads — Total Marketing (inclui Compra)';
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&(tipoOrigem(l.origem)==='marketing'||tipoOrigem(l.origem)==='compra'))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='leadsTotalOutros'){
+    titulo='Leads — Total Outros Canais';
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='vendasCanal'){
+    titulo=`Vendas — ${chave}`;
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Vendedor','Valor'];
+  }else if(tipo==='vendasTotalMkt'){
+    titulo='Vendas — Total Marketing';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
+  }else if(tipo==='vendasTotalOutros'){
+    titulo='Vendas — Total Outros Canais';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
+  }else if(tipo==='vendasVendedor'){
+    titulo=`Vendas — ${chave}`;
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeu(l)===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Valor'];
+  }else if(tipo==='vendasTotal'){
+    titulo='Vendas — Total do período';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
+  }else if(tipo==='vendasCompra'){
+    titulo='Vendas — Compra';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Vendedor','Valor'];
+  }else if(tipo==='nps'){
+    titulo='NPS pedidos';
+    itens=G.rel.nps.filter(n=>n.dt>=iniISO&&n.dt<=fimISO).map(n=>[n.nome||'(sem nome)',n.tel||'',isoParaBR(n.dt)]);
+    colunas=['Nome','Telefone','Data'];
+  }else if(tipo==='indicacoes'){
+    titulo='Indicações recebidas';
+    itens=G.rel.indicacoes.filter(n=>n.dt>=iniISO&&n.dt<=fimISO)
+      .map(n=>[n.nomeIndicado||'(sem nome)',n.telIndicado||'',n.indicadoPor||'',n.tag==='compareceu'?'✅ Compareceu':(n.tag==='nao_compareceu'?'❌ Não compareceu':'—'),isoParaBR(n.dt)]);
+    colunas=['Indicado','Telefone','Indicado por','Status','Data'];
+  }else if(tipo==='visitas1ano'||tipo==='visitas2anos'){
+    const campo=tipo==='visitas1ano'?'visita1ano':'visita2anos',campoData=campo+'Data';
+    titulo=tipo==='visitas1ano'?'Visitas 1 ano':'Visitas 2 anos';
+    itens=G.rel.clientes.filter(c=>c[campo]==='realizada'&&c[campoData]>=iniISO&&c[campoData]<=fimISO)
+      .map(c=>[c.clienteNome||'(sem nome)',c.veiculo||'',isoParaBR(c[campoData])]);
+    colunas=['Cliente','Veículo','Data da visita'];
+  }else if(tipo==='visitasMkt'||tipo==='visitasOutras'){
+    const tipoAlvo=tipo==='visitasMkt'?'marketing':'outros';
+    titulo=tipo==='visitasMkt'?'Visitas marketing':'Visitas outras';
+    itens=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)===tipoAlvo)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='agendamento'||tipo==='agendamentoCompra'){
+    titulo=tipo==='agendamento'?'Agendamento':'Agendamento compra';
+    itens=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&(tipo==='agendamento'?l.origem!=='Compra':l.origem==='Compra'))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }
+  mostrarDrilldown(titulo,itens,colunas);
+}
+function geralRpRow(label,val,forte,onclick){
+  const clic=onclick?` style="cursor:pointer" onclick="${onclick}" title="Clique pra ver quem são"`:'';
+  return `<div class="rp-row${forte?' rp-total':''}"${clic}><span>${label}</span><strong>${val}</strong></div>`;
+}
+function geralIndBox(titulo,icone1,label1,val1,cor1,onclick1,icone2,label2,val2,cor2,onclick2){
+  const c1=onclick1?` style="cursor:pointer" onclick="${onclick1}" title="Clique pra ver quem são"`:'';
+  const c2=onclick2?` style="cursor:pointer" onclick="${onclick2}" title="Clique pra ver quem são"`:'';
   return `<div class="geral-ind-box">
     <div class="hd">${titulo}</div>
-    <div class="stat"><div class="n" style="color:${cor1}">${val1}</div><div class="l">${icone1} ${label1}</div></div>
-    <div class="stat"><div class="n" style="color:${cor2}">${val2}</div><div class="l">${icone2} ${label2}</div></div>
+    <div class="stat"${c1}><div class="n" style="color:${cor1}">${val1}</div><div class="l">${icone1} ${label1}</div></div>
+    <div class="stat"${c2}><div class="n" style="color:${cor2}">${val2}</div><div class="l">${icone2} ${label2}</div></div>
   </div>`;
 }
-function geralListaCanalCard(titulo,emoji,itens,total,corTotal,cols2){
-  const rows=Object.entries(itens).map(([k,v])=>geralRpRow(k,v));
+function geralListaCanalCard(titulo,emoji,itens,total,corTotal,cols2,onclickChave,onclickTotal){
+  const rows=Object.entries(itens).map(([k,v])=>geralRpRow(k,v,false,onclickChave?onclickChave(k):null));
   const linhas=rows.length?(cols2?`<div class="geral-cols2">${rows.join('')}</div>`:rows.join('')):'<div style="color:var(--tx3);font-size:11px">Nenhum</div>';
+  const clicTotal=onclickTotal?` style="cursor:pointer" onclick="${onclickTotal}" title="Clique pra ver quem são"`:'';
   return `<div class="rp-section">
     <div class="rp-sec-title">${emoji} ${titulo}</div>
     ${linhas}
-    <div class="rp-row rp-total"><span>Total</span><strong style="color:${corTotal||'inherit'}">${total}</strong></div>
+    <div class="rp-row rp-total"${clicTotal}><span>Total</span><strong style="color:${corTotal||'inherit'}">${total}</strong></div>
   </div>`;
 }
-function geralCorpoHtml(st,tituloIndicadores){
+// Semana (segunda a domingo) e mês (dia 1 ao último dia) de HOJE — sempre a
+// atual, independente de qual dia/período esta selecionado no dashboard
+// (a pedido da Aline, 03/09/2026).
+function limitesSemanaAtual(){
+  const hoje=new Date();const dow=(hoje.getDay()+6)%7;
+  return{ini:hojeISOlocal(-dow),fim:hojeISOlocal(6-dow)};
+}
+function limitesMesAtual(){
+  const hoje=new Date();
+  const iniD=new Date(hoje.getFullYear(),hoje.getMonth(),1);
+  const fimD=new Date(hoje.getFullYear(),hoje.getMonth()+1,0);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return{ini:iso(iniD),fim:iso(fimD)};
+}
+function geralBlocoResumoVendas(){
+  const semana=limitesSemanaAtual(),mes=limitesMesAtual();
+  const stSemana=statsGeralIntervalo(semana.ini,semana.fim);
+  const stMes=statsGeralIntervalo(mes.ini,mes.fim);
+  const totalSemana=stSemana.totalVendasMkt+stSemana.totalVendasOutros+stSemana.vendasCompra;
+  const totalMes=stMes.totalVendasMkt+stMes.totalVendasOutros+stMes.vendasCompra;
+  function bloco(tituloResumo,st,total,iniISO,fimISO){
+    const p=`'${iniISO}','${fimISO}'`;
+    const porVendedor=Object.keys(st.vendasPorVendedor).length
+      ?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('vendasVendedor','${k}',${p})`)).join('')
+      :'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>';
+    return`<div class="rp-section">
+      <div class="rp-sec-title">💰 ${tituloResumo}</div>
+      <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('vendasTotal',null,${p})" title="Clique pra ver quem são"><span>Total</span><strong style="color:#1a6b3c">${total}</strong></div>
+      ${porVendedor}
+    </div>`;
+  }
+  return`
+    <div class="rel-section-title" style="margin:14px 0 6px"><i class="ti ti-calendar-stats"></i> Vendas — semana e mês atuais (por vendedor)</div>
+    <div class="rp-grid" style="margin-bottom:14px">
+      ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,totalSemana,semana.ini,semana.fim)}
+      ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,totalMes,mes.ini,mes.fim)}
+    </div>`;
+}
+function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO){
+  const p=`'${iniISO}','${fimISO}'`;
   return `
     <div class="geral-top-row">
       <div>
         <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-users"></i> Leads</div>
         <div class="geral-leads-grid">
-          ${geralListaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true)}
+          ${geralListaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true,k=>`abrirDrill('leadsCanal','${k}',${p})`,`abrirDrill('leadsTotalMkt',null,${p})`)}
           <div class="rp-section">
             <div class="rp-sec-title">🏪 Leads Outros Canais</div>
-            ${geralRpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento)}
-            ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra)}
-            ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic)}
-            <div class="rp-row rp-total"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+            ${geralRpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento,false,`abrirDrill('leadsGrupoOutros','passante',${p})`)}
+            ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra,false,`abrirDrill('leadsGrupoOutros','mybusiness',${p})`)}
+            ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic,false,`abrirDrill('leadsGrupoOutros','carteira',${p})`)}
+            <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
           </div>
         </div>
       </div>
       <div>
         <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-cash"></i> Vendas</div>
         <div class="geral-vendas-grid">
-          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c')}
-          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c')}
+          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalMkt',null,${p})`)}
+          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalOutros',null,${p})`)}
           <div class="rp-section">
             <div class="rp-sec-title">🧑‍💼 Vendas por Vendedor</div>
-            ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
+            ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('vendasVendedor','${k}',${p})`)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
             <div class="rp-row rp-total"><span>Total</span><strong style="color:#1a6b3c">${st.totalVendasVendedor}</strong></div>
             <div class="rp-sec-title" style="margin-top:8px">🛒 Compra</div>
-            <div class="rp-row rp-total"><span>Vendas (Compra)</span><strong style="color:#1a6b3c">${st.vendasCompra}</strong></div>
+            ${geralRpRow('Vendas (Compra)',st.vendasCompra,true,`abrirDrill('vendasCompra',null,${p})`)}
           </div>
         </div>
       </div>
     </div>
 
+    ${geralBlocoResumoVendas()}
+
     <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-chart-bar"></i> ${tituloIndicadores}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-      ${geralIndBox('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8','🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b')}
-      ${geralIndBox('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8','✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8')}
-      ${geralIndBox('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'#b8860b','🏪','Visitas outras',st.visitasOutras,'#b8860b')}
-      ${geralIndBox('Agendamentos','📅','Agendamento',st.agendamento,'#b8860b','🛒','Agendamento compra',st.agendamentoCompra,'#b8860b')}
+      ${geralIndBox('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8',`abrirDrill('nps',null,${p})`,'🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b',`abrirDrill('indicacoes',null,${p})`)}
+      ${geralIndBox('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8',`abrirDrill('visitas1ano',null,${p})`,'✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8',`abrirDrill('visitas2anos',null,${p})`)}
+      ${geralIndBox('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'#b8860b',`abrirDrill('visitasMkt',null,${p})`,'🏪','Visitas outras',st.visitasOutras,'#b8860b',`abrirDrill('visitasOutras',null,${p})`)}
+      ${geralIndBox('Agendamentos','📅','Agendamento',st.agendamento,'#b8860b',`abrirDrill('agendamento',null,${p})`,'🛒','Agendamento compra',st.agendamentoCompra,'#b8860b',`abrirDrill('agendamentoCompra',null,${p})`)}
     </div>`;
 }
 function renderGeral(){
@@ -1607,11 +1636,11 @@ function renderGeral(){
     cnt.innerHTML=`<div class="geral-wrap">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <h2 style="font-size:16px"><i class="ti ti-filter"></i> Dashboard por Filtro</h2>
-        <input type="date" class="select-sm" value="${di||''}" onchange="G.geral.filtroDataInicio=this.value;renderGeral()" title="De" style="width:150px">
+        <input type="date" class="select-sm" value="${di||''}" onchange="__G().geral.filtroDataInicio=this.value;renderGeral()" title="De" style="width:150px">
         <span style="color:var(--tx3);font-size:12px">até</span>
-        <input type="date" class="select-sm" value="${df||''}" onchange="G.geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
+        <input type="date" class="select-sm" value="${df||''}" onchange="__G().geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
       </div>
-      ${st?geralCorpoHtml(st,'Indicadores do período'):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
+      ${st?geralCorpoHtml(st,'Indicadores do período',di,df):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
     </div>`;
     return;
   }
@@ -1621,12 +1650,12 @@ function renderGeral(){
   const st=statsGeralDoDia(offset);
   cnt.innerHTML=`<div class="geral-wrap">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)-1;renderGeral()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="__G().geral.hojeOffset=(__G().geral.hojeOffset||0)-1;renderGeral()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
       <h2 style="font-size:16px">📊 ${rotuloDia} — ${hoje(offset)}</h2>
-      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
-      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="__G().geral.hojeOffset=(__G().geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
     </div>
-    ${geralCorpoHtml(st,'Indicadores do dia')}
+    ${geralCorpoHtml(st,'Indicadores do dia',hojeISOlocal(offset),hojeISOlocal(offset))}
   </div>`;
 }
 function renderRelatoriosMk(cnt){
@@ -1764,8 +1793,8 @@ function exportarRelatorioCSV(){
   baixarXLSLivre(`relatorio_leads_${hoje().replace(/\//g,'-')}.xls`,'Relatório',linhas);
   toast('Relatório exportado!');
 }
-</script>
-<script>
+
+
 /* ============================================================
    MARKETING — CRUD
    ============================================================ */
@@ -1918,7 +1947,7 @@ function abrirTransferirLead(id,e){
   const popup=document.createElement('div');
   popup.className='transfer-popup';
   popup.innerHTML=`<div class="tp-title">Transferir para</div>${VENDEDORES_ATIVOS.map(v=>`<button onclick="confirmarTransferencia('${id}','${v}')">${v}</button>`).join('')}`;
-  document.body.appendChild(popup);
+  document.getElementById('rtcar-crm-root').appendChild(popup);
   const btn=e.currentTarget;
   const rect=btn.getBoundingClientRect();
   popup.style.top=(rect.bottom+6)+'px';
@@ -2183,8 +2212,8 @@ async function executarExclusaoLead(){
     renderMarketing();
   }catch(e){console.error(e);toast('Erro ao excluir','red');}
 }
-</script>
-<script>
+
+
 /* ============================================================
    RELACIONAMENTO — INIT + RENDER + CRUD
    ============================================================ */
@@ -2234,26 +2263,30 @@ function renderRelacionamento(){
     <div class="tb-title"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.rel.view='kanban';renderRelacionamento()"><i class="ti ti-layout-kanban"></i> Jornada</div>
-      <div class="tb-tab${view==='lista'?' on':''}" onclick="G.rel.view='lista';renderRelacionamento()"><i class="ti ti-list"></i> Lista</div>
-      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().rel.view='kanban';renderRelacionamento()"><i class="ti ti-layout-kanban"></i> Jornada</div>
+      <div class="tb-tab${view==='lista'?' on':''}" onclick="__G().rel.view='lista';renderRelacionamento()"><i class="ti ti-list"></i> Lista</div>
+      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="__G().rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${view==='importar'?' on':''}" onclick="__G().rel.view='importar';renderRelacionamento()"><i class="ti ti-file-import"></i> Importar</div>
     </div>
     <div class="tb-spacer"></div>
+    ${view!=='importar'?`
     <div class="tb-filters-inline">
-      <input type="date" id="rel-data-inicio" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="G.rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
-      <input type="date" id="rel-data-fim" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="G.rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
-      ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.rel.filtroDataInicio=\'\';G.rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
+      <input type="date" id="rel-data-inicio" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="__G().rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
+      <input type="date" id="rel-data-fim" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="__G().rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
+      ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().rel.filtroDataInicio=\'\';__G().rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
     <div class="tb-filters-inline">
       <select id="rel-export-col" class="select-sm" style="min-width:160px"><option value="">📤 Exportar coluna...</option>${COLS_REL.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}</select>
       <button class="btn btn-outline btn-sm" onclick="exportarClientesCSV()"><i class="ti ti-download"></i> Exportar</button>
     </div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="G.rel.busca=this.value;renderRelacionamento()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="__G().rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
+    `:''}
   `;
   const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanRel(cnt);
   else if(view==='dashboard') renderDashboardRel(cnt);
+  else if(view==='importar') renderImportarRel(cnt);
   else renderListaRel(cnt);
 }
 function ordemDiaMes(dtISO){
@@ -2297,6 +2330,7 @@ function renderKanbanRel(cnt){
         <div class="card-sub"><i class="ti ti-car"></i>${c.veiculo||'Veículo não informado'}</div>
         <div class="card-acao" style="background:${col.bg};color:${col.cor}"><i class="ti ti-bolt"></i>${col.acolabel}</div>
         ${renderSubStatusRel(c,col)}
+        <div class="card-btn card-btn-label" style="display:inline-flex;margin:2px 0 6px;cursor:pointer" onclick="abrirVendedorPopup('${c.id}',event)" title="Clique pra trocar o vendedor"><i class="ti ti-steering-wheel"></i> ${c.vendedor?('Vendedor: '+c.vendedor):'Definir vendedor'}</div>
         <div class="card-footer">
           <span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span>
           <div class="card-actions">
@@ -2464,6 +2498,134 @@ function exportarClientesCSV(){
   const linhas=clis.map(c=>[c.clienteNome||'',isoParaBR(c.dtCompra),isoParaBR(c.dtNascimento),c.veiculo||'',c.clienteTel||'']);
   baixarXLS(`relacionamento_${col.label.replace(/\s+/g,'_')}.xls`,col.label,['Nome','Data da compra','Data de nascimento','Carro','Telefone'],linhas);
   toast(`${clis.length} cliente(s) exportado(s)!`);
+}
+
+/* ============================================================
+   IMPORTAÇÃO — planilha de clientes direto pra uma coluna do
+   Relacionamento (Nome/Cliente, Data de compra, Data de nascimento,
+   Carro, Telefone, Vendedor)
+   ============================================================ */
+function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
+const IMPORT_ALIASES={
+  nome:['nome','cliente'],
+  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra'],
+  dtNascimento:['data de nascimento','data nascimento','nascimento','dtnascimento'],
+  carro:['carro','veiculo','veiculo comprado'],
+  telefone:['telefone','tel','fone','celular','whatsapp'],
+  vendedor:['vendedor'],
+};
+function isoFromExcelSerial(n){
+  const ms=Date.UTC(1899,11,30)+Math.round(n*86400000);
+  const d=new Date(ms);
+  return`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+function paraISOImport(v){
+  if(v===undefined||v===null||v==='')return'';
+  if(v instanceof Date)return`${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  if(typeof v==='number')return isoFromExcelSerial(v);
+  const s=v.toString().trim();if(!s)return'';
+  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  return'';
+}
+function linhaImportParaCampos(row){
+  const campos={nome:'',dtCompra:'',dtNascimento:'',carro:'',telefone:'',vendedor:''};
+  Object.entries(row).forEach(([chave,valor])=>{
+    const n=normTxt(chave);
+    for(const campo in IMPORT_ALIASES){
+      if(IMPORT_ALIASES[campo].includes(n)){
+        campos[campo]=(campo==='dtCompra'||campo==='dtNascimento')?paraISOImport(valor):(valor||'').toString().trim();
+        break;
+      }
+    }
+  });
+  return campos;
+}
+function processarArquivoImportacao(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const linhasBrutas=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v));
+      if(!G.rel.importLinhas.length)toast('Nenhuma linha encontrada na planilha','red');
+    }catch(err){console.error(err);toast('Erro ao ler a planilha — confira o formato (.xlsx, .xls ou .csv)','red');G.rel.importLinhas=null;}
+    renderRelacionamento();
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function confirmarImportacaoRel(){
+  const colId=G.rel.importColuna;const linhas=G.rel.importLinhas;
+  if(!colId){toast('Selecione a coluna de destino','red');return;}
+  if(!linhas||!linhas.length){toast('Escolha um arquivo primeiro','red');return;}
+  const col=COLS_REL.find(x=>x.id===colId);if(!col)return;
+  const validas=linhas.filter(l=>l.nome);
+  if(!validas.length){toast('Nenhuma linha com nome pra importar','red');return;}
+  G.rel.importando=true;renderRelacionamento();
+  let criados=0;
+  for(const l of validas){
+    try{
+      const id=await proximoId('REL',G.rel.clientes,'rel_config/seq','relSeq');
+      const camposEtapa=col.baseId?{st:col.baseId,[col.campo]:col.valorAtivo?'realizada':''}:{st:col.id};
+      const c={
+        id,clienteNome:l.nome,clienteTel:l.telefone||'',clienteEmail:'',dtNascimento:l.dtNascimento||'',
+        responsavel:'Milena',by:G.user?.n||'',uid:G.user?.id||'',veiculo:l.carro||'',dtCompra:l.dtCompra||'',
+        valor:'',vendedor:l.vendedor||'',obs:'',historico:[],...camposEtapa,
+      };
+      c.historico=[{dt:hoje(),icone:'blue',acao:'📋 Cliente importado',obs:`Importado para ${col.label}${l.vendedor?' — Vendedor: '+l.vendedor:''}`,by:G.user?.n||''}];
+      G.rel.clientes.push(c);
+      if(!G.rel.modoDemo)await fbCreate('clientes_rel',id,c);
+      criados++;
+    }catch(err){console.error('Erro ao importar linha',l,err);}
+  }
+  G.rel.importando=false;G.rel.importLinhas=null;
+  toast(`${criados} cliente(s) importado(s) para ${col.label}!`);
+  renderRelacionamento();
+}
+function renderImportarRel(cnt){
+  const wrap=document.createElement('div');wrap.style.cssText='padding:24px;overflow-y:auto;max-width:820px';
+  const linhas=G.rel.importLinhas;
+  const validas=linhas?linhas.filter(l=>l.nome):[];
+  const semNome=linhas?linhas.length-validas.length:0;
+  wrap.innerHTML=`
+    <div class="rel-section-title" style="margin-bottom:10px"><i class="ti ti-file-import"></i> Importar clientes por planilha</div>
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--tx3);line-height:1.6;margin-bottom:14px">
+        A planilha (.xlsx, .xls ou .csv) deve ter colunas: <strong>Nome</strong> (ou <strong>Cliente</strong>), <strong>Telefone</strong>, <strong>Carro</strong>, <strong>Data de compra</strong>, <strong>Data de nascimento</strong> e <strong>Vendedor</strong>. Não precisa ter todas — o que faltar fica em branco. Cada linha vira um cliente novo, criado direto na coluna escolhida abaixo, com essa data de hoje registrada no histórico.
+      </div>
+      <div class="field"><label>Coluna de destino *</label>
+        <select id="import-col" onchange="__G().rel.importColuna=this.value">
+          <option value="">Selecione a coluna...</option>
+          ${COLS_REL.map(c=>`<option value="${c.id}"${G.rel.importColuna===c.id?' selected':''}>${c.emoji} ${c.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Arquivo</label>
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" onchange="processarArquivoImportacao(this)">
+      </div>
+    </div>
+    ${linhas?`
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="badge" style="background:var(--greenl);color:var(--green)">✅ ${validas.length} pronto(s) pra importar</span>
+        ${semNome?`<span class="badge" style="background:var(--redl);color:var(--red)">⚠️ ${semNome} sem nome — serão ignorados</span>`:''}
+      </div>
+      <div class="lista-table-wrap" style="max-height:360px;overflow:auto;margin-bottom:16px">
+        <table class="lista-table">
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Carro</th><th>Compra</th><th>Nascimento</th><th>Vendedor</th></tr></thead>
+          <tbody>
+            ${linhas.map(l=>`<tr style="${!l.nome?'opacity:.4':''}"><td>${l.nome||'—'}</td><td>${l.telefone||'—'}</td><td>${l.carro||'—'}</td><td>${isoParaBR(l.dtCompra)||'—'}</td><td>${isoParaBR(l.dtNascimento)||'—'}</td><td>${l.vendedor||'—'}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-red" ${(!G.rel.importColuna||G.rel.importando)?'disabled':''} onclick="confirmarImportacaoRel()">
+        ${G.rel.importando?'<span class="spin"></span> Importando...':`<i class="ti ti-check"></i> Confirmar importação (${validas.length})`}
+      </button>
+    `:''}
+  `;
+  cnt.appendChild(wrap);
 }
 function camposIndicFeedbackRel(col){
   const base=col.baseId||col.id;
@@ -2734,6 +2896,7 @@ function abrirModalCliente(id=null,etapa=null){
   document.getElementById('rc-nome').value=c?.clienteNome||'';document.getElementById('rc-tel').value=c?.clienteTel||'';
   document.getElementById('rc-email').value=c?.clienteEmail||'';document.getElementById('rc-nasc').value=c?.dtNascimento||'';
   document.getElementById('rc-resp').value=c?.responsavel||c?.by||G.user?.n||'';document.getElementById('rc-veiculo').value=c?.veiculo||'';
+  document.getElementById('rc-vendedor').value=c?.vendedor||'';
   document.getElementById('rc-dtcompra').value=c?.dtCompra||new Date().toISOString().split('T')[0];
   document.getElementById('rc-valor').value=c?.valor||'';document.getElementById('rc-etapa').value=c?.st||etapa||'nome';
   document.getElementById('rc-obs').value=c?.obs||'';
@@ -2743,13 +2906,37 @@ async function salvarCliente(){
   const nome=document.getElementById('rc-nome').value.trim(),tel=document.getElementById('rc-tel').value.trim(),veiculo=document.getElementById('rc-veiculo').value.trim(),dtCompra=document.getElementById('rc-dtcompra').value;
   if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!veiculo){toast('Informe o veículo','red');return;}if(!dtCompra){toast('Informe a data da compra','red');return;}
   const btn=document.getElementById('btn-salvar-cli');btn.disabled=true;document.getElementById('btn-salvar-cli-txt').innerHTML='<span class="spin"></span>';
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('rc-email').value.trim(),dtNascimento:document.getElementById('rc-nasc').value,responsavel:document.getElementById('rc-resp').value||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo,dtCompra,valor:document.getElementById('rc-valor').value.trim(),st:document.getElementById('rc-etapa').value||'nome',obs:document.getElementById('rc-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('rc-email').value.trim(),dtNascimento:document.getElementById('rc-nasc').value,responsavel:document.getElementById('rc-resp').value||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo,dtCompra,valor:document.getElementById('rc-valor').value.trim(),st:document.getElementById('rc-etapa').value||'nome',obs:document.getElementById('rc-obs').value.trim(),vendedor:document.getElementById('rc-vendedor').value||''};
   try{
     if(G.rel.editandoId){Object.assign(G.rel.clientes.find(x=>x.id===G.rel.editandoId),data);await salvarCamposRel(G.rel.editandoId,data);toast('Cliente atualizado!');}
     else{const id=await proximoId('REL',G.rel.clientes,'rel_config/seq','relSeq');const c={id,historico:[],...data};G.rel.clientes.push(c);if(!G.rel.modoDemo)await fbCreate('clientes_rel',id,c);await regHistRel(c,'📋 Cliente cadastrado',`Veículo: ${veiculo}`,data.responsavel||G.user?.n||'','📋');toast(`${nome} cadastrado!`);}
     fecharModal('ov-cliente');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
+}
+const VENDEDORES_CARTEIRA=['Rafael','Maicon','Janderson','Victor'];
+let _vendedorPopup=null;
+function abrirVendedorPopup(id,e){
+  e.stopPropagation();
+  if(_vendedorPopup){_vendedorPopup.remove();_vendedorPopup=null;}
+  const popup=document.createElement('div');
+  popup.className='transfer-popup';
+  popup.innerHTML=`<div class="tp-title">Vendedor que atendeu</div>${VENDEDORES_CARTEIRA.map(v=>`<button onclick="confirmarVendedorPopup('${id}','${v}')">${v}</button>`).join('')}<button onclick="confirmarVendedorPopup('${id}','')" style="color:var(--tx3)">Limpar</button>`;
+  (document.getElementById('rtcar-crm-root')||document.body).appendChild(popup);
+  const btn=e.currentTarget;
+  const rect=btn.getBoundingClientRect();
+  popup.style.top=(rect.bottom+6)+'px';
+  popup.style.left=rect.left+'px';
+  _vendedorPopup=popup;
+  setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_vendedorPopup=null;},{once:true}),50);
+}
+async function confirmarVendedorPopup(id,vendedor){
+  if(_vendedorPopup){_vendedorPopup.remove();_vendedorPopup=null;}
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c.vendedor=vendedor;
+  await salvarCamposRel(id,{vendedor});
+  renderRelacionamento();
+  toast(vendedor?`Vendedor: ${vendedor}`:'Vendedor removido');
 }
 /* CRUD NPS — registro isolado, apenas para contagem (não faz parte da jornada) */
 function abrirModalNps(id=null){
@@ -2859,6 +3046,7 @@ function abrirDetailCliente(id){
           <div class="d-field"><span class="lbl">E-mail</span><span class="val${!c.clienteEmail?' empty':''}">${c.clienteEmail||'—'}</span></div>
           <div class="d-field"><span class="lbl">Nascimento</span><span class="val">${isoParaBR(c.dtNascimento)||'—'}</span></div>
           <div class="d-field"><span class="lbl">Responsável</span><span class="val">${c.responsavel||c.by||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Vendedor (quem atendeu)</span><span class="val${!c.vendedor?' empty':''}">${c.vendedor||'—'}</span></div>
         </div>
       </div>
       <div class="d-section"><div class="d-section-title">Veículo</div>
@@ -2882,13 +3070,12 @@ function abrirDetailCliente(id){
 }
 
 /* KEYBOARD */
-document.addEventListener('keydown',e=>{
+function handleKeydownRTCarCRM(e){
   if(e.key==='Escape'){['ov-lead','ov-obs','ov-vendido','ov-perda','ov-cliente','ov-nps','ov-ind','ov-int','ov-evento','ov-convidado','ov-obs-ws'].forEach(id=>fecharModal(id));fecharDetail();}
   if(e.key==='n'&&!e.ctrlKey&&!e.metaKey&&document.activeElement.tagName==='BODY'){G.modulo==='marketing'?abrirModalLead():abrirModalCliente();}
-});
-</script>
+}
 
-<script>
+
 /* ============================================================
    WORKSHOP — MÓDULO
    ============================================================ */
@@ -2934,8 +3121,8 @@ function renderWorkshop(){
   tb.innerHTML=`<div class="tb-title"><i class="ti ti-calendar-event" style="color:var(--purple)"></i> Workshop</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${G.ws.view==='eventos'?' on':''}" onclick="G.ws.view='eventos';G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-calendar-event"></i> Eventos</div>
-      <div class="tb-tab${G.ws.view==='dashboard'?' on':''}" onclick="G.ws.view='dashboard';G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${G.ws.view==='eventos'?' on':''}" onclick="__G().ws.view='eventos';__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-calendar-event"></i> Eventos</div>
+      <div class="tb-tab${G.ws.view==='dashboard'?' on':''}" onclick="__G().ws.view='dashboard';__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-chart-bar"></i> Dashboard</div>
     </div>
     <div class="tb-sep"></div>
     ${isManager()&&G.ws.view==='eventos'&&!G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}
@@ -3003,7 +3190,7 @@ function renderWsKanban(cnt){
   // Back + event header
   const hd=document.createElement('div');
   hd.style.cssText='padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:12px;flex-wrap:wrap';
-  hd.innerHTML=`<span class="ws-back" onclick="G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-arrow-left"></i> Eventos</span>
+  hd.innerHTML=`<span class="ws-back" onclick="__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-arrow-left"></i> Eventos</span>
     <span style="color:var(--bdr)">|</span>
     <span style="font-weight:700;font-size:14px">${ev.nome}</span>
     <span style="font-size:11px;color:var(--tx3)">${isoParaBR(ev.data)||''} ${ev.hora?'às '+ev.hora:''}</span>
@@ -3291,8 +3478,8 @@ function renderVisitasDashboard(cnt,filtroIni,filtroFim){
   if(!total){wrap.innerHTML+='<div style="color:var(--tx3);font-size:13px;padding:20px 0">Nenhuma visita encontrada no período.</div>';}
   cnt.appendChild(wrap);
 }
-</script>
-<script>
+
+
 /* ============================================================
    ANUNCIOS — MODULO
    ============================================================ */
@@ -3349,11 +3536,11 @@ function renderAnuncios(){
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> Anuncios</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.an.view='kanban';renderAnuncios()"><i class="ti ti-layout-kanban"></i> Kanban</div>
-      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.an.view='dashboard';renderAnuncios()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().an.view='kanban';renderAnuncios()"><i class="ti ti-layout-kanban"></i> Kanban</div>
+      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="__G().an.view='dashboard';renderAnuncios()"><i class="ti ti-chart-bar"></i> Dashboard</div>
     </div>
     <div class="tb-spacer"></div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="G.an.busca=this.value;renderAnuncios()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="__G().an.busca=this.value;renderAnuncios()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalAn()"><i class="ti ti-plus"></i> Novo Anuncio</button>
   `;
   const cnt=document.getElementById('cnt');
@@ -3575,12 +3762,8 @@ async function salvarCamposAn(id,campos){
   if(!fbOk())return;
   await fbUpdate('anuncios',id,campos);
 }
-</script>
 
-<!-- OVERLAY ANUNCIOS -->
-<div class="ov hidden" id="ov-an"><div class="mod" id="mod-an" style="max-width:560px"></div></div>
 
-<script>
 /* ============================================================
    IA (EVA) — MÓDULO
    ============================================================ */
@@ -3643,7 +3826,7 @@ function renderIA(cnt){
     const ultima=conversa.length?conversa[conversa.length-1].texto:(l.obs||'');
     const ativo=l.id===G.ia.detailId;
     const step=l.followUpStep||0;
-    return `<div onclick="G.ia.detailId='${l.id}';renderIA(document.getElementById('cnt'))" style="padding:10px;border-radius:8px;margin-bottom:5px;cursor:pointer;background:${ativo?'var(--bluel)':'transparent'};border:1px solid ${ativo?'var(--blue)':'transparent'}">
+    return `<div onclick="__G().ia.detailId='${l.id}';renderIA(document.getElementById('cnt'))" style="padding:10px;border-radius:8px;margin-bottom:5px;cursor:pointer;background:${ativo?'var(--bluel)':'transparent'};border:1px solid ${ativo?'var(--blue)':'transparent'}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
         <span style="font-weight:600;font-size:12.5px">${l.clienteNome||l.id}</span>
         ${iaBadgeStatus(l.st)}
@@ -3701,13 +3884,13 @@ function renderIA(cnt){
       <div style="display:flex;gap:14px;flex:1;min-height:420px">
         <div style="width:320px;flex-shrink:0;display:flex;flex-direction:column;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--bg2);overflow:hidden">
           <div style="padding:10px;border-bottom:1px solid var(--bdr);display:flex;flex-direction:column;gap:7px">
-            <input id="ia-busca" type="text" placeholder="Buscar por nome/telefone/ID..." value="${G.ia.busca}" oninput="G.ia.busca=this.value;renderIA(document.getElementById('cnt'))" style="padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
-            <select onchange="G.ia.filtroStatus=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <input id="ia-busca" type="text" placeholder="Buscar por nome/telefone/ID..." value="${G.ia.busca}" oninput="__G().ia.busca=this.value;renderIA(document.getElementById('cnt'))" style="padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <select onchange="__G().ia.filtroStatus=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
               <option value="todos"${G.ia.filtroStatus==='todos'?' selected':''}>Todos os status</option>
               <option value="ia"${G.ia.filtroStatus==='ia'?' selected':''}>Na IA (aguardando)</option>
               <option value="atendimento"${G.ia.filtroStatus==='atendimento'?' selected':''}>Transferido</option>
             </select>
-            <select onchange="G.ia.filtroVendedor=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <select onchange="__G().ia.filtroVendedor=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
               <option value="">Todos os vendedores</option>
               ${VENDEDORES_ATIVOS.map(v=>`<option value="${v}"${G.ia.filtroVendedor===v?' selected':''}>${v}</option>`).join('')}
             </select>
@@ -3721,7 +3904,152 @@ function renderIA(cnt){
     </div>
   `;
 }
-</script>
 
+
+/* ============================================================
+   API DE EMBUTIR NO SISTEMA PRINCIPAL (isolamento pedido pelo
+   Claude da Marcela, 03/09/2026) - unica coisa exposta fora
+   desta IIFE e' window.RTCarCRM = {montar, desmontar}.
+   ============================================================ */
+let _rtcarCrmMontado=false;
+// Se o sistema principal ja tem alguem logado no MESMO Firebase Auth
+// (os dois projetos compartilham conta), pula a tela de login propria do
+// CRM e entra direto - sem pedir senha de novo. So funciona se o e-mail
+// logado tambem estiver cadastrado em USUARIOS (perfil/permissao deste
+// CRM); senao, mostra a tela de login normal (sem deslogar a sessao
+// compartilhada - isso derrubaria a pessoa do sistema principal tambem).
+function tentarAutoLogin(){
+  const atual=fbAuth.currentUser;
+  if(!atual||!atual.email)return false;
+  const u=USUARIOS.find(x=>x.e.toLowerCase()===atual.email.toLowerCase());
+  if(!u)return false;
+  entrarNaApp(u);
+  return true;
+}
+function montarRTCarCRM(containerEl){
+  const root=document.getElementById('rtcar-crm-root');
+  if(!root||!containerEl)return;
+  containerEl.appendChild(root);
+  root.classList.remove('hidden');
+  if(!_rtcarCrmMontado){
+    document.addEventListener('keydown',handleKeydownRTCarCRM);
+    _rtcarCrmMontado=true;
+  }
+  if(containerEl===document.body){
+    // Modo standalone (arquivo aberto direto, dono da pagina inteira) -
+    // sem isso, height:100% do root nao teria altura de referencia (o
+    // reset de CSS do CRM esta todo escopado dentro de #rtcar-crm-root,
+    // entao html/body do modo embutido nunca sao tocados por aqui).
+    document.documentElement.style.height='100%';
+    document.body.style.height='100%';
+    document.body.style.margin='0';
+  }
+  tentarAutoLogin();
+}
+function desmontarRTCarCRM(){
+  pararTimerCRM();
+  pararAutoRefreshMk();
+  pararTimerIA();
+  document.removeEventListener('keydown',handleKeydownRTCarCRM);
+  _rtcarCrmMontado=false;
+  const root=document.getElementById('rtcar-crm-root');
+  if(root){
+    root.classList.add('hidden');
+    document.body.appendChild(root);
+  }
+}
+
+// Handlers inline (onclick="..." etc, no HTML estatico e nas strings de
+// template que o JS gera) rodam no escopo GLOBAL do navegador, entao toda
+// funcao referenciada assim precisa existir em window - mesmo estando
+// isolada aqui dentro da IIFE. Gerado automaticamente (achando toda funcao
+// chamada dentro de algum on*="..." que realmente existe no arquivo).
+window.abrirDetailLead=abrirDetailLead;
+window.abrirDrill=abrirDrill;
+window.abrirDrillMk=abrirDrillMk;
+window.abrirDrillMkPeriodo=abrirDrillMkPeriodo;
+window.abrirModalAn=abrirModalAn;
+window.abrirModalCliente=abrirModalCliente;
+window.abrirModalConvidado=abrirModalConvidado;
+window.abrirModalEvento=abrirModalEvento;
+window.abrirModalInt=abrirModalInt;
+window.abrirModalIntegracoes=abrirModalIntegracoes;
+window.abrirModalLead=abrirModalLead;
+window.abrirModalObs=abrirModalObs;
+window.abrirModalObsWs=abrirModalObsWs;
+window.abrirModalPerda=abrirModalPerda;
+window.abrirModalResgate=abrirModalResgate;
+window.abrirModalVendido=abrirModalVendido;
+window.abrirTransferirLead=abrirTransferirLead;
+window.abrirVendedorPopup=abrirVendedorPopup;
+window.abrirWhatsappLead=abrirWhatsappLead;
+window.confirmarExclusaoLead=confirmarExclusaoLead;
+window.confirmarImportacaoRel=confirmarImportacaoRel;
+window.confirmarOptOut=confirmarOptOut;
+window.confirmarPerda=confirmarPerda;
+window.confirmarResgate=confirmarResgate;
+window.confirmarTransferencia=confirmarTransferencia;
+window.confirmarVendedorPopup=confirmarVendedorPopup;
+window.confirmarVendido=confirmarVendido;
+window.copiarMsg=copiarMsg;
+window.editarConvidado=editarConvidado;
+window.excluirAn=excluirAn;
+window.excluirIndicacao=excluirIndicacao;
+window.excluirNps=excluirNps;
+window.executarExclusaoLead=executarExclusaoLead;
+window.exportarClientesCSV=exportarClientesCSV;
+window.exportarRelatorioCSV=exportarRelatorioCSV;
+window.fazerLogin=fazerLogin;
+window.fecharDetail=fecharDetail;
+window.fecharModal=fecharModal;
+window.initIA=initIA;
+window.logout=logout;
+window.marcarRetiradoRel=marcarRetiradoRel;
+window.mascaraTel=mascaraTel;
+window.moverCliente=moverCliente;
+window.moverLead=moverLead;
+window.processarArquivoImportacao=processarArquivoImportacao;
+window.recuperarSenha=recuperarSenha;
+window.renderAnuncios=renderAnuncios;
+window.renderGeral=renderGeral;
+window.renderIA=renderIA;
+window.renderMarketing=renderMarketing;
+window.renderRelacionamento=renderRelacionamento;
+window.renderVisitasDashboard=renderVisitasDashboard;
+window.renderWorkshop=renderWorkshop;
+window.salvarAn=salvarAn;
+window.salvarCliente=salvarCliente;
+window.salvarConvidado=salvarConvidado;
+window.salvarEvento=salvarEvento;
+window.salvarIndicacao=salvarIndicacao;
+window.salvarInteracao=salvarInteracao;
+window.salvarLead=salvarLead;
+window.salvarNps=salvarNps;
+window.salvarObs=salvarObs;
+window.salvarObsWs=salvarObsWs;
+window.setAgendamentoDataMk=setAgendamentoDataMk;
+window.setAgendamentoStatusMk=setAgendamentoStatusMk;
+window.setSimNaoRel=setSimNaoRel;
+window.setTagIndicacao=setTagIndicacao;
+window.setVisitaRel=setVisitaRel;
+window.toast=toast;
+window.toggleAguardandoRetornoMk=toggleAguardandoRetornoMk;
+window.toggleCampoRel=toggleCampoRel;
+window.toggleEncantamentoMk=toggleEncantamentoMk;
+window.toggleNuncaRespondeuMk=toggleNuncaRespondeuMk;
+window.toggleVendedorEsteira=toggleVendedorEsteira;
+window.trocarModulo=trocarModulo;
+window.trocarViewGeral=trocarViewGeral;
+function __G(){return G;}
+window.__G=__G;
+window.RTCarCRM={montar:montarRTCarCRM,desmontar:desmontarRTCarCRM};
+// Modo standalone (arquivo aberto direto, como sempre foi): monta
+// automaticamente no <body> - a menos que o sistema principal marque
+// window.RTCARCRM_EMBED=true ANTES deste script rodar, sinalizando que
+// ele mesmo vai chamar RTCarCRM.montar(container) no momento certo.
+if(!window.RTCARCRM_EMBED)montarRTCarCRM(document.body);
+
+})();
+</script>
 </body>
 </html>
