@@ -830,20 +830,20 @@ function renderMarketing(){
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${view==='hoje'?' on':''}" onclick="G.mk.view='hoje';renderMarketing()"><i class="ti ti-calendar-stats"></i> Hoje</div>
-      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
-      <div class="tb-tab${view==='lista'?' on':''}" onclick="G.mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
-      <div class="tb-tab${view==='rel'?' on':''}" onclick="G.mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
-      <div class="tb-tab${view==='visitas'?' on':''}" onclick="G.mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
+      <div class="tb-tab${view==='hoje'?' on':''}" onclick="__G().mk.view='hoje';renderMarketing()"><i class="ti ti-calendar-stats"></i> Hoje</div>
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
+      <div class="tb-tab${view==='lista'?' on':''}" onclick="__G().mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
+      <div class="tb-tab${view==='rel'?' on':''}" onclick="__G().mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
+      <div class="tb-tab${view==='visitas'?' on':''}" onclick="__G().mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="G.mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
-      <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="G.mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
-      <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="G.mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
-      ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.mk.filtroCaptador=\'\';G.mk.filtroDataInicio=\'\';G.mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
+      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
+      <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="__G().mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
+      <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="__G().mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
+      ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().mk.filtroCaptador=\'\';__G().mk.filtroDataInicio=\'\';__G().mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="G.mk.busca=this.value;renderMarketing()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="__G().mk.busca=this.value;renderMarketing()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalLead()"><i class="ti ti-plus"></i> Novo Lead</button>
   `;
   if(buscaFocada){
@@ -1181,10 +1181,10 @@ function renderDashboardHoje(cnt){
   const rotuloDia=offset===0?'Hoje':(offset===-1?'Ontem':`${Math.abs(offset)} dias atrás`);
   let html=`<div style="padding:20px;overflow:auto">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.mk.hojeOffset=(G.mk.hojeOffset||0)-1;renderMarketing()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="__G().mk.hojeOffset=(__G().mk.hojeOffset||0)-1;renderMarketing()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
       <h2 style="font-size:18px">📅 ${rotuloDia} — ${hoje(offset)}</h2>
-      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.mk.hojeOffset=(G.mk.hojeOffset||0)+1;renderMarketing()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
-      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="__G().mk.hojeOffset=(__G().mk.hojeOffset||0)+1;renderMarketing()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
     </div>`;
   if(G.user?.r==='master'){
     const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
@@ -1537,9 +1537,9 @@ function renderGeral(){
     cnt.innerHTML=`<div class="geral-wrap">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <h2 style="font-size:16px"><i class="ti ti-filter"></i> Dashboard por Filtro</h2>
-        <input type="date" class="select-sm" value="${di||''}" onchange="G.geral.filtroDataInicio=this.value;renderGeral()" title="De" style="width:150px">
+        <input type="date" class="select-sm" value="${di||''}" onchange="__G().geral.filtroDataInicio=this.value;renderGeral()" title="De" style="width:150px">
         <span style="color:var(--tx3);font-size:12px">até</span>
-        <input type="date" class="select-sm" value="${df||''}" onchange="G.geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
+        <input type="date" class="select-sm" value="${df||''}" onchange="__G().geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
       </div>
       ${st?geralCorpoHtml(st,'Indicadores do período',di,df):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
     </div>`;
@@ -1551,10 +1551,10 @@ function renderGeral(){
   const st=statsGeralDoDia(offset);
   cnt.innerHTML=`<div class="geral-wrap">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)-1;renderGeral()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="__G().geral.hojeOffset=(__G().geral.hojeOffset||0)-1;renderGeral()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
       <h2 style="font-size:16px">📊 ${rotuloDia} — ${hoje(offset)}</h2>
-      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
-      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="__G().geral.hojeOffset=(__G().geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
     </div>
     ${geralCorpoHtml(st,'Indicadores do dia',hojeISOlocal(offset),hojeISOlocal(offset))}
   </div>`;
@@ -2164,22 +2164,22 @@ function renderRelacionamento(){
     <div class="tb-title"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.rel.view='kanban';renderRelacionamento()"><i class="ti ti-layout-kanban"></i> Jornada</div>
-      <div class="tb-tab${view==='lista'?' on':''}" onclick="G.rel.view='lista';renderRelacionamento()"><i class="ti ti-list"></i> Lista</div>
-      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
-      <div class="tb-tab${view==='importar'?' on':''}" onclick="G.rel.view='importar';renderRelacionamento()"><i class="ti ti-file-import"></i> Importar</div>
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().rel.view='kanban';renderRelacionamento()"><i class="ti ti-layout-kanban"></i> Jornada</div>
+      <div class="tb-tab${view==='lista'?' on':''}" onclick="__G().rel.view='lista';renderRelacionamento()"><i class="ti ti-list"></i> Lista</div>
+      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="__G().rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${view==='importar'?' on':''}" onclick="__G().rel.view='importar';renderRelacionamento()"><i class="ti ti-file-import"></i> Importar</div>
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      <input type="date" id="rel-data-inicio" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="G.rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
-      <input type="date" id="rel-data-fim" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="G.rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
-      ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="G.rel.filtroDataInicio=\'\';G.rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
+      <input type="date" id="rel-data-inicio" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="__G().rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
+      <input type="date" id="rel-data-fim" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="__G().rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
+      ${(G.rel.filtroDataInicio||G.rel.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().rel.filtroDataInicio=\'\';__G().rel.filtroDataFim=\'\';renderRelacionamento()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
     <div class="tb-filters-inline">
       <select id="rel-export-col" class="select-sm" style="min-width:160px"><option value="">📤 Exportar coluna...</option>${COLS_REL.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}</select>
       <button class="btn btn-outline btn-sm" onclick="exportarClientesCSV()"><i class="ti ti-download"></i> Exportar</button>
     </div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="G.rel.busca=this.value;renderRelacionamento()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="__G().rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
   `;
   const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
@@ -2497,7 +2497,7 @@ function renderImportarRel(cnt){
         A planilha (.xlsx, .xls ou .csv) deve ter colunas: <strong>Nome</strong> (ou <strong>Cliente</strong>), <strong>Telefone</strong>, <strong>Carro</strong>, <strong>Data de compra</strong>, <strong>Data de nascimento</strong> e <strong>Vendedor</strong>. Não precisa ter todas — o que faltar fica em branco. Cada linha vira um cliente novo, criado direto na coluna escolhida abaixo, com essa data de hoje registrada no histórico.
       </div>
       <div class="field"><label>Coluna de destino *</label>
-        <select id="import-col" onchange="G.rel.importColuna=this.value">
+        <select id="import-col" onchange="__G().rel.importColuna=this.value">
           <option value="">Selecione a coluna...</option>
           ${COLS_REL.map(c=>`<option value="${c.id}"${G.rel.importColuna===c.id?' selected':''}>${c.emoji} ${c.label}</option>`).join('')}
         </select>
@@ -3020,8 +3020,8 @@ function renderWorkshop(){
   tb.innerHTML=`<div class="tb-title"><i class="ti ti-calendar-event" style="color:var(--purple)"></i> Workshop</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${G.ws.view==='eventos'?' on':''}" onclick="G.ws.view='eventos';G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-calendar-event"></i> Eventos</div>
-      <div class="tb-tab${G.ws.view==='dashboard'?' on':''}" onclick="G.ws.view='dashboard';G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${G.ws.view==='eventos'?' on':''}" onclick="__G().ws.view='eventos';__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-calendar-event"></i> Eventos</div>
+      <div class="tb-tab${G.ws.view==='dashboard'?' on':''}" onclick="__G().ws.view='dashboard';__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-chart-bar"></i> Dashboard</div>
     </div>
     <div class="tb-sep"></div>
     ${isManager()&&G.ws.view==='eventos'&&!G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}
@@ -3089,7 +3089,7 @@ function renderWsKanban(cnt){
   // Back + event header
   const hd=document.createElement('div');
   hd.style.cssText='padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:12px;flex-wrap:wrap';
-  hd.innerHTML=`<span class="ws-back" onclick="G.ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-arrow-left"></i> Eventos</span>
+  hd.innerHTML=`<span class="ws-back" onclick="__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-arrow-left"></i> Eventos</span>
     <span style="color:var(--bdr)">|</span>
     <span style="font-weight:700;font-size:14px">${ev.nome}</span>
     <span style="font-size:11px;color:var(--tx3)">${isoParaBR(ev.data)||''} ${ev.hora?'às '+ev.hora:''}</span>
@@ -3435,11 +3435,11 @@ function renderAnuncios(){
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> Anuncios</div>
     <div class="tb-sep"></div>
     <div class="tb-tabs">
-      <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.an.view='kanban';renderAnuncios()"><i class="ti ti-layout-kanban"></i> Kanban</div>
-      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.an.view='dashboard';renderAnuncios()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().an.view='kanban';renderAnuncios()"><i class="ti ti-layout-kanban"></i> Kanban</div>
+      <div class="tb-tab${view==='dashboard'?' on':''}" onclick="__G().an.view='dashboard';renderAnuncios()"><i class="ti ti-chart-bar"></i> Dashboard</div>
     </div>
     <div class="tb-spacer"></div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="G.an.busca=this.value;renderAnuncios()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="__G().an.busca=this.value;renderAnuncios()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalAn()"><i class="ti ti-plus"></i> Novo Anuncio</button>
   `;
   const cnt=document.getElementById('cnt');
@@ -3725,7 +3725,7 @@ function renderIA(cnt){
     const ultima=conversa.length?conversa[conversa.length-1].texto:(l.obs||'');
     const ativo=l.id===G.ia.detailId;
     const step=l.followUpStep||0;
-    return `<div onclick="G.ia.detailId='${l.id}';renderIA(document.getElementById('cnt'))" style="padding:10px;border-radius:8px;margin-bottom:5px;cursor:pointer;background:${ativo?'var(--bluel)':'transparent'};border:1px solid ${ativo?'var(--blue)':'transparent'}">
+    return `<div onclick="__G().ia.detailId='${l.id}';renderIA(document.getElementById('cnt'))" style="padding:10px;border-radius:8px;margin-bottom:5px;cursor:pointer;background:${ativo?'var(--bluel)':'transparent'};border:1px solid ${ativo?'var(--blue)':'transparent'}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
         <span style="font-weight:600;font-size:12.5px">${l.clienteNome||l.id}</span>
         ${iaBadgeStatus(l.st)}
@@ -3783,13 +3783,13 @@ function renderIA(cnt){
       <div style="display:flex;gap:14px;flex:1;min-height:420px">
         <div style="width:320px;flex-shrink:0;display:flex;flex-direction:column;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--bg2);overflow:hidden">
           <div style="padding:10px;border-bottom:1px solid var(--bdr);display:flex;flex-direction:column;gap:7px">
-            <input id="ia-busca" type="text" placeholder="Buscar por nome/telefone/ID..." value="${G.ia.busca}" oninput="G.ia.busca=this.value;renderIA(document.getElementById('cnt'))" style="padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
-            <select onchange="G.ia.filtroStatus=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <input id="ia-busca" type="text" placeholder="Buscar por nome/telefone/ID..." value="${G.ia.busca}" oninput="__G().ia.busca=this.value;renderIA(document.getElementById('cnt'))" style="padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <select onchange="__G().ia.filtroStatus=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
               <option value="todos"${G.ia.filtroStatus==='todos'?' selected':''}>Todos os status</option>
               <option value="ia"${G.ia.filtroStatus==='ia'?' selected':''}>Na IA (aguardando)</option>
               <option value="atendimento"${G.ia.filtroStatus==='atendimento'?' selected':''}>Transferido</option>
             </select>
-            <select onchange="G.ia.filtroVendedor=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
+            <select onchange="__G().ia.filtroVendedor=this.value;renderIA(document.getElementById('cnt'))" style="padding:7px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:var(--f)">
               <option value="">Todos os vendedores</option>
               ${VENDEDORES_ATIVOS.map(v=>`<option value="${v}"${G.ia.filtroVendedor===v?' selected':''}>${v}</option>`).join('')}
             </select>
@@ -3937,6 +3937,8 @@ window.toggleNuncaRespondeuMk=toggleNuncaRespondeuMk;
 window.toggleVendedorEsteira=toggleVendedorEsteira;
 window.trocarModulo=trocarModulo;
 window.trocarViewGeral=trocarViewGeral;
+function __G(){return G;}
+window.__G=__G;
 window.RTCarCRM={montar:montarRTCarCRM,desmontar:desmontarRTCarCRM};
 // Modo standalone (arquivo aberto direto, como sempre foi): monta
 // automaticamente no <body> - a menos que o sistema principal marque
