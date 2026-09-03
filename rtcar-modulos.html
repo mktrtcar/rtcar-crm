@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>#rtcar-crm-root{
   --bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;
   --tx:#1a1814;--tx2:#4a4a4a;--tx3:#888;
@@ -250,6 +251,15 @@
           <div class="field"><label>Data de nascimento</label><input type="date" id="rc-nasc"></div>
           <div class="field"><label>Responsável</label><select id="rc-resp"><option value="">Selecione...</option></select></div>
         </div>
+        <div class="field"><label>Vendedor (quem atendeu a venda)</label>
+          <select id="rc-vendedor">
+            <option value="">Selecione...</option>
+            <option>Rafael</option>
+            <option>Maicon</option>
+            <option>Janderson</option>
+            <option>Victor</option>
+          </select>
+        </div>
       </div>
       <div class="mod-section">
         <div class="mod-section-title"><i class="ti ti-car"></i> Veículo Comprado</div>
@@ -316,6 +326,13 @@
       <button class="btn btn-outline" onclick="fecharModal('ov-ind')">Cancelar</button>
       <button class="btn btn-red" id="btn-salvar-ind" onclick="salvarIndicacao()"><i class="ti ti-check"></i> <span id="btn-salvar-ind-txt">Salvar</span></button>
     </div>
+  </div>
+</div>
+
+<div id="ov-drill" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-drill')">
+  <div class="mod" style="max-width:640px">
+    <div class="mod-head"><h3 id="drill-titulo">Detalhes</h3><button class="mod-close" onclick="fecharModal('ov-drill')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body" id="drill-corpo" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -523,7 +540,7 @@ const COLS_WS=[
 const G={
   user:null, modulo:'marketing',
   mk:{leads:[],_timerInterval:null,view:'hoje',hojeOffset:0,busca:'',filtro:'todos',filtroOrigem:'',filtroCaptador:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,detailId:null,dragId:null,modoDemo:false},
-  rel:{clientes:[],nps:[],indicacoes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,editandoIndId:null,detailId:null,dragId:null,modoDemo:false},
+  rel:{clientes:[],nps:[],indicacoes:[],view:'kanban',busca:'',filtroDataInicio:'',filtroDataFim:'',editandoId:null,editandoNpsId:null,editandoIndId:null,detailId:null,dragId:null,modoDemo:false,importColuna:'',importLinhas:null,importando:false},
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
@@ -1236,12 +1253,14 @@ async function initGeral(){
 // dia (setas) e o painel "por filtro" (data inicio/fim) usam a mesma
 // funcao, so muda o intervalo passado. dtVenda fica salvo em BR (dd/mm/aaaa),
 // entao precisa converter pra ISO antes de comparar como intervalo.
+function vendaNoPeriodoISO(l,iniISO,fimISO){const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;}
+function leadRecebidoNoPeriodo(l,iniISO,fimISO){const r=primeiraRespostaVendedorISO(l);return!!r&&r>=iniISO&&r<=fimISO;}
 function statsGeralIntervalo(iniISO,fimISO){
   // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
   // vendedor de fato respondeu (nao a data de chegada do lead).
-  const leadsNoPeriodo=G.mk.leads.filter(l=>{const r=primeiraRespostaVendedorISO(l);return r&&r>=iniISO&&r<=fimISO;});
+  const leadsNoPeriodo=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO));
   const clientes=G.rel.clientes;
-  const vendaNoPeriodo=l=>{const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;};
+  const vendaNoPeriodo=l=>vendaNoPeriodoISO(l,iniISO,fimISO);
 
   // Compra entra somada dentro dos leads de Marketing nesse dashboard
   // (a pedido da Aline, 02/09/2026: "compra é do marketing").
@@ -1293,61 +1312,204 @@ function trocarViewGeral(v){
   }
   renderGeral();
 }
-function geralRpRow(label,val,forte){return `<div class="rp-row${forte?' rp-total':''}"><span>${label}</span><strong>${val}</strong></div>`;}
-function geralIndBox(titulo,icone1,label1,val1,cor1,icone2,label2,val2,cor2){
+/* Clique nos numeros do Dashboard Geral pra ver quem esta por tras deles
+   (a pedido da Aline, 03/09/2026: "tivemos 2 vendas, quero saber de quem
+   foi essa venda, que carro foi vendido"). */
+function mostrarDrilldown(titulo,itens,colunas){
+  document.getElementById('drill-titulo').textContent=`${titulo} (${itens.length})`;
+  const corpo=document.getElementById('drill-corpo');
+  corpo.innerHTML=itens.length
+    ?`<div class="lista-table-wrap"><table class="lista-table"><thead><tr>${colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${itens.map(l=>`<tr>${l.map(v=>`<td>${v||'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+    :'<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum registro nesse período.</div>';
+  document.getElementById('ov-drill').classList.remove('hidden');
+}
+const GRUPOS_OUTROS_REL={passante:['Passante','Loja','Evento Externo'],mybusiness:['My Business','Outra'],carteira:['Carteira','Prospecção','Indicação']};
+function abrirDrill(tipo,chave,iniISO,fimISO){
+  const fmtV=l=>l.valor?`R$ ${l.valor}`:'';
+  const vendedorLead=l=>l.captador||l.by||'';
+  let titulo='',itens=[],colunas=[];
+  if(tipo==='leadsCanal'){
+    titulo=`Leads — ${chave}`;
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&l.origem===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Vendedor'];
+  }else if(tipo==='leadsGrupoOutros'){
+    const origens=GRUPOS_OUTROS_REL[chave]||[];
+    titulo=`Leads — ${origens.join(' + ')}`;
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&origens.includes(l.origem))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='leadsTotalMkt'){
+    titulo='Leads — Total Marketing (inclui Compra)';
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&(tipoOrigem(l.origem)==='marketing'||tipoOrigem(l.origem)==='compra'))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='leadsTotalOutros'){
+    titulo='Leads — Total Outros Canais';
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='vendasCanal'){
+    titulo=`Vendas — ${chave}`;
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Vendedor','Valor'];
+  }else if(tipo==='vendasTotalMkt'){
+    titulo='Vendas — Total Marketing';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
+  }else if(tipo==='vendasTotalOutros'){
+    titulo='Vendas — Total Outros Canais';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
+  }else if(tipo==='vendasVendedor'){
+    titulo=`Vendas — ${chave}`;
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeu(l)===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Valor'];
+  }else if(tipo==='vendasTotal'){
+    titulo='Vendas — Total do período';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
+  }else if(tipo==='vendasCompra'){
+    titulo='Vendas — Compra';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra')
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Vendedor','Valor'];
+  }else if(tipo==='nps'){
+    titulo='NPS pedidos';
+    itens=G.rel.nps.filter(n=>n.dt>=iniISO&&n.dt<=fimISO).map(n=>[n.nome||'(sem nome)',n.tel||'',isoParaBR(n.dt)]);
+    colunas=['Nome','Telefone','Data'];
+  }else if(tipo==='indicacoes'){
+    titulo='Indicações recebidas';
+    itens=G.rel.indicacoes.filter(n=>n.dt>=iniISO&&n.dt<=fimISO)
+      .map(n=>[n.nomeIndicado||'(sem nome)',n.telIndicado||'',n.indicadoPor||'',n.tag==='compareceu'?'✅ Compareceu':(n.tag==='nao_compareceu'?'❌ Não compareceu':'—'),isoParaBR(n.dt)]);
+    colunas=['Indicado','Telefone','Indicado por','Status','Data'];
+  }else if(tipo==='visitas1ano'||tipo==='visitas2anos'){
+    const campo=tipo==='visitas1ano'?'visita1ano':'visita2anos',campoData=campo+'Data';
+    titulo=tipo==='visitas1ano'?'Visitas 1 ano':'Visitas 2 anos';
+    itens=G.rel.clientes.filter(c=>c[campo]==='realizada'&&c[campoData]>=iniISO&&c[campoData]<=fimISO)
+      .map(c=>[c.clienteNome||'(sem nome)',c.veiculo||'',isoParaBR(c[campoData])]);
+    colunas=['Cliente','Veículo','Data da visita'];
+  }else if(tipo==='visitasMkt'||tipo==='visitasOutras'){
+    const tipoAlvo=tipo==='visitasMkt'?'marketing':'outros';
+    titulo=tipo==='visitasMkt'?'Visitas marketing':'Visitas outras';
+    itens=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)===tipoAlvo)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='agendamento'||tipo==='agendamentoCompra'){
+    titulo=tipo==='agendamento'?'Agendamento':'Agendamento compra';
+    itens=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&(tipo==='agendamento'?l.origem!=='Compra':l.origem==='Compra'))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }
+  mostrarDrilldown(titulo,itens,colunas);
+}
+function geralRpRow(label,val,forte,onclick){
+  const clic=onclick?` style="cursor:pointer" onclick="${onclick}" title="Clique pra ver quem são"`:'';
+  return `<div class="rp-row${forte?' rp-total':''}"${clic}><span>${label}</span><strong>${val}</strong></div>`;
+}
+function geralIndBox(titulo,icone1,label1,val1,cor1,onclick1,icone2,label2,val2,cor2,onclick2){
+  const c1=onclick1?` style="cursor:pointer" onclick="${onclick1}" title="Clique pra ver quem são"`:'';
+  const c2=onclick2?` style="cursor:pointer" onclick="${onclick2}" title="Clique pra ver quem são"`:'';
   return `<div class="geral-ind-box">
     <div class="hd">${titulo}</div>
-    <div class="stat"><div class="n" style="color:${cor1}">${val1}</div><div class="l">${icone1} ${label1}</div></div>
-    <div class="stat"><div class="n" style="color:${cor2}">${val2}</div><div class="l">${icone2} ${label2}</div></div>
+    <div class="stat"${c1}><div class="n" style="color:${cor1}">${val1}</div><div class="l">${icone1} ${label1}</div></div>
+    <div class="stat"${c2}><div class="n" style="color:${cor2}">${val2}</div><div class="l">${icone2} ${label2}</div></div>
   </div>`;
 }
-function geralListaCanalCard(titulo,emoji,itens,total,corTotal,cols2){
-  const rows=Object.entries(itens).map(([k,v])=>geralRpRow(k,v));
+function geralListaCanalCard(titulo,emoji,itens,total,corTotal,cols2,onclickChave,onclickTotal){
+  const rows=Object.entries(itens).map(([k,v])=>geralRpRow(k,v,false,onclickChave?onclickChave(k):null));
   const linhas=rows.length?(cols2?`<div class="geral-cols2">${rows.join('')}</div>`:rows.join('')):'<div style="color:var(--tx3);font-size:11px">Nenhum</div>';
+  const clicTotal=onclickTotal?` style="cursor:pointer" onclick="${onclickTotal}" title="Clique pra ver quem são"`:'';
   return `<div class="rp-section">
     <div class="rp-sec-title">${emoji} ${titulo}</div>
     ${linhas}
-    <div class="rp-row rp-total"><span>Total</span><strong style="color:${corTotal||'inherit'}">${total}</strong></div>
+    <div class="rp-row rp-total"${clicTotal}><span>Total</span><strong style="color:${corTotal||'inherit'}">${total}</strong></div>
   </div>`;
 }
-function geralCorpoHtml(st,tituloIndicadores){
+// Semana (segunda a domingo) e mês (dia 1 ao último dia) de HOJE — sempre a
+// atual, independente de qual dia/período esta selecionado no dashboard
+// (a pedido da Aline, 03/09/2026).
+function limitesSemanaAtual(){
+  const hoje=new Date();const dow=(hoje.getDay()+6)%7;
+  return{ini:hojeISOlocal(-dow),fim:hojeISOlocal(6-dow)};
+}
+function limitesMesAtual(){
+  const hoje=new Date();
+  const iniD=new Date(hoje.getFullYear(),hoje.getMonth(),1);
+  const fimD=new Date(hoje.getFullYear(),hoje.getMonth()+1,0);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return{ini:iso(iniD),fim:iso(fimD)};
+}
+function geralBlocoResumoVendas(){
+  const semana=limitesSemanaAtual(),mes=limitesMesAtual();
+  const stSemana=statsGeralIntervalo(semana.ini,semana.fim);
+  const stMes=statsGeralIntervalo(mes.ini,mes.fim);
+  const totalSemana=stSemana.totalVendasMkt+stSemana.totalVendasOutros+stSemana.vendasCompra;
+  const totalMes=stMes.totalVendasMkt+stMes.totalVendasOutros+stMes.vendasCompra;
+  function bloco(tituloResumo,st,total,iniISO,fimISO){
+    const p=`'${iniISO}','${fimISO}'`;
+    const porVendedor=Object.keys(st.vendasPorVendedor).length
+      ?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('vendasVendedor','${k}',${p})`)).join('')
+      :'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>';
+    return`<div class="rp-section">
+      <div class="rp-sec-title">💰 ${tituloResumo}</div>
+      <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('vendasTotal',null,${p})" title="Clique pra ver quem são"><span>Total</span><strong style="color:#1a6b3c">${total}</strong></div>
+      ${porVendedor}
+    </div>`;
+  }
+  return`
+    <div class="rel-section-title" style="margin:14px 0 6px"><i class="ti ti-calendar-stats"></i> Vendas — semana e mês atuais (por vendedor)</div>
+    <div class="rp-grid" style="margin-bottom:14px">
+      ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,totalSemana,semana.ini,semana.fim)}
+      ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,totalMes,mes.ini,mes.fim)}
+    </div>`;
+}
+function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO){
+  const p=`'${iniISO}','${fimISO}'`;
   return `
     <div class="geral-top-row">
       <div>
         <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-users"></i> Leads</div>
         <div class="geral-leads-grid">
-          ${geralListaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true)}
+          ${geralListaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true,k=>`abrirDrill('leadsCanal','${k}',${p})`,`abrirDrill('leadsTotalMkt',null,${p})`)}
           <div class="rp-section">
             <div class="rp-sec-title">🏪 Leads Outros Canais</div>
-            ${geralRpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento)}
-            ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra)}
-            ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic)}
-            <div class="rp-row rp-total"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+            ${geralRpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento,false,`abrirDrill('leadsGrupoOutros','passante',${p})`)}
+            ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra,false,`abrirDrill('leadsGrupoOutros','mybusiness',${p})`)}
+            ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic,false,`abrirDrill('leadsGrupoOutros','carteira',${p})`)}
+            <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
           </div>
         </div>
       </div>
       <div>
         <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-cash"></i> Vendas</div>
         <div class="geral-vendas-grid">
-          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c')}
-          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c')}
+          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalMkt',null,${p})`)}
+          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalOutros',null,${p})`)}
           <div class="rp-section">
             <div class="rp-sec-title">🧑‍💼 Vendas por Vendedor</div>
-            ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
+            ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('vendasVendedor','${k}',${p})`)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
             <div class="rp-row rp-total"><span>Total</span><strong style="color:#1a6b3c">${st.totalVendasVendedor}</strong></div>
             <div class="rp-sec-title" style="margin-top:8px">🛒 Compra</div>
-            <div class="rp-row rp-total"><span>Vendas (Compra)</span><strong style="color:#1a6b3c">${st.vendasCompra}</strong></div>
+            ${geralRpRow('Vendas (Compra)',st.vendasCompra,true,`abrirDrill('vendasCompra',null,${p})`)}
           </div>
         </div>
       </div>
     </div>
 
+    ${geralBlocoResumoVendas()}
+
     <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-chart-bar"></i> ${tituloIndicadores}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-      ${geralIndBox('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8','🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b')}
-      ${geralIndBox('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8','✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8')}
-      ${geralIndBox('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'#b8860b','🏪','Visitas outras',st.visitasOutras,'#b8860b')}
-      ${geralIndBox('Agendamentos','📅','Agendamento',st.agendamento,'#b8860b','🛒','Agendamento compra',st.agendamentoCompra,'#b8860b')}
+      ${geralIndBox('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8',`abrirDrill('nps',null,${p})`,'🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b',`abrirDrill('indicacoes',null,${p})`)}
+      ${geralIndBox('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8',`abrirDrill('visitas1ano',null,${p})`,'✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8',`abrirDrill('visitas2anos',null,${p})`)}
+      ${geralIndBox('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'#b8860b',`abrirDrill('visitasMkt',null,${p})`,'🏪','Visitas outras',st.visitasOutras,'#b8860b',`abrirDrill('visitasOutras',null,${p})`)}
+      ${geralIndBox('Agendamentos','📅','Agendamento',st.agendamento,'#b8860b',`abrirDrill('agendamento',null,${p})`,'🛒','Agendamento compra',st.agendamentoCompra,'#b8860b',`abrirDrill('agendamentoCompra',null,${p})`)}
     </div>`;
 }
 function renderGeral(){
@@ -1379,7 +1541,7 @@ function renderGeral(){
         <span style="color:var(--tx3);font-size:12px">até</span>
         <input type="date" class="select-sm" value="${df||''}" onchange="G.geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
       </div>
-      ${st?geralCorpoHtml(st,'Indicadores do período'):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
+      ${st?geralCorpoHtml(st,'Indicadores do período',di,df):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
     </div>`;
     return;
   }
@@ -1394,7 +1556,7 @@ function renderGeral(){
       <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
       ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
     </div>
-    ${geralCorpoHtml(st,'Indicadores do dia')}
+    ${geralCorpoHtml(st,'Indicadores do dia',hojeISOlocal(offset),hojeISOlocal(offset))}
   </div>`;
 }
 function renderRelatoriosMk(cnt){
@@ -2005,6 +2167,7 @@ function renderRelacionamento(){
       <div class="tb-tab${view==='kanban'?' on':''}" onclick="G.rel.view='kanban';renderRelacionamento()"><i class="ti ti-layout-kanban"></i> Jornada</div>
       <div class="tb-tab${view==='lista'?' on':''}" onclick="G.rel.view='lista';renderRelacionamento()"><i class="ti ti-list"></i> Lista</div>
       <div class="tb-tab${view==='dashboard'?' on':''}" onclick="G.rel.view='dashboard';renderRelacionamento()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      <div class="tb-tab${view==='importar'?' on':''}" onclick="G.rel.view='importar';renderRelacionamento()"><i class="ti ti-file-import"></i> Importar</div>
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
@@ -2022,6 +2185,7 @@ function renderRelacionamento(){
   const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanRel(cnt);
   else if(view==='dashboard') renderDashboardRel(cnt);
+  else if(view==='importar') renderImportarRel(cnt);
   else renderListaRel(cnt);
 }
 function ordemDiaMes(dtISO){
@@ -2065,6 +2229,7 @@ function renderKanbanRel(cnt){
         <div class="card-sub"><i class="ti ti-car"></i>${c.veiculo||'Veículo não informado'}</div>
         <div class="card-acao" style="background:${col.bg};color:${col.cor}"><i class="ti ti-bolt"></i>${col.acolabel}</div>
         ${renderSubStatusRel(c,col)}
+        <div class="card-btn card-btn-label" style="display:inline-flex;margin:2px 0 6px;cursor:pointer" onclick="abrirVendedorPopup('${c.id}',event)" title="Clique pra trocar o vendedor"><i class="ti ti-steering-wheel"></i> ${c.vendedor?('Vendedor: '+c.vendedor):'Definir vendedor'}</div>
         <div class="card-footer">
           <span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span>
           <div class="card-actions">
@@ -2232,6 +2397,134 @@ function exportarClientesCSV(){
   const linhas=clis.map(c=>[c.clienteNome||'',isoParaBR(c.dtCompra),isoParaBR(c.dtNascimento),c.veiculo||'',c.clienteTel||'']);
   baixarXLS(`relacionamento_${col.label.replace(/\s+/g,'_')}.xls`,col.label,['Nome','Data da compra','Data de nascimento','Carro','Telefone'],linhas);
   toast(`${clis.length} cliente(s) exportado(s)!`);
+}
+
+/* ============================================================
+   IMPORTAÇÃO — planilha de clientes direto pra uma coluna do
+   Relacionamento (Nome/Cliente, Data de compra, Data de nascimento,
+   Carro, Telefone, Vendedor)
+   ============================================================ */
+function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
+const IMPORT_ALIASES={
+  nome:['nome','cliente'],
+  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra'],
+  dtNascimento:['data de nascimento','data nascimento','nascimento','dtnascimento'],
+  carro:['carro','veiculo','veiculo comprado'],
+  telefone:['telefone','tel','fone','celular','whatsapp'],
+  vendedor:['vendedor'],
+};
+function isoFromExcelSerial(n){
+  const ms=Date.UTC(1899,11,30)+Math.round(n*86400000);
+  const d=new Date(ms);
+  return`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+function paraISOImport(v){
+  if(v===undefined||v===null||v==='')return'';
+  if(v instanceof Date)return`${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  if(typeof v==='number')return isoFromExcelSerial(v);
+  const s=v.toString().trim();if(!s)return'';
+  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  return'';
+}
+function linhaImportParaCampos(row){
+  const campos={nome:'',dtCompra:'',dtNascimento:'',carro:'',telefone:'',vendedor:''};
+  Object.entries(row).forEach(([chave,valor])=>{
+    const n=normTxt(chave);
+    for(const campo in IMPORT_ALIASES){
+      if(IMPORT_ALIASES[campo].includes(n)){
+        campos[campo]=(campo==='dtCompra'||campo==='dtNascimento')?paraISOImport(valor):(valor||'').toString().trim();
+        break;
+      }
+    }
+  });
+  return campos;
+}
+function processarArquivoImportacao(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const linhasBrutas=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v));
+      if(!G.rel.importLinhas.length)toast('Nenhuma linha encontrada na planilha','red');
+    }catch(err){console.error(err);toast('Erro ao ler a planilha — confira o formato (.xlsx, .xls ou .csv)','red');G.rel.importLinhas=null;}
+    renderRelacionamento();
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function confirmarImportacaoRel(){
+  const colId=G.rel.importColuna;const linhas=G.rel.importLinhas;
+  if(!colId){toast('Selecione a coluna de destino','red');return;}
+  if(!linhas||!linhas.length){toast('Escolha um arquivo primeiro','red');return;}
+  const col=COLS_REL.find(x=>x.id===colId);if(!col)return;
+  const validas=linhas.filter(l=>l.nome);
+  if(!validas.length){toast('Nenhuma linha com nome pra importar','red');return;}
+  G.rel.importando=true;renderRelacionamento();
+  let criados=0;
+  for(const l of validas){
+    try{
+      const id=await proximoId('REL',G.rel.clientes,'rel_config/seq','relSeq');
+      const camposEtapa=col.baseId?{st:col.baseId,[col.campo]:col.valorAtivo?'realizada':''}:{st:col.id};
+      const c={
+        id,clienteNome:l.nome,clienteTel:l.telefone||'',clienteEmail:'',dtNascimento:l.dtNascimento||'',
+        responsavel:'Milena',by:G.user?.n||'',uid:G.user?.id||'',veiculo:l.carro||'',dtCompra:l.dtCompra||'',
+        valor:'',vendedor:l.vendedor||'',obs:'',historico:[],...camposEtapa,
+      };
+      c.historico=[{dt:hoje(),icone:'blue',acao:'📋 Cliente importado',obs:`Importado para ${col.label}${l.vendedor?' — Vendedor: '+l.vendedor:''}`,by:G.user?.n||''}];
+      G.rel.clientes.push(c);
+      if(!G.rel.modoDemo)await fbCreate('clientes_rel',id,c);
+      criados++;
+    }catch(err){console.error('Erro ao importar linha',l,err);}
+  }
+  G.rel.importando=false;G.rel.importLinhas=null;
+  toast(`${criados} cliente(s) importado(s) para ${col.label}!`);
+  renderRelacionamento();
+}
+function renderImportarRel(cnt){
+  const wrap=document.createElement('div');wrap.style.cssText='padding:24px;overflow-y:auto;max-width:820px';
+  const linhas=G.rel.importLinhas;
+  const validas=linhas?linhas.filter(l=>l.nome):[];
+  const semNome=linhas?linhas.length-validas.length:0;
+  wrap.innerHTML=`
+    <div class="rel-section-title" style="margin-bottom:10px"><i class="ti ti-file-import"></i> Importar clientes por planilha</div>
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--tx3);line-height:1.6;margin-bottom:14px">
+        A planilha (.xlsx, .xls ou .csv) deve ter colunas: <strong>Nome</strong> (ou <strong>Cliente</strong>), <strong>Telefone</strong>, <strong>Carro</strong>, <strong>Data de compra</strong>, <strong>Data de nascimento</strong> e <strong>Vendedor</strong>. Não precisa ter todas — o que faltar fica em branco. Cada linha vira um cliente novo, criado direto na coluna escolhida abaixo, com essa data de hoje registrada no histórico.
+      </div>
+      <div class="field"><label>Coluna de destino *</label>
+        <select id="import-col" onchange="G.rel.importColuna=this.value">
+          <option value="">Selecione a coluna...</option>
+          ${COLS_REL.map(c=>`<option value="${c.id}"${G.rel.importColuna===c.id?' selected':''}>${c.emoji} ${c.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Arquivo</label>
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" onchange="processarArquivoImportacao(this)">
+      </div>
+    </div>
+    ${linhas?`
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="badge" style="background:var(--greenl);color:var(--green)">✅ ${validas.length} pronto(s) pra importar</span>
+        ${semNome?`<span class="badge" style="background:var(--redl);color:var(--red)">⚠️ ${semNome} sem nome — serão ignorados</span>`:''}
+      </div>
+      <div class="lista-table-wrap" style="max-height:360px;overflow:auto;margin-bottom:16px">
+        <table class="lista-table">
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Carro</th><th>Compra</th><th>Nascimento</th><th>Vendedor</th></tr></thead>
+          <tbody>
+            ${linhas.map(l=>`<tr style="${!l.nome?'opacity:.4':''}"><td>${l.nome||'—'}</td><td>${l.telefone||'—'}</td><td>${l.carro||'—'}</td><td>${isoParaBR(l.dtCompra)||'—'}</td><td>${isoParaBR(l.dtNascimento)||'—'}</td><td>${l.vendedor||'—'}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-red" ${(!G.rel.importColuna||G.rel.importando)?'disabled':''} onclick="confirmarImportacaoRel()">
+        ${G.rel.importando?'<span class="spin"></span> Importando...':`<i class="ti ti-check"></i> Confirmar importação (${validas.length})`}
+      </button>
+    `:''}
+  `;
+  cnt.appendChild(wrap);
 }
 function camposIndicFeedbackRel(col){
   const base=col.baseId||col.id;
@@ -2502,6 +2795,7 @@ function abrirModalCliente(id=null,etapa=null){
   document.getElementById('rc-nome').value=c?.clienteNome||'';document.getElementById('rc-tel').value=c?.clienteTel||'';
   document.getElementById('rc-email').value=c?.clienteEmail||'';document.getElementById('rc-nasc').value=c?.dtNascimento||'';
   document.getElementById('rc-resp').value=c?.responsavel||c?.by||G.user?.n||'';document.getElementById('rc-veiculo').value=c?.veiculo||'';
+  document.getElementById('rc-vendedor').value=c?.vendedor||'';
   document.getElementById('rc-dtcompra').value=c?.dtCompra||new Date().toISOString().split('T')[0];
   document.getElementById('rc-valor').value=c?.valor||'';document.getElementById('rc-etapa').value=c?.st||etapa||'nome';
   document.getElementById('rc-obs').value=c?.obs||'';
@@ -2511,13 +2805,37 @@ async function salvarCliente(){
   const nome=document.getElementById('rc-nome').value.trim(),tel=document.getElementById('rc-tel').value.trim(),veiculo=document.getElementById('rc-veiculo').value.trim(),dtCompra=document.getElementById('rc-dtcompra').value;
   if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!veiculo){toast('Informe o veículo','red');return;}if(!dtCompra){toast('Informe a data da compra','red');return;}
   const btn=document.getElementById('btn-salvar-cli');btn.disabled=true;document.getElementById('btn-salvar-cli-txt').innerHTML='<span class="spin"></span>';
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('rc-email').value.trim(),dtNascimento:document.getElementById('rc-nasc').value,responsavel:document.getElementById('rc-resp').value||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo,dtCompra,valor:document.getElementById('rc-valor').value.trim(),st:document.getElementById('rc-etapa').value||'nome',obs:document.getElementById('rc-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('rc-email').value.trim(),dtNascimento:document.getElementById('rc-nasc').value,responsavel:document.getElementById('rc-resp').value||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo,dtCompra,valor:document.getElementById('rc-valor').value.trim(),st:document.getElementById('rc-etapa').value||'nome',obs:document.getElementById('rc-obs').value.trim(),vendedor:document.getElementById('rc-vendedor').value||''};
   try{
     if(G.rel.editandoId){Object.assign(G.rel.clientes.find(x=>x.id===G.rel.editandoId),data);await salvarCamposRel(G.rel.editandoId,data);toast('Cliente atualizado!');}
     else{const id=await proximoId('REL',G.rel.clientes,'rel_config/seq','relSeq');const c={id,historico:[],...data};G.rel.clientes.push(c);if(!G.rel.modoDemo)await fbCreate('clientes_rel',id,c);await regHistRel(c,'📋 Cliente cadastrado',`Veículo: ${veiculo}`,data.responsavel||G.user?.n||'','📋');toast(`${nome} cadastrado!`);}
     fecharModal('ov-cliente');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
+}
+const VENDEDORES_CARTEIRA=['Rafael','Maicon','Janderson','Victor'];
+let _vendedorPopup=null;
+function abrirVendedorPopup(id,e){
+  e.stopPropagation();
+  if(_vendedorPopup){_vendedorPopup.remove();_vendedorPopup=null;}
+  const popup=document.createElement('div');
+  popup.className='transfer-popup';
+  popup.innerHTML=`<div class="tp-title">Vendedor que atendeu</div>${VENDEDORES_CARTEIRA.map(v=>`<button onclick="confirmarVendedorPopup('${id}','${v}')">${v}</button>`).join('')}<button onclick="confirmarVendedorPopup('${id}','')" style="color:var(--tx3)">Limpar</button>`;
+  (document.getElementById('rtcar-crm-root')||document.body).appendChild(popup);
+  const btn=e.currentTarget;
+  const rect=btn.getBoundingClientRect();
+  popup.style.top=(rect.bottom+6)+'px';
+  popup.style.left=rect.left+'px';
+  _vendedorPopup=popup;
+  setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_vendedorPopup=null;},{once:true}),50);
+}
+async function confirmarVendedorPopup(id,vendedor){
+  if(_vendedorPopup){_vendedorPopup.remove();_vendedorPopup=null;}
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c.vendedor=vendedor;
+  await salvarCamposRel(id,{vendedor});
+  renderRelacionamento();
+  toast(vendedor?`Vendedor: ${vendedor}`:'Vendedor removido');
 }
 /* CRUD NPS — registro isolado, apenas para contagem (não faz parte da jornada) */
 function abrirModalNps(id=null){
@@ -2627,6 +2945,7 @@ function abrirDetailCliente(id){
           <div class="d-field"><span class="lbl">E-mail</span><span class="val${!c.clienteEmail?' empty':''}">${c.clienteEmail||'—'}</span></div>
           <div class="d-field"><span class="lbl">Nascimento</span><span class="val">${isoParaBR(c.dtNascimento)||'—'}</span></div>
           <div class="d-field"><span class="lbl">Responsável</span><span class="val">${c.responsavel||c.by||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Vendedor (quem atendeu)</span><span class="val${!c.vendedor?' empty':''}">${c.vendedor||'—'}</span></div>
         </div>
       </div>
       <div class="d-section"><div class="d-section-title">Veículo</div>
