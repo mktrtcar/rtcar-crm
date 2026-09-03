@@ -70,6 +70,18 @@ Isso **não** vale pra funções ligadas via `elemento.onclick=...` ou
 que usam esse padrão) — essas continuam funcionando normal, porque são
 closures reais sobre o escopo da IIFE, não lookups no escopo global.
 
+**O mesmo vale pra referências diretas ao objeto `G`.** Muito onclick
+inline não só chama função, também muda `G` direto (ex: as abas do CRM e
+do Relacionamento usam `onclick="G.mk.view='kanban';renderMarketing()"`
+pra trocar de view) — `G` tem exatamente o mesmo problema de escopo (e foi
+corrigido do mesmo jeito, 03/09/2026: 46 ocorrências). Só que `G` **não**
+pode simplesmente virar `window.G` (era exatamente esse vazamento que o
+isolamento existe pra evitar). A correção foi expor só uma função
+`window.__G()` que devolve o `G` de verdade (mesmo objeto, por referência)
+sob demanda, e trocar toda referência `G.` dentro de atributo inline por
+`__G().`. **Se você adicionar um onclick novo que mexe em `G` direto, use
+`__G().` em vez de `G.`** — nunca exponha `G` inteiro em `window`.
+
 ## Próximos passos conhecidos
 
 - Integração com Autoconf (webhook de leads).
