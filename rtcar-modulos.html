@@ -1134,6 +1134,59 @@ function statsDoDiaMk(nomes,offset=0){
     compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
   };
 }
+// Clique nos numeros do painel "Hoje" do CRM pra ver quais leads sao esses
+// (a pedido da Aline, 03/09/2026) - reaproveita o mesmo modal "ov-drill" do
+// Dashboard Geral. Clicar numa linha abre o lead de verdade.
+function mostrarDrilldownMk(titulo,leads){
+  document.getElementById('drill-titulo').textContent=`${titulo} (${leads.length})`;
+  const corpo=document.getElementById('drill-corpo');
+  corpo.innerHTML=leads.length
+    ?`<div class="lista-table-wrap"><table class="lista-table"><thead><tr><th>Cliente</th><th>Veículo</th><th>Origem</th><th>Vendedor</th></tr></thead><tbody>${leads.map(l=>`<tr style="cursor:pointer" onclick="fecharModal('ov-drill');abrirDetailLead('${l.id}')" title="Clique pra abrir o lead"><td>${l.clienteNome||'(sem nome)'}</td><td>${l.veiculo||'—'}</td><td>${l.origem||'—'}</td><td>${l.captador||l.by||'—'}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum registro nesse período.</div>';
+  document.getElementById('ov-drill').classList.remove('hidden');
+}
+function abrirDrillMk(tipo,chave,nomesStr,offset){
+  const nomes=nomesStr?nomesStr.split('|'):null;
+  const hojeISO=hojeISOlocal(offset);
+  const hojeBRstr=hoje(offset);
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  let titulo='',leads=[];
+  if(tipo==='canal'){
+    titulo=`Leads — ${chave}`;
+    leads=base.filter(l=>primeiraRespostaVendedorISO(l)===hojeISO&&l.origem===chave);
+  }else if(tipo==='visitas'){
+    titulo='Visita';
+    leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem!=='Compra');
+  }else if(tipo==='visitasCompra'){
+    titulo='Visita Compra';
+    leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem==='Compra');
+  }else if(tipo==='agendamentos'){
+    titulo='Agendamento';
+    leads=base.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra');
+  }else if(tipo==='agendamentosCompra'){
+    titulo='Agendamento Compra';
+    leads=base.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra');
+  }else if(tipo==='vendas'){
+    titulo='Vendas';
+    leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra');
+  }else if(tipo==='compras'){
+    titulo='Compra';
+    leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra');
+  }else if(tipo==='chegaramIA'){
+    titulo='Chegaram na I.A.';
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
+  }else if(tipo==='aindaIA'){
+    titulo='Ainda na I.A.';
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st==='ia');
+  }else if(tipo==='jaSairamIA'){
+    titulo='Já saíram da I.A.';
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st!=='ia');
+  }else if(tipo==='emAtendimento'){
+    titulo='Em atendimento agora';
+    leads=G.mk.leads.filter(l=>l.st==='atendimento');
+  }
+  mostrarDrilldownMk(titulo,leads);
+}
 // Contagem das colunas NPS e Indicações (Relacionamento) no dia — usada no painel "Hoje" do CRM
 function statsNpsIndDoDia(nomes,offset=0){
   const diaISO=hojeISOlocal(offset);
@@ -1145,35 +1198,38 @@ function statsNpsIndDoDia(nomes,offset=0){
 }
 function renderDashboardHoje(cnt){
   const wrap=document.createElement('div');wrap.className='rel-wrap';
-  function kpiCard(val,label,color,bg){
-    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;text-align:center">
+  function kpiCard(val,label,color,bg,onclick){
+    const clic=onclick?`cursor:pointer;`:'';
+    const attrs=onclick?` onclick="${onclick}" title="Clique pra ver quem são"`:'';
+    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;text-align:center;${clic}"${attrs}>
       <div style="font-size:28px;font-weight:700;color:${color}">${val}</div>
       <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
     </div>`;
   }
-  function listaCanais(porCanal){
+  function listaCanais(porCanal,nomesStr,offset){
     if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
-    return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2)"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
+    return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMk('canal','${canal}','${nomesStr||''}',${offset})" title="Clique pra ver quem são"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
   }
-  function blocoStats(titulo,st){
+  function blocoStats(titulo,st,nomesStr,offset){
+    const nm=nomesStr||'';
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
           <div style="font-size:26px;font-weight:700;color:var(--blue);text-align:center">${st.marketing}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Marketing</div>
-          ${listaCanais(st.marketingPorCanal)}
+          ${listaCanais(st.marketingPorCanal,nm,offset)}
         </div>
         <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
           <div style="font-size:26px;font-weight:700;color:var(--purple);text-align:center">${st.outros}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Outros</div>
-          ${listaCanais(st.outrosPorCanal)}
+          ${listaCanais(st.outrosPorCanal,nm,offset)}
         </div>
-        ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)')}
-        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)')}
-        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)')}
+        ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)',`abrirDrillMk('visitas',null,'${nm}',${offset})`)}
+        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
+        ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentos',null,'${nm}',${offset})`)}
+        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
+        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
+        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}
       </div>
     </div>`;
   }
@@ -1198,12 +1254,12 @@ function renderDashboardHoje(cnt){
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
     const stNpsIndTodos=statsNpsIndDoDia(null,offset);
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
-    html+=blocoStats('Equipe toda',stTodos);
+    html+=blocoStats('Equipe toda',stTodos,TODOS_VENDEDORES.join('|'),offset);
     html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)')}
-        ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)')}
-        ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)')}
+        ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('chegaramIA',null,null,${offset})`)}
+        ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('aindaIA',null,null,${offset})`)}
+        ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)',`abrirDrillMk('jaSairamIA',null,null,${offset})`)}
       </div>
     </div>
     <div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
@@ -1214,14 +1270,14 @@ function renderDashboardHoje(cnt){
     </div>
     ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)')}
+        ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)")}
       </div>
     </div>`:''}`;
   }else{
     const meusNomes=[G.user?.n];
     const st=statsDoDiaMk(meusNomes,offset);
     const stNpsInd=statsNpsIndDoDia(meusNomes,offset);
-    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st);
+    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st,meusNomes.join('|'),offset);
     html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(stNpsInd.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
@@ -3865,6 +3921,7 @@ function desmontarRTCarCRM(){
 // chamada dentro de algum on*="..." que realmente existe no arquivo).
 window.abrirDetailLead=abrirDetailLead;
 window.abrirDrill=abrirDrill;
+window.abrirDrillMk=abrirDrillMk;
 window.abrirModalAn=abrirModalAn;
 window.abrirModalCliente=abrirModalCliente;
 window.abrirModalConvidado=abrirModalConvidado;
