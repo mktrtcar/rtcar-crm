@@ -42,6 +42,34 @@ o JS/CSS de lá — pedido feito pelo Claude do lado da Marcela, 03/09/2026.
   verifica `firebase.apps.length` antes de inicializar, então não quebra se
   o Firebase SDK/app já tiver sido inicializado pela página que o embutir.
 
+### ⚠️ Cuidado ao editar depois do isolamento: onclick inline precisa estar em `window`
+
+A IIFE trancou toda função no escopo dela. Isso quebrou (e já foi corrigido
+uma vez, 03/09/2026) todo `onclick="funcao()"` / `onchange="..."` /
+`oninput="..."` / `onkeydown="..."` **inline** — tanto no HTML estático
+quanto dentro de template strings que o JS gera (ex: os cards do Funil).
+Esses atributos rodam no escopo **global** do navegador, então toda função
+referenciada assim precisa também existir em `window`.
+
+**Se você (ou o Claude) adicionar uma função nova e usá-la assim:**
+```html
+<button onclick="minhaFuncaoNova()">...</button>
+```
+ela precisa aparecer também perto do final do script, junto das outras:
+```js
+window.minhaFuncaoNova=minhaFuncaoNova;
+```
+Sem isso, quebra **silenciosamente** — a tela carrega normal, sem erro
+visível, mas o clique não faz nada (só aparece `ReferenceError` no console
+do navegador). Foi exatamente esse bug que derrubou o login inteiro depois
+do isolamento — testar só "a tela carrega" não pega esse tipo de erro,
+**precisa clicar de verdade** pra confirmar.
+
+Isso **não** vale pra funções ligadas via `elemento.onclick=...` ou
+`elemento.addEventListener(...)` (ex: os cards do Funil/Relacionamento,
+que usam esse padrão) — essas continuam funcionando normal, porque são
+closures reais sobre o escopo da IIFE, não lookups no escopo global.
+
 ## Próximos passos conhecidos
 
 - Integração com Autoconf (webhook de leads).
