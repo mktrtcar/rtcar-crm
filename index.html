@@ -933,7 +933,13 @@ async function initMarketing(){
   document.getElementById('tb').innerHTML='';
   document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando leads...</div>';
   if(!fbOk()){initDemoMarketing();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
-  else{try{G.mk.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}}
+  else{
+    try{G.mk.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}
+    // NPS e Indicações tambem aparecem no painel "Hoje" do CRM, entao
+    // precisam estar carregados mesmo que a pessoa nunca abra o modulo
+    // Relacionamento nessa sessao.
+    try{G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');}catch(e){console.error(e);}
+  }
   renderMarketing();
 }
 /* ---- TIMER HELPERS (pendente) ---- */
@@ -1279,6 +1285,15 @@ function statsDoDiaMk(nomes,offset=0){
     compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
   };
 }
+// Contagem das colunas NPS e Indicações (Relacionamento) no dia — usada no painel "Hoje" do CRM
+function statsNpsIndDoDia(nomes,offset=0){
+  const diaISO=hojeISOlocal(offset);
+  const doDia=by=>!nomes||nomes.includes(by);
+  return{
+    nps:G.rel.nps.filter(n=>n.dt===diaISO&&doDia(n.by)).length,
+    indicacoes:G.rel.indicacoes.filter(n=>n.dt===diaISO&&doDia(n.by)).length,
+  };
+}
 function renderDashboardHoje(cnt){
   const wrap=document.createElement('div');wrap.className='rel-wrap';
   function kpiCard(val,label,color,bg){
@@ -1332,6 +1347,7 @@ function renderDashboardHoje(cnt){
     const aindaNaIA=chegaramNoDia.filter(l=>l.st==='ia').length;
     const jaSairamDaIA=chegaramNoDia.length-aindaNaIA;
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
+    const stNpsIndTodos=statsNpsIndDoDia(null,offset);
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
     html+=blocoStats('Equipe toda',stTodos);
     html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
@@ -1339,6 +1355,12 @@ function renderDashboardHoje(cnt){
         ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)')}
         ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)')}
         ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)')}
+      </div>
+    </div>
+    <div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+        ${kpiCard(stNpsIndTodos.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
+        ${kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
     </div>
     ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
@@ -1349,7 +1371,14 @@ function renderDashboardHoje(cnt){
   }else{
     const meusNomes=[G.user?.n];
     const st=statsDoDiaMk(meusNomes,offset);
+    const stNpsInd=statsNpsIndDoDia(meusNomes,offset);
     html+=blocoStats(`Seus números — ${G.user?.n||''}`,st);
+    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+        ${kpiCard(stNpsInd.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
+        ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
+      </div>
+    </div>`;
   }
   html+='</div>';
   wrap.innerHTML=html;
