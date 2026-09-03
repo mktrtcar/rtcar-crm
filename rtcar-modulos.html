@@ -241,6 +241,25 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
 .rp-row strong{font-size:14px;color:var(--tx);min-width:20px;text-align:right}
 .rp-total{background:rgba(0,0,0,.03);margin:4px -4px 0;padding:6px 4px;border-radius:6px;font-weight:600}
 .rp-total strong{color:var(--red)}
+/* Dashboard Geral — versao compacta, pra caber tudo numa tela só (a Aline usa pra printar) */
+.geral-wrap{padding:12px 16px}
+.geral-wrap .rp-grid{gap:10px}
+.geral-wrap .rp-section{padding:8px 10px}
+.geral-wrap .rp-sec-title{margin-bottom:4px}
+.geral-wrap .rp-row{padding:1px 0;font-size:11px}
+.geral-wrap .rp-row strong{font-size:12px}
+.geral-wrap .rp-total{margin:2px -4px 0;padding:3px 4px}
+.geral-cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.geral-top-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px}
+.geral-top-row>div{flex:1;min-width:0}
+.geral-leads-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.geral-vendas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.geral-ind-box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden}
+.geral-ind-box>.hd{padding:4px 10px;font-size:10px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--bdr)}
+.geral-ind-box>.stat{padding:6px 10px;text-align:center}
+.geral-ind-box>.stat+.stat{border-top:1px solid var(--bdr)}
+.geral-ind-box>.stat .n{font-size:18px;font-weight:700;line-height:1.1}
+.geral-ind-box>.stat .l{font-size:10px;color:var(--tx3);margin-top:1px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1814;color:#fff;padding:10px 20px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
@@ -311,6 +330,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     </div>
     <nav class="nav">
       <div class="ni-lbl">Módulos</div>
+      <div class="ni" id="ni-geral" onclick="trocarModulo('geral')"><i class="ti ti-layout-dashboard"></i> Dashboard Geral</div>
       <div class="ni" id="ni-mk" onclick="trocarModulo('marketing')"><i class="ti ti-speakerphone"></i> CRM</div>
       <div class="ni" id="ni-ia" onclick="trocarModulo('ia')"><i class="ti ti-robot"></i> IA (Eva)</div>
       <div class="ni" id="ni-rel" onclick="trocarModulo('relacionamento')"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
@@ -740,6 +760,7 @@ const G={
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
+  geral:{view:'dia',hojeOffset:0,filtroDataInicio:'',filtroDataFim:''},
 };
 
 /* ---- FIREBASE HELPERS (via SDK autenticado — nunca mais fetch cru) ---- */
@@ -771,6 +792,7 @@ async function proximoId(prefixo,lista,col_config,campo){
 /* ---- UTILS ---- */
 function hoje(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
 function isoParaBR(iso){if(!iso)return'';const[a,m,d]=iso.split('-');return`${d}/${m}/${a}`;}
+function brParaISO(br){if(!br)return'';const[d,m,a]=br.split('/');return`${a}-${m}-${d}`;}
 function diasDesdeCompra(dtISO){if(!dtISO)return 0;return Math.floor((new Date()-new Date(dtISO+'T12:00:00'))/(864e5));}
 function labelDias(d){if(d<30)return`${d}d`;if(d<365)return`${Math.floor(d/30)}m`;const a=Math.floor(d/365),m=Math.floor((d%365)/30);return m>0?`${a}a ${m}m`:`${a}a`;}
 function aniversarioMes(dtNasc){if(!dtNasc)return false;return parseInt(dtNasc.split('-')[1])===new Date().getMonth()+1;}
@@ -819,8 +841,8 @@ async function fazerLogin(){
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
-  ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{
-    const mod={'ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios','ni-ia':'ia'}[id];
+  ['ni-geral','ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{
+    const mod={'ni-geral':'geral','ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios','ni-ia':'ia'}[id];
     const el=document.getElementById(id);
     if(el) el.style.display=podeVerModulo(mod)?'':'none';
   });
@@ -880,16 +902,19 @@ async function trocarModulo(mod){
   if(!podeVerModulo(mod)){toast('Sem acesso a este módulo','err');return;}
   G.modulo=mod;
   fecharDetail();
+  document.getElementById('ni-geral').classList.toggle('on',mod==='geral');
   document.getElementById('ni-mk').classList.toggle('on',mod==='marketing');
   document.getElementById('ni-rel').classList.toggle('on',mod==='relacionamento');
   document.getElementById('ni-ws').classList.toggle('on',mod==='workshop');
   document.getElementById('ni-an').classList.toggle('on',mod==='anuncios');
   document.getElementById('ni-ia').classList.toggle('on',mod==='ia');
-  document.getElementById('sb-tag').textContent={marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios',ia:'IA (Eva)'}[mod]||mod;
+  document.getElementById('sb-tag').textContent={geral:'Dashboard Geral',marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios',ia:'IA (Eva)'}[mod]||mod;
   if(mod==='marketing'){
     if(!G.mk.leads.length)await initMarketing();
     else renderMarketing();
     iniciarAutoRefreshMk();
+  } else if(mod==='geral'){
+    pararTimerCRM();pararAutoRefreshMk();await initGeral();
   } else if(mod==='workshop'){
     pararTimerCRM();pararAutoRefreshMk();await initWorkshop();
   } else if(mod==='anuncios'){
@@ -935,10 +960,10 @@ async function initMarketing(){
   if(!fbOk()){initDemoMarketing();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
   else{
     try{G.mk.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}
-    // NPS e Indicações tambem aparecem no painel "Hoje" do CRM, entao
-    // precisam estar carregados mesmo que a pessoa nunca abra o modulo
-    // Relacionamento nessa sessao.
-    try{G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');}catch(e){console.error(e);}
+    // NPS, Indicações e clientes do Relacionamento tambem aparecem no painel
+    // "Hoje" do CRM e no Dashboard Geral, entao precisam estar carregados
+    // mesmo que a pessoa nunca abra o modulo Relacionamento nessa sessao.
+    try{G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');G.rel.clientes=await fbList('clientes_rel');}catch(e){console.error(e);}
   }
   renderMarketing();
 }
@@ -1027,6 +1052,13 @@ function renderMarketing(){
   const cnt=document.getElementById('cnt');
   G.mk._scrollAnterior={};
   cnt.querySelectorAll('.kb-col-body').forEach(b=>{G.mk._scrollAnterior[b.dataset.col]=b.scrollTop;});
+  // Rolagem horizontal do quadro (pra ver colunas mais a direita, tipo
+  // "Venda") tambem precisa ser preservada - sem isso, o auto-refresh de
+  // 10 em 10s reconstroi o quadro do zero e joga a visao de volta pro
+  // inicio a cada ciclo, mesmo sem a pessoa ter mexido em nada (achado a
+  // pedido da Aline, 02/09/2026: rolagem so pode mudar por acao manual).
+  const kanbanWrapAntigo=cnt.querySelector('.kanban-wrap');
+  G.mk._scrollLeftAnterior=kanbanWrapAntigo?kanbanWrapAntigo.scrollLeft:(G.mk._scrollLeftAnterior||0);
   cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='hoje') renderDashboardHoje(cnt);
   else if(view==='kanban') renderKanbanMk(cnt);
@@ -1155,6 +1187,7 @@ function renderKanbanMk(cnt){
   });
   cnt.appendChild(wrap);
   cnt.querySelectorAll('.kb-col-body').forEach(b=>{if(scrollAnterior[b.dataset.col])b.scrollTop=scrollAnterior[b.dataset.col];});
+  if(G.mk._scrollLeftAnterior)wrap.scrollLeft=G.mk._scrollLeftAnterior;
   iniciarTimerCRM();
 }
 
@@ -1383,6 +1416,185 @@ function renderDashboardHoje(cnt){
   html+='</div>';
   wrap.innerHTML=html;
   cnt.appendChild(wrap);
+}
+/* ============================================================
+   DASHBOARD GERAL — visão consolidada do dia (CRM + Relacionamento)
+   ============================================================ */
+async function initGeral(){
+  document.getElementById('tb').innerHTML='';
+  document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando...</div>';
+  if(fbOk()){
+    try{
+      if(!G.mk.leads.length)G.mk.leads=await fbList('leads');
+      if(!G.rel.clientes.length)G.rel.clientes=await fbList('clientes_rel');
+      if(!G.rel.nps.length)G.rel.nps=await fbList('nps_rel');
+      if(!G.rel.indicacoes.length)G.rel.indicacoes=await fbList('indicacoes_rel');
+    }catch(e){console.error(e);toast('Erro ao carregar dados.','red');}
+  }
+  renderGeral();
+}
+// Um unico calculo por intervalo [iniISO,fimISO] (inclusive) — o painel do
+// dia (setas) e o painel "por filtro" (data inicio/fim) usam a mesma
+// funcao, so muda o intervalo passado. dtVenda fica salvo em BR (dd/mm/aaaa),
+// entao precisa converter pra ISO antes de comparar como intervalo.
+function statsGeralIntervalo(iniISO,fimISO){
+  const leadsNoPeriodo=G.mk.leads.filter(l=>l.dtISO>=iniISO&&l.dtISO<=fimISO);
+  const clientes=G.rel.clientes;
+  const vendaNoPeriodo=l=>{const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;};
+
+  // Compra entra somada dentro dos leads de Marketing nesse dashboard
+  // (a pedido da Aline, 02/09/2026: "compra é do marketing").
+  const leadsPorCanalMkt={};ORIGENS_MK.marketing.forEach(o=>{leadsPorCanalMkt[o]=leadsNoPeriodo.filter(l=>l.origem===o).length;});
+  const leadsCompra=leadsNoPeriodo.filter(l=>ORIGENS_MK.compra.includes(l.origem)).length;
+  leadsPorCanalMkt['Compra']=leadsCompra;
+  const totalLeadsMkt=Object.values(leadsPorCanalMkt).reduce((a,b)=>a+b,0);
+  const leadsPassanteLojaEvento=leadsNoPeriodo.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length;
+  const leadsMyBusinessOutra=leadsNoPeriodo.filter(l=>['My Business','Outra'].includes(l.origem)).length;
+  const leadsCarteiraProspIndic=leadsNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length;
+  const totalLeadsOutros=leadsNoPeriodo.filter(l=>ORIGENS_MK.outros.includes(l.origem)).length;
+
+  const npsInd={
+    nps:G.rel.nps.filter(n=>n.dt>=iniISO&&n.dt<=fimISO).length,
+    indicacoes:G.rel.indicacoes.filter(n=>n.dt>=iniISO&&n.dt<=fimISO).length,
+  };
+
+  const visitas1ano=clientes.filter(c=>c.visita1ano==='realizada'&&c.visita1anoData>=iniISO&&c.visita1anoData<=fimISO).length;
+  const visitas2anos=clientes.filter(c=>c.visita2anos==='realizada'&&c.visita2anosData>=iniISO&&c.visita2anosData<=fimISO).length;
+
+  const visitasMkt=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)==='marketing').length;
+  const visitasOutras=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)==='outros').length;
+
+  const agendamento=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem!=='Compra').length;
+  const agendamentoCompra=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem==='Compra').length;
+
+  const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasMktPorCanal[o]=n;});
+  const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasOutrosPorCanal[o]=n;});
+  const vendasCompra=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').length;
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)).forEach(l=>{const v=l.captador||l.by||'?';vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
+  const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
+  const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
+  const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
+
+  return{leadsPorCanalMkt,totalLeadsMkt,leadsPassanteLojaEvento,leadsMyBusinessOutra,leadsCarteiraProspIndic,totalLeadsOutros,leadsCompra,
+    npsInd,visitas1ano,visitas2anos,visitasMkt,visitasOutras,agendamento,agendamentoCompra,
+    vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,totalVendasVendedor};
+}
+function statsGeralDoDia(offset=0){
+  const diaISO=hojeISOlocal(offset);
+  return statsGeralIntervalo(diaISO,diaISO);
+}
+function trocarViewGeral(v){
+  G.geral.view=v;
+  if(v==='filtro'&&!G.geral.filtroDataInicio&&!G.geral.filtroDataFim){
+    // Primeira vez que abre o filtro: comeca com a semana atual (ultimos 7 dias), pra nao vir em branco
+    G.geral.filtroDataInicio=hojeISOlocal(-6);
+    G.geral.filtroDataFim=hojeISOlocal(0);
+  }
+  renderGeral();
+}
+function geralRpRow(label,val,forte){return `<div class="rp-row${forte?' rp-total':''}"><span>${label}</span><strong>${val}</strong></div>`;}
+function geralIndBox(titulo,icone1,label1,val1,cor1,icone2,label2,val2,cor2){
+  return `<div class="geral-ind-box">
+    <div class="hd">${titulo}</div>
+    <div class="stat"><div class="n" style="color:${cor1}">${val1}</div><div class="l">${icone1} ${label1}</div></div>
+    <div class="stat"><div class="n" style="color:${cor2}">${val2}</div><div class="l">${icone2} ${label2}</div></div>
+  </div>`;
+}
+function geralListaCanalCard(titulo,emoji,itens,total,corTotal,cols2){
+  const rows=Object.entries(itens).map(([k,v])=>geralRpRow(k,v));
+  const linhas=rows.length?(cols2?`<div class="geral-cols2">${rows.join('')}</div>`:rows.join('')):'<div style="color:var(--tx3);font-size:11px">Nenhum</div>';
+  return `<div class="rp-section">
+    <div class="rp-sec-title">${emoji} ${titulo}</div>
+    ${linhas}
+    <div class="rp-row rp-total"><span>Total</span><strong style="color:${corTotal||'inherit'}">${total}</strong></div>
+  </div>`;
+}
+function geralCorpoHtml(st,tituloIndicadores){
+  return `
+    <div class="geral-top-row">
+      <div>
+        <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-users"></i> Leads</div>
+        <div class="geral-leads-grid">
+          ${geralListaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true)}
+          <div class="rp-section">
+            <div class="rp-sec-title">🏪 Leads Outros Canais</div>
+            ${geralRpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento)}
+            ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra)}
+            ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic)}
+            <div class="rp-row rp-total"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-cash"></i> Vendas</div>
+        <div class="geral-vendas-grid">
+          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c')}
+          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c')}
+          <div class="rp-section">
+            <div class="rp-sec-title">🧑‍💼 Vendas por Vendedor</div>
+            ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
+            <div class="rp-row rp-total"><span>Total</span><strong style="color:#1a6b3c">${st.totalVendasVendedor}</strong></div>
+            <div class="rp-sec-title" style="margin-top:8px">🛒 Compra</div>
+            <div class="rp-row rp-total"><span>Vendas (Compra)</span><strong style="color:#1a6b3c">${st.vendasCompra}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-chart-bar"></i> ${tituloIndicadores}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+      ${geralIndBox('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8','🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b')}
+      ${geralIndBox('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8','✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8')}
+      ${geralIndBox('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'#b8860b','🏪','Visitas outras',st.visitasOutras,'#b8860b')}
+      ${geralIndBox('Agendamentos','📅','Agendamento',st.agendamento,'#b8860b','🛒','Agendamento compra',st.agendamentoCompra,'#b8860b')}
+    </div>`;
+}
+function renderGeral(){
+  const tb=document.getElementById('tb');
+  // Mesma correcao do CRM/Relacionamento: reconstruir a tela inteira enquanto
+  // a pessoa esta digitando dentro de um campo de data derruba o campo antes
+  // do ano ser digitado (o valor ja foi salvo no estado pelo onchange; a tela
+  // so vai refletir isso no proximo render de verdade, ex: ao trocar de aba).
+  const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
+  if(dataFocada)return;
+  const view=G.geral.view||'dia';
+  tb.innerHTML=`
+    <div class="tb-title"><i class="ti ti-layout-dashboard"></i> Dashboard Geral</div>
+    <div class="tb-sep"></div>
+    <div class="tb-tabs">
+      <div class="tb-tab${view==='dia'?' on':''}" onclick="trocarViewGeral('dia')"><i class="ti ti-calendar"></i> Dashboard</div>
+      <div class="tb-tab${view==='filtro'?' on':''}" onclick="trocarViewGeral('filtro')"><i class="ti ti-filter"></i> Dashboard por Filtro</div>
+    </div>
+    <div class="tb-spacer"></div>`;
+  const cnt=document.getElementById('cnt');cnt.style.cssText='flex:1;overflow-y:auto';
+
+  if(view==='filtro'){
+    const di=G.geral.filtroDataInicio,df=G.geral.filtroDataFim;
+    const st=(di&&df)?statsGeralIntervalo(di,df):null;
+    cnt.innerHTML=`<div class="geral-wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <h2 style="font-size:16px"><i class="ti ti-filter"></i> Dashboard por Filtro</h2>
+        <input type="date" class="select-sm" value="${di||''}" onchange="G.geral.filtroDataInicio=this.value;renderGeral()" title="De" style="width:150px">
+        <span style="color:var(--tx3);font-size:12px">até</span>
+        <input type="date" class="select-sm" value="${df||''}" onchange="G.geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
+      </div>
+      ${st?geralCorpoHtml(st,'Indicadores do período'):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
+    </div>`;
+    return;
+  }
+
+  const offset=G.geral.hojeOffset||0;
+  const rotuloDia=offset===0?'Hoje':(offset===-1?'Ontem':`${Math.abs(offset)} dias atrás`);
+  const st=statsGeralDoDia(offset);
+  cnt.innerHTML=`<div class="geral-wrap">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)-1;renderGeral()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <h2 style="font-size:16px">📊 ${rotuloDia} — ${hoje(offset)}</h2>
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
+    </div>
+    ${geralCorpoHtml(st,'Indicadores do dia')}
+  </div>`;
 }
 function renderRelatoriosMk(cnt){
   const wrap=document.createElement('div');wrap.className='rel-wrap';
