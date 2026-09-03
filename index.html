@@ -2269,6 +2269,7 @@ function renderRelacionamento(){
       <div class="tb-tab${view==='importar'?' on':''}" onclick="__G().rel.view='importar';renderRelacionamento()"><i class="ti ti-file-import"></i> Importar</div>
     </div>
     <div class="tb-spacer"></div>
+    ${view!=='importar'?`
     <div class="tb-filters-inline">
       <input type="date" id="rel-data-inicio" class="select-sm" title="Compra a partir de" value="${G.rel.filtroDataInicio}" onchange="__G().rel.filtroDataInicio=this.value;renderRelacionamento()" style="width:130px">
       <input type="date" id="rel-data-fim" class="select-sm" title="Compra até" value="${G.rel.filtroDataFim}" onchange="__G().rel.filtroDataFim=this.value;renderRelacionamento()" style="width:130px">
@@ -2280,6 +2281,7 @@ function renderRelacionamento(){
     </div>
     <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="__G().rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
+    `:''}
   `;
   const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanRel(cnt);
