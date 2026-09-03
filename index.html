@@ -1543,6 +1543,12 @@ function geralCorpoHtml(st,tituloIndicadores){
 }
 function renderGeral(){
   const tb=document.getElementById('tb');
+  // Mesma correcao do CRM/Relacionamento: reconstruir a tela inteira enquanto
+  // a pessoa esta digitando dentro de um campo de data derruba o campo antes
+  // do ano ser digitado (o valor ja foi salvo no estado pelo onchange; a tela
+  // so vai refletir isso no proximo render de verdade, ex: ao trocar de aba).
+  const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
+  if(dataFocada)return;
   const view=G.geral.view||'dia';
   tb.innerHTML=`
     <div class="tb-title"><i class="ti ti-layout-dashboard"></i> Dashboard Geral</div>
