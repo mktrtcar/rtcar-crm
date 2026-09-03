@@ -1187,6 +1187,47 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
   }
   mostrarDrilldownMk(titulo,leads);
 }
+// Vendas da semana/mes atuais por vendedor - usado no painel "Hoje" do CRM
+// (a pedido da Aline, 03/09/2026: vendedor nao tem acesso ao Dashboard Geral,
+// entao essa informacao tambem precisa aparecer aqui).
+function vendasPorPeriodoMk(nomes,iniISO,fimISO){
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  const vendidos=base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
+  const porVendedor={};
+  vendidos.forEach(l=>{const v=quemVendeu(l);porVendedor[v]=(porVendedor[v]||0)+1;});
+  return{total:vendidos.length,porVendedor};
+}
+function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
+  const nomes=nomesStr?nomesStr.split('|'):null;
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  const leads=chave
+    ?base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeu(l)===chave)
+    :base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
+  mostrarDrilldownMk(chave?`Vendas — ${chave}`:'Vendas do período',leads);
+}
+function blocoVendasPeriodoMk(nomesStr){
+  const nm=nomesStr||'';
+  const nomes=nomesStr?nomesStr.split('|'):null;
+  const semana=limitesSemanaAtual(),mes=limitesMesAtual();
+  const stSemana=vendasPorPeriodoMk(nomes,semana.ini,semana.fim);
+  const stMes=vendasPorPeriodoMk(nomes,mes.ini,mes.fim);
+  function bloco(titulo,st,iniISO,fimISO){
+    const porVendedor=Object.keys(st.porVendedor).length
+      ?Object.entries(st.porVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMkPeriodo('${k}','${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são"><span>${k}</span><strong>${v}</strong></div>`).join('')
+      :'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhuma</div>';
+    return`<div style="background:var(--greenl);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+      <div style="font-size:26px;font-weight:700;color:var(--green);text-align:center;cursor:pointer" onclick="abrirDrillMkPeriodo(null,'${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são">${st.total}</div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center">${titulo}</div>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porVendedor}</div>
+    </div>`;
+  }
+  return`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Vendas — semana e mês atuais (por vendedor)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px">
+      ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim)}
+      ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim)}
+    </div>
+  </div>`;
+}
 // Contagem das colunas NPS e Indicações (Relacionamento) no dia — usada no painel "Hoje" do CRM
 function statsNpsIndDoDia(nomes,offset=0){
   const diaISO=hojeISOlocal(offset);
@@ -1268,6 +1309,7 @@ function renderDashboardHoje(cnt){
         ${kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
     </div>
+    ${blocoVendasPeriodoMk(TODOS_VENDEDORES.join('|'))}
     ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)")}
@@ -1283,7 +1325,8 @@ function renderDashboardHoje(cnt){
         ${kpiCard(stNpsInd.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
         ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
-    </div>`;
+    </div>
+    ${blocoVendasPeriodoMk(meusNomes.join('|'))}`;
   }
   html+='</div>';
   wrap.innerHTML=html;
@@ -3922,6 +3965,7 @@ function desmontarRTCarCRM(){
 window.abrirDetailLead=abrirDetailLead;
 window.abrirDrill=abrirDrill;
 window.abrirDrillMk=abrirDrillMk;
+window.abrirDrillMkPeriodo=abrirDrillMkPeriodo;
 window.abrirModalAn=abrirModalAn;
 window.abrirModalCliente=abrirModalCliente;
 window.abrirModalConvidado=abrirModalConvidado;
