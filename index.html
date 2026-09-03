@@ -705,6 +705,11 @@ const COLS_MK=[
   {id:'resgate',     label:'Resgate',      emoji:'🔄', desc:'Tentativa de resgatar o cliente perdido',       cor:'#6b3db8', bg:'#f3e8fb'},
   {id:'perdido',     label:'Perdido',      emoji:'❌', desc:'Cliente desistiu ou sem interesse',             cor:'#e8431e', bg:'#fff0ec', fim:true},
 ];
+// Campo de inicio/fim do cronometro de cada coluna do Funil. "ia" usa
+// _criadoEm (data real de criacao do lead - nao pode ser mexida por
+// interacoes, outros lugares do sistema dependem dela); as demais usam
+// campos proprios que sao resetados a cada interacao (ver regHistMk).
+const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','atendimento_end'],encantamento:['encantamento_at','encantamento_end'],negociacao:['negociacao_at','negociacao_end'],agendamento:['pendente_at','pendente_end']};
 /* CATEGORIAS DE ORIGEM */
 const ORIGENS_MK={
   // "Webmotors" e "WebMotors" sao a mesma origem, grafada diferente em
@@ -1144,9 +1149,8 @@ function renderKanbanMk(cnt){
       c.addEventListener('dragend',()=>{G.mk.dragId=null;c.classList.remove('dragging')});
       c.onclick=e=>{if(!e.target.closest('.card-btn'))abrirDetailLead(l.id)};
       // Campos start/end de cada coluna com cronometro - cada uma grava o
-      // proprio par de campos (ver moverLead) pra saber quanto tempo o lead
-      // ficou especificamente naquela etapa.
-      const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','atendimento_end'],encantamento:['encantamento_at','encantamento_end'],negociacao:['negociacao_at','negociacao_end'],agendamento:['pendente_at','pendente_end']};
+      // proprio par de campos (ver moverLead/regHistMk) pra saber quanto
+      // tempo faz desde a ultima interacao naquela etapa.
       const [campoStart,campoEnd]=CAMPOS_TIMER_COL[col.id]||[null,null];
       const timerStart=campoStart?l[campoStart]:null;
       const timerEnd=campoEnd?l[campoEnd]:null;
@@ -1305,6 +1309,21 @@ function exportarLeadsCSV(){
 // painel "Hoje" mostrar tudo zerado no fim da tarde/noite (bug encontrado
 // e corrigido a pedido da Aline, 27/08/2026).
 function hojeISOlocal(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+// Primeira resposta HUMANA (nao I.A./Autoconf) registrada no historico do
+// lead - o momento em que um vendedor de fato respondeu, nao quando o lead
+// chegou nem quando a I.A. encaminhou pra esteira. Os relatorios "Hoje"
+// (CRM e Dashboard Geral) contam o lead no dia em que o vendedor respondeu,
+// nao no dia em que ele chegou - um lead que chega de noite e so e
+// respondido na manha seguinte nao pode aparecer como "recebido" no dia da
+// chegada nem ficar de fora do relatorio do vendedor no dia em que ele de
+// fato atendeu (a pedido da Aline, 02/09/2026). Enquanto nenhum vendedor
+// respondeu ainda, o lead nao conta em nenhum dia.
+function primeiraRespostaVendedorISO(l){
+  const entrada=(l.historico||[]).find(h=>VENDEDORES_ATIVOS.includes(h.by));
+  if(!entrada||!entrada.dt)return null;
+  const[d,m,a]=entrada.dt.slice(0,10).split('/');
+  return(d&&m&&a)?`${a}-${m}-${d}`:null;
+}
 const ORIGENS_PULA_IA=['Loja','Carteira de clientes','Passante']; // mesma lista do webhook-autoconf
 // 28/08/2026, a pedido da Aline: setas pra ver o painel "Hoje" de ate 7
 // dias atras (ontem, anteontem...), sem precisar ir no Funil/Relatorios
@@ -1313,7 +1332,7 @@ function statsDoDiaMk(nomes,offset=0){
   const hojeISO=hojeISOlocal(offset);
   const hojeBRstr=hoje(offset);
   const ls=G.mk.leads.filter(l=>nomes.includes(l.captador));
-  const recebidosHoje=ls.filter(l=>l.dtISO===hojeISO);
+  const recebidosHoje=ls.filter(l=>primeiraRespostaVendedorISO(l)===hojeISO);
   const porCanal=lista=>{const m={};lista.forEach(l=>{m[l.origem||'(sem origem)']=(m[l.origem||'(sem origem)']||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
   const marketingLeads=recebidosHoje.filter(l=>tipoOrigem(l.origem)==='marketing');
   const outrosLeads=recebidosHoje.filter(l=>tipoOrigem(l.origem)!=='marketing');
@@ -1450,7 +1469,9 @@ async function initGeral(){
 // funcao, so muda o intervalo passado. dtVenda fica salvo em BR (dd/mm/aaaa),
 // entao precisa converter pra ISO antes de comparar como intervalo.
 function statsGeralIntervalo(iniISO,fimISO){
-  const leadsNoPeriodo=G.mk.leads.filter(l=>l.dtISO>=iniISO&&l.dtISO<=fimISO);
+  // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
+  // vendedor de fato respondeu (nao a data de chegada do lead).
+  const leadsNoPeriodo=G.mk.leads.filter(l=>{const r=primeiraRespostaVendedorISO(l);return r&&r>=iniISO&&r<=fimISO;});
   const clientes=G.rel.clientes;
   const vendaNoPeriodo=l=>{const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;};
 
@@ -2062,7 +2083,25 @@ async function toggleEncantamentoMk(id,campo,e){
   await salvarCamposMk(id,{[campo]:lead[campo]});
   renderMarketing();
 }
-async function regHistMk(lead,acao,obs,by,icone='blue'){if(!lead.historico)lead.historico=[];lead.historico.push({dt:hoje(),icone,acao,obs,by});await salvarCamposMk(lead.id,{historico:lead.historico});}
+async function regHistMk(lead,acao,obs,by,icone='blue'){
+  if(!lead.historico)lead.historico=[];
+  lead.historico.push({dt:hoje(),icone,acao,obs,by});
+  const campos={historico:lead.historico};
+  // O cronometro de cada coluna mostra ha quanto tempo o lead esta SEM
+  // receber atencao, nao o tempo total que ele leva na etapa - toda vez
+  // que uma acao e registrada (mensagem, foto, video, observacao, mudar
+  // de etapa...) o relogio da etapa atual zera e recomeca a contar dali.
+  // "ia" fica de fora porque _criadoEm precisa continuar sendo a data
+  // real de criacao do lead, usada em outros lugares do sistema (a
+  // pedido da Aline, 02/09/2026).
+  const [campoStart]=CAMPOS_TIMER_COL[lead.st]||[null];
+  if(campoStart&&campoStart!=='_criadoEm'){
+    const agora=new Date().toISOString();
+    lead[campoStart]=agora;
+    campos[campoStart]=agora;
+  }
+  await salvarCamposMk(lead.id,campos);
+}
 async function salvarCamposMk(id,campos){if(G.mk.modoDemo)return;try{await fbUpdate('leads',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
 
 function abrirDetailLead(id){
