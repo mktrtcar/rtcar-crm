@@ -311,6 +311,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
     </div>
     <nav class="nav">
       <div class="ni-lbl">Módulos</div>
+      <div class="ni" id="ni-geral" onclick="trocarModulo('geral')"><i class="ti ti-layout-dashboard"></i> Dashboard Geral</div>
       <div class="ni" id="ni-mk" onclick="trocarModulo('marketing')"><i class="ti ti-speakerphone"></i> CRM</div>
       <div class="ni" id="ni-ia" onclick="trocarModulo('ia')"><i class="ti ti-robot"></i> IA (Eva)</div>
       <div class="ni" id="ni-rel" onclick="trocarModulo('relacionamento')"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
@@ -740,6 +741,7 @@ const G={
   ws:{eventos:[],convidados:[],eventoAtualId:null,dragId:null,busca:'',view:'eventos',modoDemo:false},
   an:{anuncios:[],view:'kanban',busca:'',dragId:null,modoDemo:false},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
+  geral:{hojeOffset:0},
 };
 
 /* ---- FIREBASE HELPERS (via SDK autenticado — nunca mais fetch cru) ---- */
@@ -819,8 +821,8 @@ async function fazerLogin(){
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
-  ['ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{
-    const mod={'ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios','ni-ia':'ia'}[id];
+  ['ni-geral','ni-rel','ni-ws','ni-an','ni-ia'].forEach(id=>{
+    const mod={'ni-geral':'geral','ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'anuncios','ni-ia':'ia'}[id];
     const el=document.getElementById(id);
     if(el) el.style.display=podeVerModulo(mod)?'':'none';
   });
@@ -880,16 +882,19 @@ async function trocarModulo(mod){
   if(!podeVerModulo(mod)){toast('Sem acesso a este módulo','err');return;}
   G.modulo=mod;
   fecharDetail();
+  document.getElementById('ni-geral').classList.toggle('on',mod==='geral');
   document.getElementById('ni-mk').classList.toggle('on',mod==='marketing');
   document.getElementById('ni-rel').classList.toggle('on',mod==='relacionamento');
   document.getElementById('ni-ws').classList.toggle('on',mod==='workshop');
   document.getElementById('ni-an').classList.toggle('on',mod==='anuncios');
   document.getElementById('ni-ia').classList.toggle('on',mod==='ia');
-  document.getElementById('sb-tag').textContent={marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios',ia:'IA (Eva)'}[mod]||mod;
+  document.getElementById('sb-tag').textContent={geral:'Dashboard Geral',marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',anuncios:'Anúncios',ia:'IA (Eva)'}[mod]||mod;
   if(mod==='marketing'){
     if(!G.mk.leads.length)await initMarketing();
     else renderMarketing();
     iniciarAutoRefreshMk();
+  } else if(mod==='geral'){
+    pararTimerCRM();pararAutoRefreshMk();await initGeral();
   } else if(mod==='workshop'){
     pararTimerCRM();pararAutoRefreshMk();await initWorkshop();
   } else if(mod==='anuncios'){
@@ -935,10 +940,10 @@ async function initMarketing(){
   if(!fbOk()){initDemoMarketing();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
   else{
     try{G.mk.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}
-    // NPS e Indicações tambem aparecem no painel "Hoje" do CRM, entao
-    // precisam estar carregados mesmo que a pessoa nunca abra o modulo
-    // Relacionamento nessa sessao.
-    try{G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');}catch(e){console.error(e);}
+    // NPS, Indicações e clientes do Relacionamento tambem aparecem no painel
+    // "Hoje" do CRM e no Dashboard Geral, entao precisam estar carregados
+    // mesmo que a pessoa nunca abra o modulo Relacionamento nessa sessao.
+    try{G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');G.rel.clientes=await fbList('clientes_rel');}catch(e){console.error(e);}
   }
   renderMarketing();
 }
@@ -1383,6 +1388,136 @@ function renderDashboardHoje(cnt){
   html+='</div>';
   wrap.innerHTML=html;
   cnt.appendChild(wrap);
+}
+/* ============================================================
+   DASHBOARD GERAL — visão consolidada do dia (CRM + Relacionamento)
+   ============================================================ */
+async function initGeral(){
+  document.getElementById('tb').innerHTML='';
+  document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando...</div>';
+  if(fbOk()){
+    try{
+      if(!G.mk.leads.length)G.mk.leads=await fbList('leads');
+      if(!G.rel.clientes.length)G.rel.clientes=await fbList('clientes_rel');
+      if(!G.rel.nps.length)G.rel.nps=await fbList('nps_rel');
+      if(!G.rel.indicacoes.length)G.rel.indicacoes=await fbList('indicacoes_rel');
+    }catch(e){console.error(e);toast('Erro ao carregar dados.','red');}
+  }
+  renderGeral();
+}
+function statsGeralDoDia(offset=0){
+  const diaISO=hojeISOlocal(offset);
+  const hojeBRstr=hoje(offset);
+  const leadsDoDia=G.mk.leads.filter(l=>l.dtISO===diaISO);
+  const clientes=G.rel.clientes;
+
+  const leadsPorCanalMkt={};ORIGENS_MK.marketing.forEach(o=>{leadsPorCanalMkt[o]=leadsDoDia.filter(l=>l.origem===o).length;});
+  const totalLeadsMkt=Object.values(leadsPorCanalMkt).reduce((a,b)=>a+b,0);
+  const leadsPassanteLojaEvento=leadsDoDia.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length;
+  const leadsMyBusinessOutra=leadsDoDia.filter(l=>['My Business','Outra'].includes(l.origem)).length;
+  const leadsCarteiraProspIndic=leadsDoDia.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length;
+  const totalLeadsOutros=leadsDoDia.filter(l=>ORIGENS_MK.outros.includes(l.origem)).length;
+  const leadsCompra=leadsDoDia.filter(l=>ORIGENS_MK.compra.includes(l.origem)).length;
+
+  const npsInd=statsNpsIndDoDia(null,offset);
+
+  const visitas1ano=clientes.filter(c=>c.visita1ano==='realizada'&&c.visita1anoData===diaISO).length;
+  const visitas2anos=clientes.filter(c=>c.visita2anos==='realizada'&&c.visita2anosData===diaISO).length;
+
+  const visitasMkt=G.mk.leads.filter(l=>l.agendamentoData===diaISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)==='marketing').length;
+  const visitasOutras=G.mk.leads.filter(l=>l.agendamentoData===diaISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)==='outros').length;
+
+  const agendamento=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===diaISO&&l.origem!=='Compra').length;
+  const agendamentoCompra=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===diaISO&&l.origem==='Compra').length;
+
+  const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem===o).length;if(n>0)vendasMktPorCanal[o]=n;});
+  const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem===o).length;if(n>0)vendasOutrosPorCanal[o]=n;});
+  const vendasCompra=G.mk.leads.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length;
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr).forEach(l=>{const v=l.captador||l.by||'?';vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
+  const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
+  const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
+  const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
+
+  return{leadsPorCanalMkt,totalLeadsMkt,leadsPassanteLojaEvento,leadsMyBusinessOutra,leadsCarteiraProspIndic,totalLeadsOutros,leadsCompra,
+    npsInd,visitas1ano,visitas2anos,visitasMkt,visitasOutras,agendamento,agendamentoCompra,
+    vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,totalVendasVendedor};
+}
+function renderGeral(){
+  const tb=document.getElementById('tb');
+  const offset=G.geral.hojeOffset||0;
+  const rotuloDia=offset===0?'Hoje':(offset===-1?'Ontem':`${Math.abs(offset)} dias atrás`);
+  tb.innerHTML=`
+    <div class="tb-title"><i class="ti ti-layout-dashboard"></i> Dashboard Geral</div>
+    <div class="tb-spacer"></div>`;
+  const cnt=document.getElementById('cnt');cnt.style.cssText='flex:1;overflow-y:auto';
+  const st=statsGeralDoDia(offset);
+
+  function rpRow(label,val,forte){return `<div class="rp-row${forte?' rp-total':''}"><span>${label}</span><strong>${val}</strong></div>`;}
+  function colDividida(titulo,icone1,label1,val1,cor1,bg1,icone2,label2,val2,cor2,bg2){
+    return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden">
+      <div style="padding:8px 12px;font-size:11px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--bdr)">${titulo}</div>
+      <div style="padding:14px 12px;text-align:center;background:${bg1}">
+        <div style="font-size:24px;font-weight:700;color:${cor1}">${val1}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">${icone1} ${label1}</div>
+      </div>
+      <div style="padding:14px 12px;text-align:center;background:${bg2};border-top:1px solid var(--bdr)">
+        <div style="font-size:24px;font-weight:700;color:${cor2}">${val2}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">${icone2} ${label2}</div>
+      </div>
+    </div>`;
+  }
+  function listaCanalCard(titulo,emoji,itens,total,corTotal){
+    const linhas=Object.keys(itens).length?Object.entries(itens).map(([k,v])=>rpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhum</div>';
+    return `<div class="rp-section">
+      <div class="rp-sec-title">${emoji} ${titulo}</div>
+      ${linhas}
+      <div class="rp-row rp-total"><span>Total</span><strong style="color:${corTotal||'inherit'}">${total}</strong></div>
+    </div>`;
+  }
+
+  cnt.innerHTML=`<div style="padding:20px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)-1;renderGeral()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
+      <h2 style="font-size:18px">📊 ${rotuloDia} — ${hoje(offset)}</h2>
+      <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="G.geral.hojeOffset=(G.geral.hojeOffset||0)+1;renderGeral()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
+      ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
+    </div>
+
+    <div class="rel-section-title" style="margin-bottom:8px"><i class="ti ti-users"></i> Leads</div>
+    <div class="rp-grid" style="margin-bottom:20px">
+      ${listaCanalCard('Leads Canal de Marketing','📢',st.leadsPorCanalMkt,st.totalLeadsMkt)}
+      <div class="rp-section">
+        <div class="rp-sec-title">🏪 Leads Outros Canais</div>
+        ${rpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento)}
+        ${rpRow('My Business + Outra',st.leadsMyBusinessOutra)}
+        ${rpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic)}
+        <div class="rp-row rp-total"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+        <div class="rp-sec-title" style="margin-top:14px">🛒 Lead Compra</div>
+        <div class="rp-row rp-total"><span>Compra</span><strong>${st.leadsCompra}</strong></div>
+      </div>
+    </div>
+
+    <div class="rel-section-title" style="margin-bottom:8px"><i class="ti ti-chart-bar"></i> Indicadores do dia</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+      ${colDividida('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8','#e8f8fb','🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b','#fde8f0')}
+      ${colDividida('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8','#f3e8fb','✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8','#e8f8fb')}
+      ${colDividida('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'var(--gold)','var(--goldl)','🏪','Visitas outras',st.visitasOutras,'var(--gold)','var(--goldl)')}
+      ${colDividida('Agendamentos','📅','Agendamento',st.agendamento,'var(--gold)','var(--goldl)','🛒','Agendamento compra',st.agendamentoCompra,'var(--gold)','var(--goldl)')}
+    </div>
+
+    <div class="rel-section-title" style="margin-bottom:8px"><i class="ti ti-cash"></i> Vendas</div>
+    <div class="rp-grid">
+      ${listaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c')}
+      ${listaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c')}
+      <div class="rp-section">
+        <div class="rp-sec-title">🧑‍💼 Vendas por Vendedor</div>
+        ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>rpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
+        <div class="rp-row rp-total"><span>Total</span><strong style="color:#1a6b3c">${st.totalVendasVendedor}</strong></div>
+        <div class="rp-sec-title" style="margin-top:14px">🛒 Compra</div>
+        <div class="rp-row rp-total"><span>Vendas (Compra)</span><strong style="color:#1a6b3c">${st.vendasCompra}</strong></div>
+      </div>
+    </div>
+  </div>`;
 }
 function renderRelatoriosMk(cnt){
   const wrap=document.createElement('div');wrap.className='rel-wrap';
