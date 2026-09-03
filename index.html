@@ -793,6 +793,18 @@ async function proximoId(prefixo,lista,col_config,campo){
 function hoje(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
 function isoParaBR(iso){if(!iso)return'';const[a,m,d]=iso.split('-');return`${d}/${m}/${a}`;}
 function brParaISO(br){if(!br)return'';const[d,m,a]=br.split('/');return`${a}-${m}-${d}`;}
+// Quem realmente vendeu, pra relatorios por vendedor. "captador" e' quem esta
+// com o lead ATUALMENTE atribuido - se o lead foi vendido sem passar por
+// "Transferir" antes (comum quando outro vendedor so assume e fecha),
+// captador continua com o nome antigo mesmo a venda sendo de outra pessoa.
+// O historico da propria acao de "Vendido" registra quem realmente clicou
+// nela (campo "by"), que e' a fonte confiavel - so cai pra captador/by do
+// lead se por algum motivo essa entrada nao existir (achado a pedido da
+// Aline, 02/09/2026: venda de Carteira do Maicon aparecia como do Janderson).
+function quemVendeu(l){
+  const entrada=[...(l.historico||[])].reverse().find(h=>/vendido/i.test(h.acao||''));
+  return (entrada&&entrada.by)||l.captador||l.by||'?';
+}
 function diasDesdeCompra(dtISO){if(!dtISO)return 0;return Math.floor((new Date()-new Date(dtISO+'T12:00:00'))/(864e5));}
 function labelDias(d){if(d<30)return`${d}d`;if(d<365)return`${Math.floor(d/30)}m`;const a=Math.floor(d/365),m=Math.floor((d%365)/30);return m>0?`${a}a ${m}m`:`${a}a`;}
 function aniversarioMes(dtNasc){if(!dtNasc)return false;return parseInt(dtNasc.split('-')[1])===new Date().getMonth()+1;}
@@ -1470,7 +1482,7 @@ function statsGeralIntervalo(iniISO,fimISO){
   const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasMktPorCanal[o]=n;});
   const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasOutrosPorCanal[o]=n;});
   const vendasCompra=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').length;
-  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)).forEach(l=>{const v=l.captador||l.by||'?';vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)).forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
   const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
