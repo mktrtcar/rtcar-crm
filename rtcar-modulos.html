@@ -3857,6 +3857,86 @@ function desmontarRTCarCRM(){
     document.body.appendChild(root);
   }
 }
+
+// Handlers inline (onclick="..." etc, no HTML estatico e nas strings de
+// template que o JS gera) rodam no escopo GLOBAL do navegador, entao toda
+// funcao referenciada assim precisa existir em window - mesmo estando
+// isolada aqui dentro da IIFE. Gerado automaticamente (achando toda funcao
+// chamada dentro de algum on*="..." que realmente existe no arquivo).
+window.abrirDetailLead=abrirDetailLead;
+window.abrirDrill=abrirDrill;
+window.abrirModalAn=abrirModalAn;
+window.abrirModalCliente=abrirModalCliente;
+window.abrirModalConvidado=abrirModalConvidado;
+window.abrirModalEvento=abrirModalEvento;
+window.abrirModalInt=abrirModalInt;
+window.abrirModalIntegracoes=abrirModalIntegracoes;
+window.abrirModalLead=abrirModalLead;
+window.abrirModalObs=abrirModalObs;
+window.abrirModalObsWs=abrirModalObsWs;
+window.abrirModalPerda=abrirModalPerda;
+window.abrirModalResgate=abrirModalResgate;
+window.abrirModalVendido=abrirModalVendido;
+window.abrirTransferirLead=abrirTransferirLead;
+window.abrirVendedorPopup=abrirVendedorPopup;
+window.abrirWhatsappLead=abrirWhatsappLead;
+window.confirmarExclusaoLead=confirmarExclusaoLead;
+window.confirmarImportacaoRel=confirmarImportacaoRel;
+window.confirmarOptOut=confirmarOptOut;
+window.confirmarPerda=confirmarPerda;
+window.confirmarResgate=confirmarResgate;
+window.confirmarTransferencia=confirmarTransferencia;
+window.confirmarVendedorPopup=confirmarVendedorPopup;
+window.confirmarVendido=confirmarVendido;
+window.copiarMsg=copiarMsg;
+window.editarConvidado=editarConvidado;
+window.excluirAn=excluirAn;
+window.excluirIndicacao=excluirIndicacao;
+window.excluirNps=excluirNps;
+window.executarExclusaoLead=executarExclusaoLead;
+window.exportarClientesCSV=exportarClientesCSV;
+window.exportarRelatorioCSV=exportarRelatorioCSV;
+window.fazerLogin=fazerLogin;
+window.fecharDetail=fecharDetail;
+window.fecharModal=fecharModal;
+window.initIA=initIA;
+window.logout=logout;
+window.marcarRetiradoRel=marcarRetiradoRel;
+window.mascaraTel=mascaraTel;
+window.moverCliente=moverCliente;
+window.moverLead=moverLead;
+window.processarArquivoImportacao=processarArquivoImportacao;
+window.recuperarSenha=recuperarSenha;
+window.renderAnuncios=renderAnuncios;
+window.renderGeral=renderGeral;
+window.renderIA=renderIA;
+window.renderMarketing=renderMarketing;
+window.renderRelacionamento=renderRelacionamento;
+window.renderVisitasDashboard=renderVisitasDashboard;
+window.renderWorkshop=renderWorkshop;
+window.salvarAn=salvarAn;
+window.salvarCliente=salvarCliente;
+window.salvarConvidado=salvarConvidado;
+window.salvarEvento=salvarEvento;
+window.salvarIndicacao=salvarIndicacao;
+window.salvarInteracao=salvarInteracao;
+window.salvarLead=salvarLead;
+window.salvarNps=salvarNps;
+window.salvarObs=salvarObs;
+window.salvarObsWs=salvarObsWs;
+window.setAgendamentoDataMk=setAgendamentoDataMk;
+window.setAgendamentoStatusMk=setAgendamentoStatusMk;
+window.setSimNaoRel=setSimNaoRel;
+window.setTagIndicacao=setTagIndicacao;
+window.setVisitaRel=setVisitaRel;
+window.toast=toast;
+window.toggleAguardandoRetornoMk=toggleAguardandoRetornoMk;
+window.toggleCampoRel=toggleCampoRel;
+window.toggleEncantamentoMk=toggleEncantamentoMk;
+window.toggleNuncaRespondeuMk=toggleNuncaRespondeuMk;
+window.toggleVendedorEsteira=toggleVendedorEsteira;
+window.trocarModulo=trocarModulo;
+window.trocarViewGeral=trocarViewGeral;
 window.RTCarCRM={montar:montarRTCarCRM,desmontar:desmontarRTCarCRM};
 // Modo standalone (arquivo aberto direto, como sempre foi): monta
 // automaticamente no <body> - a menos que o sistema principal marque
