@@ -1052,6 +1052,13 @@ function renderMarketing(){
   const cnt=document.getElementById('cnt');
   G.mk._scrollAnterior={};
   cnt.querySelectorAll('.kb-col-body').forEach(b=>{G.mk._scrollAnterior[b.dataset.col]=b.scrollTop;});
+  // Rolagem horizontal do quadro (pra ver colunas mais a direita, tipo
+  // "Venda") tambem precisa ser preservada - sem isso, o auto-refresh de
+  // 10 em 10s reconstroi o quadro do zero e joga a visao de volta pro
+  // inicio a cada ciclo, mesmo sem a pessoa ter mexido em nada (achado a
+  // pedido da Aline, 02/09/2026: rolagem so pode mudar por acao manual).
+  const kanbanWrapAntigo=cnt.querySelector('.kanban-wrap');
+  G.mk._scrollLeftAnterior=kanbanWrapAntigo?kanbanWrapAntigo.scrollLeft:(G.mk._scrollLeftAnterior||0);
   cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='hoje') renderDashboardHoje(cnt);
   else if(view==='kanban') renderKanbanMk(cnt);
@@ -1180,6 +1187,7 @@ function renderKanbanMk(cnt){
   });
   cnt.appendChild(wrap);
   cnt.querySelectorAll('.kb-col-body').forEach(b=>{if(scrollAnterior[b.dataset.col])b.scrollTop=scrollAnterior[b.dataset.col];});
+  if(G.mk._scrollLeftAnterior)wrap.scrollLeft=G.mk._scrollLeftAnterior;
   iniciarTimerCRM();
 }
 
