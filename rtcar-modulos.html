@@ -250,6 +250,10 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;over
 .geral-wrap .rp-row strong{font-size:12px}
 .geral-wrap .rp-total{margin:2px -4px 0;padding:3px 4px}
 .geral-cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.geral-top-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:10px}
+.geral-top-row>div{flex:1;min-width:0}
+.geral-leads-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.geral-vendas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .geral-ind-box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden}
 .geral-ind-box>.hd{padding:4px 10px;font-size:10px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--bdr)}
 .geral-ind-box>.stat{padding:6px 10px;text-align:center}
@@ -1496,37 +1500,42 @@ function renderGeral(){
       ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="G.geral.hojeOffset=0;renderGeral()">Voltar pra hoje</button>':''}
     </div>
 
-    <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-users"></i> Leads</div>
-    <div class="rp-grid" style="margin-bottom:10px">
-      ${listaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true)}
-      <div class="rp-section">
-        <div class="rp-sec-title">🏪 Leads Outros Canais</div>
-        ${rpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento)}
-        ${rpRow('My Business + Outra',st.leadsMyBusinessOutra)}
-        ${rpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic)}
-        <div class="rp-row rp-total"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+    <div class="geral-top-row">
+      <div>
+        <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-users"></i> Leads</div>
+        <div class="geral-leads-grid">
+          ${listaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true)}
+          <div class="rp-section">
+            <div class="rp-sec-title">🏪 Leads Outros Canais</div>
+            ${rpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento)}
+            ${rpRow('My Business + Outra',st.leadsMyBusinessOutra)}
+            ${rpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic)}
+            <div class="rp-row rp-total"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-cash"></i> Vendas</div>
+        <div class="geral-vendas-grid">
+          ${listaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c')}
+          ${listaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c')}
+          <div class="rp-section">
+            <div class="rp-sec-title">🧑‍💼 Vendas por Vendedor</div>
+            ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>rpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
+            <div class="rp-row rp-total"><span>Total</span><strong style="color:#1a6b3c">${st.totalVendasVendedor}</strong></div>
+            <div class="rp-sec-title" style="margin-top:8px">🛒 Compra</div>
+            <div class="rp-row rp-total"><span>Vendas (Compra)</span><strong style="color:#1a6b3c">${st.vendasCompra}</strong></div>
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-chart-bar"></i> Indicadores do dia</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
       ${indBox('NPS e Indicações','💬','NPS pedidos',st.npsInd.nps,'#0b7ba8','🎯','Indicações recebidas',st.npsInd.indicacoes,'#c2185b')}
       ${indBox('Visitas de aniversário','🎁','Visitas 1 ano',st.visitas1ano,'#6b3db8','✨','Visitas 2 anos',st.visitas2anos,'#0b7ba8')}
       ${indBox('Visitas por origem','📢','Visitas marketing',st.visitasMkt,'#b8860b','🏪','Visitas outras',st.visitasOutras,'#b8860b')}
       ${indBox('Agendamentos','📅','Agendamento',st.agendamento,'#b8860b','🛒','Agendamento compra',st.agendamentoCompra,'#b8860b')}
-    </div>
-
-    <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-cash"></i> Vendas</div>
-    <div class="rp-grid">
-      ${listaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c')}
-      ${listaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c')}
-      <div class="rp-section">
-        <div class="rp-sec-title">🧑‍💼 Vendas por Vendedor</div>
-        ${Object.keys(st.vendasPorVendedor).length?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>rpRow(k,v)).join(''):'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>'}
-        <div class="rp-row rp-total"><span>Total</span><strong style="color:#1a6b3c">${st.totalVendasVendedor}</strong></div>
-        <div class="rp-sec-title" style="margin-top:8px">🛒 Compra</div>
-        <div class="rp-row rp-total"><span>Vendas (Compra)</span><strong style="color:#1a6b3c">${st.vendasCompra}</strong></div>
-      </div>
     </div>
   </div>`;
 }
