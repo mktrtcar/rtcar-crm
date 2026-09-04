@@ -82,6 +82,31 @@ sob demanda, e trocar toda referência `G.` dentro de atributo inline por
 `__G().`. **Se você adicionar um onclick novo que mexe em `G` direto, use
 `__G().` em vez de `G.`** — nunca exponha `G` inteiro em `window`.
 
+### Versão avulsa pra embutir (`embed/rtcar-crm.v1.js`)
+
+Pedido do Claude do lado da Marcela, 04/09/2026: em vez do sistema principal
+buscar o `index.html` mais novo toda vez (sem nenhum controle de quando uma
+mudança passa a valer do lado deles), existe um arquivo `.js` **avulso e
+autossuficiente** gerado a partir do `index.html`, pra ser referenciado com
+uma tag fixa — igual ao SDK do Firebase:
+
+```html
+<script>window.RTCARCRM_EMBED = true;</script>
+<script src="https://raw.githubusercontent.com/mktrtcar/rtcar-crm/master/embed/rtcar-crm.v1.js"></script>
+```
+
+Esse arquivo já leva embutido (em base64, dentro dele mesmo) tanto o HTML
+quanto o CSS do `#rtcar-crm-root` — não depende de nenhuma marcação
+pré-existente na página. Na primeira chamada de `RTCarCRM.montar(container)`,
+ele cria o próprio `<style>`/`<div id="rtcar-crm-root">` sozinho.
+
+Cada nova versão (`v2`, `v3`, ...) fica em um arquivo novo — a versão antiga
+nunca é sobrescrita, então quem referencia `rtcar-crm.v1.js` só passa a usar
+uma versão nova quando **decidir trocar a URL**, do lado deles. É gerado por
+um script (`build_embed.js`, fora deste repositório por enquanto) a partir
+do `index.html` — se algo relevante mudar no isolamento (`montar`/
+`desmontar`/`#rtcar-crm-root`), o script pode precisar de ajuste.
+
 ## Próximos passos conhecidos
 
 - Integração com Autoconf (webhook de leads).
