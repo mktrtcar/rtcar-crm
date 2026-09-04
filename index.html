@@ -2105,6 +2105,17 @@ async function setAgendamentoDataMk(id,valor,e){
   await regHistMk(lead,'📅 Data de agendamento definida',valor?isoParaBR(valor):'(removida)',G.user?.n||'','gold');
   renderMarketing();
 }
+async function editarDataVendaMk(id,valorISO){
+  if(!valorISO)return;
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const antigo=lead.dtVenda,novo=isoParaBR(valorISO);
+  if(antigo===novo)return;
+  lead.dtVenda=novo;
+  await salvarCamposMk(id,{dtVenda:novo});
+  await regHistMk(lead,'📅 Data da venda corrigida',`De ${antigo||'—'} para ${novo}`,G.user?.n||'','gold');
+  if(G.mk.detailId===id)abrirDetailLead(id);
+  renderMarketing();
+}
 async function toggleEncantamentoMk(id,campo,e){
   e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
@@ -2157,7 +2168,7 @@ function abrirDetailLead(id){
   pnl.innerHTML=`
     <div class="detail-head">
       <span class="badge" style="background:${col.bg};color:${col.cor};font-size:12px">${col.emoji} ${col.label}</span>
-      ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>`:''}
+      ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>${isMaster()?`<input type="date" title="Corrigir data da venda (só Master)" value="${lead.dtVenda?brParaISO(lead.dtVenda):''}" onchange="editarDataVendaMk('${id}',this.value)" style="font-size:11px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f)">`:''}`:''}
       ${lead.vendaRecuperada?`<span class="tag-conv" style="background:var(--purplel);color:var(--purple)"><i class="ti ti-refresh"></i> Venda recuperada</span>`:''}
       ${lead.optOutContato?`<span class="tag-conv" style="background:var(--bg3);color:var(--tx3)"><i class="ti ti-bell-off"></i> Não contatar (LGPD)</span>`:''}
       <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
@@ -2331,11 +2342,13 @@ function renderKanbanRel(cnt){
         <div class="card-acao" style="background:${col.bg};color:${col.cor}"><i class="ti ti-bolt"></i>${col.acolabel}</div>
         ${renderSubStatusRel(c,col)}
         <div class="card-btn card-btn-label" style="display:inline-flex;margin:2px 0 6px;cursor:pointer" onclick="abrirVendedorPopup('${c.id}',event)" title="Clique pra trocar o vendedor"><i class="ti ti-steering-wheel"></i> ${c.vendedor?('Vendedor: '+c.vendedor):'Definir vendedor'}</div>
-        <div class="card-footer">
-          <span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span>
-          <div class="card-actions">
-            <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i></button>
-            ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-copy"></i></button>`:''}
+        <div class="card-footer" style="flex-direction:column;align-items:stretch;gap:6px">
+          <span class="badge" style="background:${col.bg};color:${col.cor};align-self:flex-start">${labelDias(dias)}</span>
+          <div class="card-actions" style="flex-wrap:wrap">
+            <button class="card-btn" onclick="event.stopPropagation();abrirModalCliente('${c.id}')" title="Editar"><i class="ti ti-pencil"></i> Editar</button>
+            <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i> Registrar</button>
+            ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
+            <button class="card-btn" onclick="event.stopPropagation();excluirClienteRel('${c.id}')" title="Excluir" style="color:var(--red)"><i class="ti ti-trash"></i> Excluir</button>
           </div>
         </div>`;
       return card;
@@ -2508,9 +2521,9 @@ function exportarClientesCSV(){
 function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
 const IMPORT_ALIASES={
   nome:['nome','cliente'],
-  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra'],
+  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra','venda','data da venda','data de venda'],
   dtNascimento:['data de nascimento','data nascimento','nascimento','dtnascimento'],
-  carro:['carro','veiculo','veiculo comprado'],
+  carro:['carro','veiculo','veiculo comprado','modelo'],
   telefone:['telefone','tel','fone','celular','whatsapp'],
   vendedor:['vendedor'],
 };
@@ -2551,7 +2564,11 @@ function processarArquivoImportacao(input){
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       const sheet=wb.Sheets[wb.SheetNames[0]];
       const linhasBrutas=XLSX.utils.sheet_to_json(sheet,{defval:''});
-      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v));
+      // dtCompra fica em ISO (aaaa-mm-dd) - ordem crescente por comparacao direta de string
+      // ja da a ordem cronologica certa (dia 01/01 antes de 03/01), sem linha nenhuma
+      // ficar antes por acaso (linhas sem data vao pro final).
+      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v))
+        .sort((a,b)=>{if(!a.dtCompra)return 1;if(!b.dtCompra)return-1;return a.dtCompra.localeCompare(b.dtCompra);});
       if(!G.rel.importLinhas.length)toast('Nenhuma linha encontrada na planilha','red');
     }catch(err){console.error(err);toast('Erro ao ler a planilha — confira o formato (.xlsx, .xls ou .csv)','red');G.rel.importLinhas=null;}
     renderRelacionamento();
@@ -2913,6 +2930,12 @@ async function salvarCliente(){
     fecharModal('ov-cliente');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
+}
+async function excluirClienteRel(id){
+  if(!confirm('Excluir este cliente? Essa ação não pode ser desfeita — o histórico todo se perde.'))return;
+  G.rel.clientes=G.rel.clientes.filter(x=>x.id!==id);
+  try{if(!G.rel.modoDemo)await db.collection('clientes_rel').doc(id).delete();}catch(e){console.error(e);}
+  toast('Cliente removido');renderRelacionamento();
 }
 const VENDEDORES_CARTEIRA=['Rafael','Maicon','Janderson','Victor'];
 let _vendedorPopup=null;
@@ -3996,6 +4019,7 @@ window.editarConvidado=editarConvidado;
 window.excluirAn=excluirAn;
 window.excluirIndicacao=excluirIndicacao;
 window.excluirNps=excluirNps;
+window.excluirClienteRel=excluirClienteRel;
 window.executarExclusaoLead=executarExclusaoLead;
 window.exportarClientesCSV=exportarClientesCSV;
 window.exportarRelatorioCSV=exportarRelatorioCSV;
@@ -4028,6 +4052,7 @@ window.salvarNps=salvarNps;
 window.salvarObs=salvarObs;
 window.salvarObsWs=salvarObsWs;
 window.setAgendamentoDataMk=setAgendamentoDataMk;
+window.editarDataVendaMk=editarDataVendaMk;
 window.setAgendamentoStatusMk=setAgendamentoStatusMk;
 window.setSimNaoRel=setSimNaoRel;
 window.setTagIndicacao=setTagIndicacao;
