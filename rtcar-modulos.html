@@ -2105,6 +2105,17 @@ async function setAgendamentoDataMk(id,valor,e){
   await regHistMk(lead,'📅 Data de agendamento definida',valor?isoParaBR(valor):'(removida)',G.user?.n||'','gold');
   renderMarketing();
 }
+async function editarDataVendaMk(id,valorISO){
+  if(!valorISO)return;
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const antigo=lead.dtVenda,novo=isoParaBR(valorISO);
+  if(antigo===novo)return;
+  lead.dtVenda=novo;
+  await salvarCamposMk(id,{dtVenda:novo});
+  await regHistMk(lead,'📅 Data da venda corrigida',`De ${antigo||'—'} para ${novo}`,G.user?.n||'','gold');
+  if(G.mk.detailId===id)abrirDetailLead(id);
+  renderMarketing();
+}
 async function toggleEncantamentoMk(id,campo,e){
   e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
@@ -2157,7 +2168,7 @@ function abrirDetailLead(id){
   pnl.innerHTML=`
     <div class="detail-head">
       <span class="badge" style="background:${col.bg};color:${col.cor};font-size:12px">${col.emoji} ${col.label}</span>
-      ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>`:''}
+      ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>${isMaster()?`<input type="date" title="Corrigir data da venda (só Master)" value="${lead.dtVenda?brParaISO(lead.dtVenda):''}" onchange="editarDataVendaMk('${id}',this.value)" style="font-size:11px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f)">`:''}`:''}
       ${lead.vendaRecuperada?`<span class="tag-conv" style="background:var(--purplel);color:var(--purple)"><i class="ti ti-refresh"></i> Venda recuperada</span>`:''}
       ${lead.optOutContato?`<span class="tag-conv" style="background:var(--bg3);color:var(--tx3)"><i class="ti ti-bell-off"></i> Não contatar (LGPD)</span>`:''}
       <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
@@ -4028,6 +4039,7 @@ window.salvarNps=salvarNps;
 window.salvarObs=salvarObs;
 window.salvarObsWs=salvarObsWs;
 window.setAgendamentoDataMk=setAgendamentoDataMk;
+window.editarDataVendaMk=editarDataVendaMk;
 window.setAgendamentoStatusMk=setAgendamentoStatusMk;
 window.setSimNaoRel=setSimNaoRel;
 window.setTagIndicacao=setTagIndicacao;
