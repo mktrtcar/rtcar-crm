@@ -2342,12 +2342,13 @@ function renderKanbanRel(cnt){
         <div class="card-acao" style="background:${col.bg};color:${col.cor}"><i class="ti ti-bolt"></i>${col.acolabel}</div>
         ${renderSubStatusRel(c,col)}
         <div class="card-btn card-btn-label" style="display:inline-flex;margin:2px 0 6px;cursor:pointer" onclick="abrirVendedorPopup('${c.id}',event)" title="Clique pra trocar o vendedor"><i class="ti ti-steering-wheel"></i> ${c.vendedor?('Vendedor: '+c.vendedor):'Definir vendedor'}</div>
-        <div class="card-footer">
-          <span class="badge" style="background:${col.bg};color:${col.cor}">${labelDias(dias)}</span>
-          <div class="card-actions">
-            <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i></button>
-            ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-copy"></i></button>`:''}
-            <button class="card-btn" onclick="event.stopPropagation();excluirClienteRel('${c.id}')" title="Excluir" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+        <div class="card-footer" style="flex-direction:column;align-items:stretch;gap:6px">
+          <span class="badge" style="background:${col.bg};color:${col.cor};align-self:flex-start">${labelDias(dias)}</span>
+          <div class="card-actions" style="flex-wrap:wrap">
+            <button class="card-btn" onclick="event.stopPropagation();abrirModalCliente('${c.id}')" title="Editar"><i class="ti ti-pencil"></i> Editar</button>
+            <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i> Registrar</button>
+            ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
+            <button class="card-btn" onclick="event.stopPropagation();excluirClienteRel('${c.id}')" title="Excluir" style="color:var(--red)"><i class="ti ti-trash"></i> Excluir</button>
           </div>
         </div>`;
       return card;
