@@ -2347,6 +2347,7 @@ function renderKanbanRel(cnt){
           <div class="card-actions">
             <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i></button>
             ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-copy"></i></button>`:''}
+            <button class="card-btn" onclick="event.stopPropagation();excluirClienteRel('${c.id}')" title="Excluir" style="color:var(--red)"><i class="ti ti-trash"></i></button>
           </div>
         </div>`;
       return card;
@@ -2924,6 +2925,12 @@ async function salvarCliente(){
     fecharModal('ov-cliente');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
+}
+async function excluirClienteRel(id){
+  if(!confirm('Excluir este cliente? Essa ação não pode ser desfeita — o histórico todo se perde.'))return;
+  G.rel.clientes=G.rel.clientes.filter(x=>x.id!==id);
+  try{if(!G.rel.modoDemo)await db.collection('clientes_rel').doc(id).delete();}catch(e){console.error(e);}
+  toast('Cliente removido');renderRelacionamento();
 }
 const VENDEDORES_CARTEIRA=['Rafael','Maicon','Janderson','Victor'];
 let _vendedorPopup=null;
@@ -4007,6 +4014,7 @@ window.editarConvidado=editarConvidado;
 window.excluirAn=excluirAn;
 window.excluirIndicacao=excluirIndicacao;
 window.excluirNps=excluirNps;
+window.excluirClienteRel=excluirClienteRel;
 window.executarExclusaoLead=executarExclusaoLead;
 window.exportarClientesCSV=exportarClientesCSV;
 window.exportarRelatorioCSV=exportarRelatorioCSV;
