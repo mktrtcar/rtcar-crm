@@ -2518,10 +2518,13 @@ function exportarClientesCSV(){
    Relacionamento (Nome/Cliente, Data de compra, Data de nascimento,
    Carro, Telefone, Vendedor)
    ============================================================ */
-function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
+// cabecalhos de planilha real vem com "_" no lugar de espaco (ex: "Data_Venda",
+// "Cod_Cliente") - sem isso virava um token so ("data_venda") que nunca batia
+// com nenhum alias (todos com espaco), achado com planilha real da Aline 04/09/2026.
+function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').toLowerCase().trim();}
 const IMPORT_ALIASES={
   nome:['nome','cliente'],
-  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra','venda','data da venda','data de venda'],
+  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra','venda','data venda','data da venda','data de venda'],
   dtNascimento:['data de nascimento','data nascimento','nascimento','dtnascimento'],
   carro:['carro','veiculo','veiculo comprado','modelo'],
   telefone:['telefone','tel','fone','celular','whatsapp'],
