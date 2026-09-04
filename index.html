@@ -2520,7 +2520,7 @@ function exportarClientesCSV(){
 function normTxt(s){return(s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
 const IMPORT_ALIASES={
   nome:['nome','cliente'],
-  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra'],
+  dtCompra:['data de compra','data da compra','compra','dtcompra','data compra','venda','data da venda','data de venda'],
   dtNascimento:['data de nascimento','data nascimento','nascimento','dtnascimento'],
   carro:['carro','veiculo','veiculo comprado','modelo'],
   telefone:['telefone','tel','fone','celular','whatsapp'],
@@ -2563,7 +2563,11 @@ function processarArquivoImportacao(input){
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       const sheet=wb.Sheets[wb.SheetNames[0]];
       const linhasBrutas=XLSX.utils.sheet_to_json(sheet,{defval:''});
-      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v));
+      // dtCompra fica em ISO (aaaa-mm-dd) - ordem crescente por comparacao direta de string
+      // ja da a ordem cronologica certa (dia 01/01 antes de 03/01), sem linha nenhuma
+      // ficar antes por acaso (linhas sem data vao pro final).
+      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v))
+        .sort((a,b)=>{if(!a.dtCompra)return 1;if(!b.dtCompra)return-1;return a.dtCompra.localeCompare(b.dtCompra);});
       if(!G.rel.importLinhas.length)toast('Nenhuma linha encontrada na planilha','red');
     }catch(err){console.error(err);toast('Erro ao ler a planilha — confira o formato (.xlsx, .xls ou .csv)','red');G.rel.importLinhas=null;}
     renderRelacionamento();
