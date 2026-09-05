@@ -1402,14 +1402,19 @@ function statsGeralIntervalo(iniISO,fimISO){
   const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasMktPorCanal[o]=n;});
   const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasOutrosPorCanal[o]=n;});
   const vendasCompra=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').length;
-  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)).forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
+  // Compra e' um tipo de negocio diferente de Venda (a pessoa que fecha a
+  // Compra, hoje a Milena, nao esta "vendendo" um carro) - por isso fica de
+  // fora do "por vendedor" de Vendas e ganha sua propria contagem por quem
+  // fechou (pedido da Aline, 04/09/2026).
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra').forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
+  const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemVendeu(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;});
   const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
 
   return{leadsPorCanalMkt,totalLeadsMkt,leadsPassanteLojaEvento,leadsMyBusinessOutra,leadsCarteiraProspIndic,totalLeadsOutros,leadsCompra,
     npsInd,visitas1ano,visitas2anos,visitasMkt,visitasOutras,agendamento,agendamentoCompra,
-    vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,totalVendasVendedor};
+    vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,comprasPorVendedor,totalVendasVendedor};
 }
 function statsGeralDoDia(offset=0){
   const diaISO=hojeISOlocal(offset);
@@ -1478,12 +1483,17 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasVendedor'){
     titulo=`Vendas — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeu(l)===chave)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&quemVendeu(l)===chave)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Valor'];
+  }else if(tipo==='comprasVendedor'){
+    titulo=`Compras — ${chave}`;
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra'&&quemVendeu(l)===chave)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',fmtV(l)]);
+    colunas=['Cliente','Veículo','Valor'];
   }else if(tipo==='vendasTotal'){
     titulo='Vendas — Total do período';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO))
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra')
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasCompra'){
@@ -1546,10 +1556,6 @@ function geralListaCanalCard(titulo,emoji,itens,total,corTotal,cols2,onclickChav
 // Semana (segunda a domingo) e mês (dia 1 ao último dia) de HOJE — sempre a
 // atual, independente de qual dia/período esta selecionado no dashboard
 // (a pedido da Aline, 03/09/2026).
-function limitesSemanaAtual(){
-  const hoje=new Date();const dow=(hoje.getDay()+6)%7;
-  return{ini:hojeISOlocal(-dow),fim:hojeISOlocal(6-dow)};
-}
 function limitesMesAtual(){
   const hoje=new Date();
   const iniD=new Date(hoje.getFullYear(),hoje.getMonth(),1);
@@ -1557,28 +1563,45 @@ function limitesMesAtual(){
   const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return{ini:iso(iniD),fim:iso(fimD)};
 }
+// Semana (segunda a domingo) sempre recortada dentro do mes atual - se a
+// semana comeca no mes anterior (ex: semana de 31/08 a 06/09) so conta a
+// partir do dia 01; se a semana termina no mes seguinte, para no ultimo dia
+// do mes atual. Pedido da Aline (04/09/2026): mes e semana nunca podem
+// misturar dias de meses diferentes na contagem.
+function limitesSemanaAtual(){
+  const hoje=new Date();const dow=(hoje.getDay()+6)%7;
+  let ini=hojeISOlocal(-dow),fim=hojeISOlocal(6-dow);
+  const mes=limitesMesAtual();
+  if(ini<mes.ini)ini=mes.ini;
+  if(fim>mes.fim)fim=mes.fim;
+  return{ini,fim};
+}
 function geralBlocoResumoVendas(){
   const semana=limitesSemanaAtual(),mes=limitesMesAtual();
   const stSemana=statsGeralIntervalo(semana.ini,semana.fim);
   const stMes=statsGeralIntervalo(mes.ini,mes.fim);
-  const totalSemana=stSemana.totalVendasMkt+stSemana.totalVendasOutros+stSemana.vendasCompra;
-  const totalMes=stMes.totalVendasMkt+stMes.totalVendasOutros+stMes.vendasCompra;
-  function bloco(tituloResumo,st,total,iniISO,fimISO){
+  // Compra fica de fora do total de Vendas - vira sua propria caixa ao lado
+  // (pedido da Aline, 04/09/2026: os leads da Milena sao Compra, nao Venda).
+  const totalSemana=stSemana.totalVendasMkt+stSemana.totalVendasOutros;
+  const totalMes=stMes.totalVendasMkt+stMes.totalVendasOutros;
+  function bloco(tituloResumo,porVendedorObj,total,iniISO,fimISO,drillVendedor,drillTotal){
     const p=`'${iniISO}','${fimISO}'`;
-    const porVendedor=Object.keys(st.vendasPorVendedor).length
-      ?Object.entries(st.vendasPorVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('vendasVendedor','${k}',${p})`)).join('')
+    const porVendedor=Object.keys(porVendedorObj).length
+      ?Object.entries(porVendedorObj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('${drillVendedor}','${k}',${p})`)).join('')
       :'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>';
     return`<div class="rp-section">
-      <div class="rp-sec-title">💰 ${tituloResumo}</div>
-      <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('vendasTotal',null,${p})" title="Clique pra ver quem são"><span>Total</span><strong style="color:#1a6b3c">${total}</strong></div>
+      <div class="rp-sec-title">${tituloResumo}</div>
+      <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('${drillTotal}',null,${p})" title="Clique pra ver quem são"><span>Total</span><strong style="color:#1a6b3c">${total}</strong></div>
       ${porVendedor}
     </div>`;
   }
   return`
-    <div class="rel-section-title" style="margin:14px 0 6px"><i class="ti ti-calendar-stats"></i> Vendas — semana e mês atuais (por vendedor)</div>
+    <div class="rel-section-title" style="margin:14px 0 6px"><i class="ti ti-calendar-stats"></i> Vendas e Compras — semana e mês atuais (por vendedor)</div>
     <div class="rp-grid" style="margin-bottom:14px">
-      ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,totalSemana,semana.ini,semana.fim)}
-      ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,totalMes,mes.ini,mes.fim)}
+      ${bloco(`💰 Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.vendasPorVendedor,totalSemana,semana.ini,semana.fim,'vendasVendedor','vendasTotal')}
+      ${bloco(`💰 Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.vendasPorVendedor,totalMes,mes.ini,mes.fim,'vendasVendedor','vendasTotal')}
+      ${bloco(`🛒 Compras — Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.comprasPorVendedor,stSemana.vendasCompra,semana.ini,semana.fim,'comprasVendedor','vendasCompra')}
+      ${bloco(`🛒 Compras — Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.comprasPorVendedor,stMes.vendasCompra,mes.ini,mes.fim,'comprasVendedor','vendasCompra')}
     </div>`;
 }
 function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO){
