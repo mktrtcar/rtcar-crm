@@ -1256,6 +1256,26 @@ function renderDashboardHoje(cnt){
   }
   function blocoStats(titulo,st,nomesStr,offset){
     const nm=nomesStr||'';
+    // Vendedor comum nao lida com Compra (isso e' da Milena) - no lugar de
+    // Visita/Agendamento/Compra ele ve as proprias vendas em dia/semana/mes
+    // (pedido da Aline, 04/09/2026).
+    let boxesFinais;
+    if(isSeller()){
+      const nomes=nomesStr?nomesStr.split('|'):null;
+      const semana=limitesSemanaAtual(),mes=limitesMesAtual();
+      const vendasSemana=vendasPorPeriodoMk(nomes,semana.ini,semana.fim).total;
+      const vendasMes=vendasPorPeriodoMk(nomes,mes.ini,mes.fim).total;
+      boxesFinais=`
+        ${kpiCard(st.vendas,'Vendas do dia','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
+        ${kpiCard(vendasSemana,'Vendas da semana','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${semana.ini}','${semana.fim}')`)}
+        ${kpiCard(vendasMes,'Vendas do mês','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${mes.ini}','${mes.fim}')`)}`;
+    }else{
+      boxesFinais=`
+        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
+        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
+        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
+        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}`;
+    }
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
@@ -1269,11 +1289,8 @@ function renderDashboardHoje(cnt){
           ${listaCanais(st.outrosPorCanal,nm,offset)}
         </div>
         ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)',`abrirDrillMk('visitas',null,'${nm}',${offset})`)}
-        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
         ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentos',null,'${nm}',${offset})`)}
-        ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
-        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
-        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}
+        ${boxesFinais}
       </div>
     </div>`;
   }
