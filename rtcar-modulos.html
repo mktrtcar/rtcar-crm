@@ -1208,7 +1208,7 @@ function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
     :base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
   mostrarDrilldownMk(chave?`Vendas — ${chave}`:'Vendas do período',leads);
 }
-function blocoVendasPeriodoMk(nomesStr){
+function blocoVendasPeriodoMk(nomesStr,tituloSecao){
   const nm=nomesStr||'';
   const nomes=nomesStr?nomesStr.split('|'):null;
   const semana=limitesSemanaAtual(),mes=limitesMesAtual();
@@ -1224,7 +1224,7 @@ function blocoVendasPeriodoMk(nomesStr){
       <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porVendedor}</div>
     </div>`;
   }
-  return`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Vendas — semana e mês atuais (por vendedor)</div>
+  return`<div class="d-section" style="margin-top:14px"><div class="d-section-title">${tituloSecao||'Vendas — semana e mês atuais (por vendedor)'}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px">
       ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim)}
       ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim)}
@@ -1256,6 +1256,18 @@ function renderDashboardHoje(cnt){
   }
   function blocoStats(titulo,st,nomesStr,offset){
     const nm=nomesStr||'';
+    // Milena so lida com Compra - o painel dela mostra so os 3 boxes de
+    // Compra, sem leads/visita/agendamento/vendas normais (pedido da
+    // Aline, 04/09/2026).
+    if(G.user?.r==='coordenadora'){
+      return`<div class="d-section"><div class="d-section-title">${titulo}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+          ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
+          ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
+          ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}
+        </div>
+      </div>`;
+    }
     // Vendedor comum nao lida com Compra (isso e' da Milena) - no lugar de
     // Visita/Agendamento/Compra ele ve as proprias vendas em dia/semana/mes
     // (pedido da Aline, 04/09/2026).
@@ -1348,7 +1360,7 @@ function renderDashboardHoje(cnt){
         ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
     </div>`}
-    ${isSeller()?'':blocoVendasPeriodoMk(meusNomes.join('|'))}`;
+    ${isSeller()?'':blocoVendasPeriodoMk(meusNomes.join('|'),'Compra — semana e mês atuais')}`;
   }
   html+='</div>';
   wrap.innerHTML=html;
