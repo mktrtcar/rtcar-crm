@@ -1323,12 +1323,14 @@ function renderDashboardHoje(cnt){
     const st=statsDoDiaMk(meusNomes,offset);
     const stNpsInd=statsNpsIndDoDia(meusNomes,offset);
     html+=blocoStats(`Seus números — ${G.user?.n||''}`,st,meusNomes.join('|'),offset);
-    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
+    // NPS/Indicacoes (Relacionamento) e' informacao da Milena, nao do
+    // vendedor comum (pedido da Aline, 04/09/2026).
+    html+=`${isSeller()?'':`<div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(stNpsInd.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
         ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
-    </div>
+    </div>`}
     ${blocoVendasPeriodoMk(meusNomes.join('|'))}`;
   }
   html+='</div>';
