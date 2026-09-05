@@ -1348,7 +1348,7 @@ function renderDashboardHoje(cnt){
         ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
     </div>`}
-    ${blocoVendasPeriodoMk(meusNomes.join('|'))}`;
+    ${isSeller()?'':blocoVendasPeriodoMk(meusNomes.join('|'))}`;
   }
   html+='</div>';
   wrap.innerHTML=html;
