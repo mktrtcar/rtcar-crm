@@ -918,8 +918,11 @@ function mkLeadsFiltrados(){
 function renderKanbanMk(cnt){
   const scrollAnterior=G.mk._scrollAnterior||{};
   const wrap=document.createElement('div');wrap.className='kanban-wrap';
+  const [inicioMesAtual,fimMesAtual]=inicioFimMesAtual();
   COLS_MK.filter(col=>!(escondeColunaIA()&&col.id==='ia')&&!colunaOculta(col.id)).forEach(col=>{
-    const leads=mkLeadsFiltrados().filter(l=>l.st===col.id);
+    const leads=col.id==='vendido'
+      ?mkLeadsFiltrados().filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,inicioMesAtual,fimMesAtual))
+      :mkLeadsFiltrados().filter(l=>l.st===col.id);
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
     head.innerHTML=`<span style="font-size:16px">${col.emoji}</span><span class="col-lbl" style="color:${col.cor}">${col.label}</span><span class="col-cnt" style="background:${col.bg};color:${col.cor}">${leads.length}</span>`;
@@ -1353,6 +1356,16 @@ async function initGeral(){
 // funcao, so muda o intervalo passado. dtVenda fica salvo em BR (dd/mm/aaaa),
 // entao precisa converter pra ISO antes de comparar como intervalo.
 function vendaNoPeriodoISO(l,iniISO,fimISO){const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;}
+// Inicio/fim do mes corrente em ISO (YYYY-MM-DD) - usado pra "zerar" a
+// coluna Vendido do funil todo dia 1, sem apagar nada do historico (o lead
+// continua salvo, so sai da coluna quando o mes vira).
+function inicioFimMesAtual(){
+  const d=new Date();
+  const ini=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  const ultimoDia=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  const fim=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+  return[ini,fim];
+}
 function leadRecebidoNoPeriodo(l,iniISO,fimISO){const r=primeiraRespostaVendedorISO(l);return!!r&&r>=iniISO&&r<=fimISO;}
 function statsGeralIntervalo(iniISO,fimISO){
   // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
