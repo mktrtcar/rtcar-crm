@@ -163,6 +163,7 @@
     <div class="mod-body">
       <p style="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.6">O lead será marcado como <strong>Vendido</strong> e ficará disponível para acompanhamento pós-venda.</p>
       <div class="field"><label>Veículo negociado</label><input type="text" id="vend-veiculo" placeholder="Confirme o veículo..."></div>
+      <div class="field"><label>Placa do veículo *</label><input type="text" id="vend-placa" placeholder="Ex: TRM-1510" style="text-transform:uppercase"></div>
       <div class="field"><label>Observações</label><textarea id="vend-obs" placeholder="Detalhes do fechamento..."></textarea></div>
     </div>
     <div class="mod-foot">
@@ -838,7 +839,7 @@ function renderMarketing(){
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
+      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option></select>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
       <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="__G().mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
       <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="__G().mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
       ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().mk.filtroCaptador=\'\';__G().mk.filtroDataInicio=\'\';__G().mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
@@ -2041,7 +2042,7 @@ async function salvarObs(){
   await regHistMk(lead,tipo,obs,G.user?.n||'',icone);
   fecharModal('ov-obs');toast('Registrado!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
-function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
+function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.placa||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
