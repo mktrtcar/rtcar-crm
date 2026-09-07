@@ -590,6 +590,16 @@ function quemVendeu(l){
   const entrada=[...(l.historico||[])].reverse().find(h=>/vendido/i.test(h.acao||''));
   return (entrada&&entrada.by)||l.captador||l.by||'?';
 }
+// Compra e' diferente de Venda pra fins de atribuicao: sempre e' de quem
+// CONSTA como responsavel do lead (captador/by), nunca de quem clicou em
+// "Vendido" - em Compra, as vezes o Master mexe no lead pra ajudar ou
+// corrigir algo (ex: data da venda), sem isso significar que a compra e'
+// dele. Achado com a Aline, 06/09/2026: LEAD-104 apareceu como "Aline" no
+// relatorio de Compras so porque ela editou a data da venda, mas quem
+// sempre cuidou do lead (criou, contatou, agendou) foi a Milena.
+function quemComprou(l){
+  return l.captador||l.by||'?';
+}
 function diasDesdeCompra(dtISO){if(!dtISO)return 0;return Math.floor((new Date()-new Date(dtISO+'T12:00:00'))/(864e5));}
 function labelDias(d){if(d<30)return`${d}d`;if(d<365)return`${Math.floor(d/30)}m`;const a=Math.floor(d/365),m=Math.floor((d%365)/30);return m>0?`${a}a ${m}m`:`${a}a`;}
 function aniversarioMes(dtNasc){if(!dtNasc)return false;return parseInt(dtNasc.split('-')[1])===new Date().getMonth()+1;}
@@ -1439,7 +1449,7 @@ function statsGeralIntervalo(iniISO,fimISO){
   // fora do "por vendedor" de Vendas e ganha sua propria contagem por quem
   // fechou (pedido da Aline, 04/09/2026).
   const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra').forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
-  const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemVendeu(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;});
+  const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemComprou(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;});
   const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
@@ -1520,7 +1530,7 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     colunas=['Cliente','Veículo','Origem','Valor'];
   }else if(tipo==='comprasVendedor'){
     titulo=`Compras — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra'&&quemVendeu(l)===chave)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra'&&quemComprou(l)===chave)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Valor'];
   }else if(tipo==='vendasTotal'){
@@ -1531,7 +1541,7 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
   }else if(tipo==='vendasCompra'){
     titulo='Vendas — Compra';
     itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra')
-      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemComprou(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Vendedor','Valor'];
   }else if(tipo==='nps'){
     titulo='NPS pedidos';
