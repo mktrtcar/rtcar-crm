@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RT Car — Carros usados e seminovos em Brusque</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;
+  --tx:#1a1814;--tx2:#4a4a4a;--tx3:#888;
+  --red:#e8431e;--redl:#fff0ec;
+  --gold:#b8860b;--goldl:#faf6e8;
+  --green:#1a6b3c;--greenl:#e8f5ee;
+  --dark:#1a1a1a;
+  --bdr:#e0e0e0;--r:10px;--r2:14px;
+  --f:'DM Sans',sans-serif;--s:'DM Serif Display',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+.hidden{display:none!important}
+img{max-width:100%;display:block}
+
+/* HEADER */
+header{background:var(--dark);color:#fff;position:sticky;top:0;z-index:50}
+.header-top{max-width:1200px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{font-family:var(--s);font-size:26px;letter-spacing:1px}
+.logo span{color:var(--red)}
+nav{display:flex;gap:22px;align-items:center}
+nav a{font-size:13px;font-weight:600;letter-spacing:.3px;opacity:.9}
+nav a:hover{opacity:1;color:var(--red)}
+.whats-btn{background:#25d366;color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.whats-btn:hover{opacity:.9}
+
+/* LAYOUT */
+.wrap{max-width:1200px;margin:0 auto;padding:24px 20px}
+.estoque-layout{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start}
+@media (max-width:800px){.estoque-layout{grid-template-columns:1fr}.sidebar{position:static}}
+
+.sidebar{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;position:sticky;top:80px}
+.sidebar h4{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);margin-bottom:10px}
+.sidebar .marca-item{display:flex;justify-content:space-between;padding:6px 4px;font-size:13px;cursor:pointer;border-radius:6px;color:var(--tx2)}
+.sidebar .marca-item:hover{background:var(--bg3)}
+.sidebar .marca-item.on{background:var(--redl);color:var(--red);font-weight:700}
+.busca{width:100%;padding:10px 14px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;margin-bottom:16px}
+.busca:focus{outline:none;border-color:var(--red)}
+
+.resultado-count{font-size:13px;color:var(--tx3);margin-bottom:14px}
+.grid-carros{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden;transition:box-shadow .15s,transform .15s;cursor:pointer;display:flex;flex-direction:column}
+.card:hover{box-shadow:0 6px 20px rgba(0,0,0,.1);transform:translateY(-2px)}
+.card-foto{aspect-ratio:4/3;background:var(--bg3);overflow:hidden;position:relative}
+.card-foto img{width:100%;height:100%;object-fit:cover}
+.card-prep{width:100%;height:100%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#888}
+.card-prep .ti{font-size:26px}
+.card-prep span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:4px}
+.card-titulo{font-size:15px;font-weight:700}
+.card-versao{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-size:12px;color:var(--tx3);display:flex;gap:10px;margin-top:2px}
+.card-preco{margin-top:auto;padding-top:8px}
+.card-preco .de{font-size:11px;color:var(--tx3);text-decoration:line-through}
+.card-preco .por{font-size:18px;font-weight:700;color:var(--green)}
+.card-preco .consulte{font-size:13px;font-weight:700;color:var(--gold)}
+
+.vazio{padding:60px 20px;text-align:center;color:var(--tx3)}
+
+/* DETALHE */
+.voltar{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:16px}
+.voltar:hover{color:var(--red)}
+.detalhe-layout{display:grid;grid-template-columns:1fr 380px;gap:28px;align-items:start}
+@media (max-width:900px){.detalhe-layout{grid-template-columns:1fr}}
+
+.galeria-principal{aspect-ratio:4/3;background:var(--bg3);border-radius:var(--r2);overflow:hidden;margin-bottom:10px}
+.galeria-principal img{width:100%;height:100%;object-fit:cover}
+.galeria-thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.galeria-thumbs img{width:70px;height:52px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;opacity:.7}
+.galeria-thumbs img:hover,.galeria-thumbs img.on{opacity:1;border-color:var(--red)}
+
+.det-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:20px;margin-bottom:16px}
+.det-titulo h1{font-size:22px;font-weight:700}
+.det-titulo h2{font-size:14px;font-weight:400;color:var(--tx2);margin-top:2px}
+.det-preco{margin:14px 0}
+.det-preco .de{font-size:13px;color:var(--tx3);text-decoration:line-through;display:block}
+.det-preco .por{font-size:26px;font-weight:700;color:var(--green)}
+.det-preco .consulte{font-size:18px;font-weight:700;color:var(--gold)}
+.btn-whats{width:100%;background:#25d366;color:#fff;padding:12px;border-radius:var(--r);font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px}
+.btn-whats:hover{opacity:.9}
+
+.ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ficha-item{background:var(--bg3);border-radius:8px;padding:9px 12px}
+.ficha-item .lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px}
+.ficha-item .val{font-size:13px;font-weight:600;margin-top:2px}
+
+.opcionais-lista{display:flex;flex-wrap:wrap;gap:8px}
+.opc-tag{background:var(--greenl);color:var(--green);font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px}
+
+.det-descricao{font-size:13px;color:var(--tx2);line-height:1.7;white-space:pre-line}
+.det-sec-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+
+footer{background:var(--dark);color:#aaa;margin-top:40px;padding:30px 20px;text-align:center;font-size:12px}
+footer strong{color:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo">RT<span>CAR</span></div>
+    <nav>
+      <a href="#/estoque">VEÍCULOS</a>
+      <a href="https://wa.me/554791238422" target="_blank" class="whats-btn">💬 WhatsApp</a>
+    </nav>
+  </div>
+</header>
+
+<div id="app" class="wrap"></div>
+
+<footer>
+  <strong>RT Car</strong> — Otto Renaux, 135, Centro 1, Brusque/SC<br>
+  (47) 3350-8667 · (47) 9123-8422 · contato@rtcar.com.br
+</footer>
+
+<script>
+const DADOS_URL = 'dados/estoque.json';
+const FOTOS_BASE = 'fotos';
+let ESTOQUE = [];
+let filtroMarca = '';
+let filtroBusca = '';
+
+function fmtPreco(v){
+  if(!v.precoPor) return '<span class="consulte">Consulte o preço</span>';
+  if(v.precoDe) return `<span class="de">de R$ ${v.precoDe}</span><span class="por">por R$ ${v.precoPor}</span>`;
+  return `<span class="por">R$ ${v.precoPor}</span>`;
+}
+
+function fotoUrl(id, n){ return `${FOTOS_BASE}/${id}/${n}.jpg`; }
+
+function cardFoto(v){
+  if(!v.fotos.length){
+    return `<div class="card-prep"><span class="ti">🚗</span><span>Em preparação</span></div>`;
+  }
+  return `<img src="${fotoUrl(v.id,1)}" alt="${v.marca} ${v.modelo}" loading="lazy">`;
+}
+
+function cardHtml(v){
+  const kmFmt = v.km ? Number(v.km).toLocaleString('pt-BR') + ' km' : '—';
+  return `<div class="card" onclick="location.hash='#/carro/${v.id}'">
+    <div class="card-foto">${cardFoto(v)}</div>
+    <div class="card-body">
+      <div class="card-titulo">${v.marca} ${v.modelo}</div>
+      <div class="card-versao">${v.versao||''}</div>
+      <div class="card-meta"><span>${v.ano||'—'}</span><span>${kmFmt}</span></div>
+      <div class="card-preco">${fmtPreco(v)}</div>
+    </div>
+  </div>`;
+}
+
+function marcasDisponiveis(){
+  const m = {};
+  ESTOQUE.forEach(v=>{ m[v.marca] = (m[v.marca]||0)+1; });
+  return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0]));
+}
+
+function veiculosFiltrados(){
+  return ESTOQUE.filter(v=>{
+    if(filtroMarca && v.marca!==filtroMarca) return false;
+    if(filtroBusca){
+      const b = filtroBusca.toLowerCase();
+      const alvo = `${v.marca} ${v.modelo} ${v.versao}`.toLowerCase();
+      if(!alvo.includes(b)) return false;
+    }
+    return true;
+  });
+}
+
+function renderEstoque(){
+  const lista = veiculosFiltrados();
+  const marcas = marcasDisponiveis();
+  document.getElementById('app').innerHTML = `
+    <div class="estoque-layout">
+      <div class="sidebar">
+        <input class="busca" id="busca-input" placeholder="Buscar veículo..." value="${filtroBusca}">
+        <h4>Marcas</h4>
+        <div class="marca-item ${filtroMarca===''?'on':''}" onclick="setMarca('')">Todas <span>${ESTOQUE.length}</span></div>
+        ${marcas.map(([m,n])=>`<div class="marca-item ${filtroMarca===m?'on':''}" onclick="setMarca('${m}')">${m} <span>${n}</span></div>`).join('')}
+      </div>
+      <div>
+        <div class="resultado-count">${lista.length} veículo${lista.length===1?'':'s'} encontrado${lista.length===1?'':'s'}</div>
+        ${lista.length
+          ? `<div class="grid-carros">${lista.map(cardHtml).join('')}</div>`
+          : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
+      </div>
+    </div>`;
+  document.getElementById('busca-input').oninput = (e)=>{ filtroBusca = e.target.value; renderEstoque(); };
+}
+function setMarca(m){ filtroMarca = m; renderEstoque(); }
+
+function renderDetalhe(id){
+  const v = ESTOQUE.find(x=>x.id===id);
+  if(!v){ document.getElementById('app').innerHTML = '<div class="vazio">Veículo não encontrado.</div>'; return; }
+  const fotos = v.fotos.length ? v.fotos.map((_,i)=>i+1) : null;
+  const kmFmt = v.km ? Number(v.km).toLocaleString('pt-BR') + ' km' : '—';
+  const msgWhats = encodeURIComponent(`Olá! Tenho interesse no ${v.marca} ${v.modelo} - ${v.versao} (${v.url})`);
+  document.getElementById('app').innerHTML = `
+    <a class="voltar" href="#/estoque">← Voltar para o estoque</a>
+    <div class="detalhe-layout">
+      <div>
+        <div class="galeria-principal" id="galeria-principal">
+          ${fotos ? `<img src="${fotoUrl(v.id,1)}" id="foto-grande">` : `<div class="card-prep" style="aspect-ratio:4/3"><span class="ti">🚗</span><span>Em preparação</span></div>`}
+        </div>
+        ${fotos && fotos.length>1 ? `<div class="galeria-thumbs">${fotos.map(n=>`<img src="${fotoUrl(v.id,n)}" class="${n===1?'on':''}" onclick="trocarFoto('${v.id}',${n},this)">`).join('')}</div>` : ''}
+
+        <div class="det-card">
+          <div class="det-sec-title">Ficha técnica</div>
+          <div class="ficha-grid">
+            <div class="ficha-item"><div class="lbl">Ano</div><div class="val">${v.ano||'—'}</div></div>
+            <div class="ficha-item"><div class="lbl">KM</div><div class="val">${kmFmt}</div></div>
+            <div class="ficha-item"><div class="lbl">Cor</div><div class="val">${v.cor||'—'}</div></div>
+            <div class="ficha-item"><div class="lbl">Câmbio</div><div class="val">${v.cambio||'—'}</div></div>
+            <div class="ficha-item"><div class="lbl">Potência</div><div class="val">${v.potencia?v.potencia+' cv':'—'}</div></div>
+            <div class="ficha-item"><div class="lbl">Garantia</div><div class="val">${v.garantia||'—'}</div></div>
+          </div>
+        </div>
+
+        ${v.opcionais && v.opcionais.length ? `<div class="det-card">
+          <div class="det-sec-title">Opcionais</div>
+          <div class="opcionais-lista">${v.opcionais.map(o=>`<span class="opc-tag">${o}</span>`).join('')}</div>
+        </div>` : ''}
+
+        ${v.descricao ? `<div class="det-card">
+          <div class="det-sec-title">Sobre este veículo</div>
+          <div class="det-descricao">${v.descricao}</div>
+        </div>` : ''}
+      </div>
+
+      <div>
+        <div class="det-card">
+          <div class="det-titulo">
+            <h1>${v.marca} ${v.modelo}</h1>
+            <h2>${v.versao||''}</h2>
+          </div>
+          <div class="det-preco">${fmtPreco(v)}</div>
+          <a class="btn-whats" href="https://wa.me/554791238422?text=${msgWhats}" target="_blank">💬 Chamar no WhatsApp</a>
+        </div>
+      </div>
+    </div>`;
+}
+function trocarFoto(id,n,el){
+  document.getElementById('foto-grande').src = fotoUrl(id,n);
+  document.querySelectorAll('.galeria-thumbs img').forEach(i=>i.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function rotear(){
+  const hash = location.hash || '#/estoque';
+  const mDetalhe = hash.match(/^#\/carro\/(.+)$/);
+  if(mDetalhe){ renderDetalhe(mDetalhe[1]); window.scrollTo(0,0); return; }
+  renderEstoque();
+}
+
+window.addEventListener('hashchange', rotear);
+fetch(DADOS_URL).then(r=>r.json()).then(d=>{
+  ESTOQUE = d.veiculos;
+  rotear();
+}).catch(e=>{
+  document.getElementById('app').innerHTML = '<div class="vazio">Erro ao carregar o estoque. Tente novamente em instantes.</div>';
+  console.error(e);
+});
+</script>
+</body>
+</html>

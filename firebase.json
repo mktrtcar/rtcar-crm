@@ -22,6 +22,11 @@
           "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
         }
       ]
+    },
+    {
+      "target": "site-publico",
+      "public": "site-publico",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
     }
   ]
 }
