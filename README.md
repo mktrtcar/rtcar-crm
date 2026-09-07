@@ -107,6 +107,17 @@ um script (`build_embed.js`, fora deste repositório por enquanto) a partir
 do `index.html` — se algo relevante mudar no isolamento (`montar`/
 `desmontar`/`#rtcar-crm-root`), o script pode precisar de ajuste.
 
+**Versão atual: `v2`** (06/09/2026) —
+`https://raw.githubusercontent.com/mktrtcar/rtcar-crm/master/embed/rtcar-crm.v2.js`.
+`v1` continua disponível/congelado pra quem ainda referencia ele. Principais
+diferenças do `v1` pro `v2`: edição da data da venda pelo Master, ajustes na
+importação do Relacionamento (coluna "Modelo" vira veículo, "Venda" vira
+data da compra, cabeçalhos com "_" passam a ser reconhecidos, ordena por
+data crescente), botão excluir com confirmação nas colunas do Relacionamento,
+"semana atual"/"mês atual" do Dashboard Geral nunca misturam dias de meses
+diferentes, e a correção de um `<select>` que não fechava (gerava warnings
+de HTML inválido no console).
+
 ## Próximos passos conhecidos
 
 - Integração com Autoconf (webhook de leads).
