@@ -805,13 +805,41 @@ function pararTimerCRM(){
 function algumaJanelaAberta(){
   return !!document.querySelector('.ov:not(.hidden), .detail-ov:not(.hidden)');
 }
+// Lead que a I.A. (Eva) ja tentou contatar as 4 vezes (followUpStep>=4,
+// numero espelha o FOLLOWUP_STEPS do eloa-bot) e o cliente nunca respondeu -
+// em vez de ficar parado pra sempre em "I.A." (decisao que ficou em aberto
+// numa reuniao com Aline/Rafael, 07/08/2026, e nunca foi implementada ate
+// 07/09/2026), move sozinho pra "Resgate" com a tag "Nunca respondeu". Da
+// mais 24h (mesmo tamanho do ultimo intervalo da Eva) depois da ultima
+// mensagem antes de desistir de vez, pra dar uma ultima chance de resposta.
+// So roda com o CRM aberto (Marketing ou tela IA) - nao depende do bot da
+// Eva estar rodando, nem precisa mexer no eloa-bot.
+async function resgatarLeadsIaSemRespostaMk(leads){
+  if(G.mk.modoDemo||!fbOk())return false;
+  const agora=Date.now();
+  const alvos=(leads||[]).filter(l=>{
+    if(l.st!=='ia'||(l.followUpStep||0)<4)return false;
+    const conversa=l.conversaEloa||[];
+    if(!conversa.length||conversa[conversa.length-1].role!=='model')return false;
+    const ultima=l.ultimaMensagemEm||l.eloaEnviadoEm;
+    if(!ultima||ultima==='NUMERO_INVALIDO')return false;
+    return(agora-new Date(ultima).getTime())/3600000>=24;
+  });
+  for(const lead of alvos){
+    const motivo='Cliente não respondeu a nenhuma das 4 tentativas automáticas da I.A. (Eva) — movido automaticamente 24h após a última mensagem sem resposta.';
+    lead.st='resgate';lead.resgatado=true;lead.nuncaRespondeu=true;lead.resgateMotivo=motivo;
+    await salvarCamposMk(lead.id,{st:'resgate',resgatado:true,nuncaRespondeu:true,resgateMotivo:motivo});
+    await regHistMk(lead,'🔄 Movido automaticamente para Resgate',motivo,'Sistema (automático)','purple');
+  }
+  return alvos.length>0;
+}
 function iniciarAutoRefreshMk(){
   pararAutoRefreshMk();
   if(!fbOk()||G.mk.modoDemo)return;
   G.mk._autoRefreshInterval=setInterval(async()=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
     if(algumaJanelaAberta())return;
-    try{G.mk.leads=await fbList('leads');renderMarketing();}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
+    try{G.mk.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderMarketing();}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
   },10000);
 }
 function pararAutoRefreshMk(){
@@ -967,7 +995,7 @@ function renderKanbanMk(cnt){
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}${tagAguardando}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
         ${col.id==='atendimento'?`<button class="card-btn card-btn-label" onclick="toggleAguardandoRetornoMk('${l.id}',event)" style="margin:4px 0;${l.aguardandoRetornoDesde?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">⏳ ${l.aguardandoRetornoDesde?'Cliente respondeu':'Marcar aguardando retorno'}</button>`:''}
-        ${col.id==='perdido'?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
+        ${(col.id==='perdido'||col.id==='resgate')?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
         ${col.id==='agendamento'?`<div style="margin:4px 0">
           <div style="display:flex;align-items:center;gap:5px">
             <i class="ti ti-calendar" style="font-size:12px;color:var(--tx3)"></i>
@@ -3896,7 +3924,7 @@ function iniciarTimerIA(){
   G.ia._timerInterval=setInterval(async()=>{
     if(G.modulo!=='ia'){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;return;}
     if(document.activeElement&&document.activeElement.id==='ia-busca')return;
-    try{G.ia.leads=await fbList('leads');renderIA(document.getElementById('cnt'));}catch(e){console.error(e);}
+    try{G.ia.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderIA(document.getElementById('cnt'));}catch(e){console.error(e);}
   },10000);
 }
 function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
