@@ -129,7 +129,7 @@
         <div class="mod-section-title"><i class="ti ti-car"></i> Interesse e Origem</div>
         <div class="field-row">
           <div class="field"><label>Origem *</label>
-            <select id="f-origem"><option value="">Selecione...</option><optgroup label="📢 Marketing"><option>Facebook</option><option>Instagram</option><option>Google + Site</option><option>Telefone</option><option>Mercado Livre</option><option>iCarros</option><option>Na Pista</option><option>Webmotors</option><option>Litoral Car</option><option>Mobiauto</option><option>OLX</option><option>Estética</option><option>Relacionamento</option><option>Compra</option></optgroup><optgroup label="🏪 Outros"><option>Passante</option><option>Loja</option><option>Evento Externo</option><option>My Business</option><option>Outra</option><option>Carteira</option><option>Prospecção</option><option>Indicação</option></optgroup></select>
+            <select id="f-origem"><option value="">Selecione...</option><optgroup label="📢 Marketing"><option>Facebook</option><option>Instagram</option><option>Google + Site</option><option>Telefone</option><option>Mercado Livre</option><option>iCarros</option><option>Na Pista</option><option>Webmotors</option><option>Litoral Car</option><option>Mobiauto</option><option>OLX</option><option>Estética</option><option>Relacionamento</option><option>Compra</option></optgroup><optgroup label="🏪 Outros"><option>Passante</option><option>Loja</option><option>Evento Externo</option><option>My Business</option><option>Outra</option><option>Carteira</option><option>Prospecção</option><option>Indicação</option><option>BV</option></optgroup></select>
           </div>
           <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Automático (rodízio)</option></select></div>
         </div>
@@ -483,6 +483,7 @@ const USUARIOS=[
   {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev'},
   {id:'u14',n:'Jean',    e:'rtcargarantia@gmail.com',       r:'seller'},
   {id:'u15',n:'Victor',  e:'victor@rtcar.com.br',           r:'seller'},
+  {id:'u16',n:'Gui',     e:'rtcred@rtcar.com.br',           r:'rtcred'},
 ];
 
 /* COLUNAS MARKETING */
@@ -509,7 +510,7 @@ const ORIGENS_MK={
   // delas cai errado em "Outros" (achado ao revisar o painel Hoje com a Aline).
   marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','Webmotors','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
   compra:['Compra'],
-  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação']
+  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','BV']
 };
 const TODAS_ORIGENS=[...ORIGENS_MK.marketing,...ORIGENS_MK.compra,...ORIGENS_MK.outros];
 function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(ORIGENS_MK.compra.includes(o))return'compra';return'outros';}
@@ -669,7 +670,7 @@ function entrarNaApp(u){
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   document.getElementById('sb-name').textContent=u.n;
-  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor'}[u.r]||u.r);
+  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor',rtcred:'RT Cred'}[u.r]||u.r);
   document.querySelectorAll('.ni-sistema-principal').forEach(el=>el.style.display=(u.r==='dev'?'none':''));
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
@@ -938,7 +939,7 @@ function renderMarketing(){
 }
 
 function isSeller(){return G.user?.r==='seller';}
-function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora';}
+function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora'||G.user?.r==='rtcred';}
 /* 24/08/2026: "Visita" saiu de uso (a pedido da Aline) - fica oculta pra
    todo mundo, mas os leads que ja estavam nessa etapa continuam com os
    dados intactos, so nao aparecem mais no quadro. "Resgate" continua em
@@ -966,6 +967,10 @@ function mkLeadsFiltrados(){
   if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
   // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
   if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  // CONTROLE DE ACESSO: RT Cred (resgate BV) ve so os leads que ela mesma
+  // cadastrou - mesmo mecanismo da coordenadora, agora pro canal BV
+  // (pedido da Aline, 08/09/2026).
+  if(G.user?.r==='rtcred')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
   if(G.mk.busca){
     const b=G.mk.busca.toLowerCase();
     const bDigits=G.mk.busca.replace(/\D/g,'');
@@ -1940,7 +1945,10 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('f-nome').value=l?.clienteNome||'';document.getElementById('f-tel').value=l?.clienteTel||'';
   document.getElementById('f-email').value=l?.clienteEmail||'';document.getElementById('f-origem').value=l?.origem||'';
   document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';
-  document.getElementById('f-valor').value=l?.valor||'';document.getElementById('f-etapa').value=l?.st||etapa||'ia';
+  // RT Cred (resgate BV) cadastra o lead ja em Atendimento - o trabalho dela
+  // e' resgatar um financiamento que caiu, nao fazer triagem do zero pela
+  // I.A. (pedido da Aline, 08/09/2026).
+  document.getElementById('f-valor').value=l?.valor||'';document.getElementById('f-etapa').value=l?.st||etapa||(G.user?.r==='rtcred'?'atendimento':'ia');
   document.getElementById('f-obs').value=l?.obs||'';
   document.getElementById('f-data-contato').value=l?.dtISO||new Date().toISOString().slice(0,10);
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
