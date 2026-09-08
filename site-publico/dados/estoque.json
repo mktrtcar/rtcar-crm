@@ -1,6 +1,6 @@
 {
   "extraidoEm": "2026-09-07T22:12:55.175Z",
-  "total": 54,
+  "total": 55,
   "veiculos": [
     {
       "id": "1027555",
@@ -36,7 +36,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1027555/d2fe90e3-954e-48d2-a4db-781d20613d6e.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1027555/332f471f-c4e1-4031-99a0-7fd98726a9f7.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1027555/63f6ea8e-bf96-4ff2-a815-cce274fcd629.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1020156",
@@ -70,7 +71,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1020156/837a3b64-b0ac-4923-8f50-292cde89759c.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1020156/8ebda55f-3d0f-4336-ae38-7c2af6a9dbe6.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1020156/17393ce8-e765-4c8c-8606-9f27b7960f08.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1031734",
@@ -106,7 +108,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1031734/ac0f1ced-1f69-4c2e-a2a8-47b2c9b5ee85.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1031734/3a468b02-66fb-4b0a-a3b4-44d60ee84c88.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1031734/01794154-34b2-4af3-8eb9-574ec6f3ac8f.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1045095",
@@ -141,7 +144,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1045095/b98283c3-4b7c-4083-bf6d-813b0a8aa274.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1045095/f3c5b8b9-bac5-4f57-92ad-1aff92f1df6d.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1045095/4d1b8599-bd29-4a24-852f-01e754cb11fd.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1053460",
@@ -176,7 +180,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053460/6f278db9-c883-4c83-8ebc-63c97e939d4a.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053460/6f9a1bd8-ba87-46c9-97d4-c3d1e6174e1b.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053460/2bdfdddf-eadb-4456-97d6-df404ed22cdf.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "992393",
@@ -211,7 +216,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/992393/f63fe8de-ef2a-4817-8cba-a335309010fa.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/992393/1db5bad8-040e-4dde-91c1-59a6e2f66157.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/992393/fdfa9bf1-8ad7-424e-bfd9-a39997b7ec18.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "980632",
@@ -244,7 +250,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/980632/011b218e-debc-4b36-aca5-d658b5f5f70c.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/980632/0e89fed2-65d2-4fde-8db1-7edd83d8b719.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/980632/91a3b0f2-b7f3-4c6c-bc8d-9c0eb0f3ed91.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "971170",
@@ -279,7 +286,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/971170/effeece6-aaae-4cf2-bd2c-569e9ce1c3cf.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/971170/0c510d92-1e38-417a-92d9-a76e41b4eeba.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/971170/75b22bf0-2790-48fa-beec-662851df2bc8.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "866559",
@@ -315,7 +323,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/866559/3134a3a3-0b04-49f2-9091-cc6511e1d940.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/866559/33c66289-4a5a-43d8-8f0a-be6c159903ce.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/866559/cc9f34e7-6cb3-4fa0-b01a-0fd638cd65d9.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "968116",
@@ -347,7 +356,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/968116/84af4acd-389e-4f99-827e-d03fecc565b2.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/968116/8e2b7d3c-2ced-4b48-8cae-3ba4e6ae0882.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/968116/4ec3ea6b-3d4a-42cc-9d95-caadea475e24.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "972213",
@@ -381,7 +391,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/972213/24a4db97-1276-4914-892b-a8021de25358.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/972213/46a89bbf-b014-4a89-8fef-5d8508210a83.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/972213/53e4aa99-2311-4843-ab26-6bcfd0da302c.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "942052",
@@ -441,7 +452,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/942052/bed2f352-8332-4fa3-a543-311bfacaf0d2.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/942052/82ec05cf-0f1e-4aae-9f6d-69bcc22293f5.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/942052/ffbc34f6-4945-4565-a7b1-fa2d0965ba32.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "855915",
@@ -523,7 +535,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/855915/b8e1c6e9-653a-4800-9dc3-426ea5588a77.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/855915/8a58eabe-caab-4cfe-a528-745f9b6a45db.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/855915/2a3c9093-3062-4702-a68a-d5925abdcc84.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "854168",
@@ -612,7 +625,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/854168/7fa7cbfe-8c75-4892-9063-fb32b899c466.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/854168/0df7d4ad-4eff-4d6d-814a-efdb586f041b.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/854168/41c5cda2-32cf-4853-a1f0-649e1155fef1.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "956634",
@@ -648,7 +662,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/956634/74856db4-9891-4473-a873-6162f3e0f153.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/956634/1a290ef1-8993-47ec-a44c-73ba1ae66938.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/956634/b9287b34-f7e9-4ab2-8f69-34007a0f4286.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "987608",
@@ -684,7 +699,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/987608/8a112169-5bbf-4ff1-a7ae-32aca91eefa2.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/987608/89f7dba8-8aec-4ebd-a42b-f3cb666f62cd.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/987608/bdd73bb0-8cef-4d64-8be4-a6a56b59e8d2.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "573923",
@@ -720,7 +736,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/573923/dd2e6768-73ba-4246-991f-245bb0c1f518.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/573923/dd2a792b-f0d4-40c2-a84e-111d09b56b67.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/573923/2c6fd2a6-90b3-4360-9374-6471c19ce891.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "312536",
@@ -813,7 +830,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/312536/1485a64f-3b36-4084-ae9b-367e239bbe2e.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/312536/4ef11668-c8cf-4c6b-9801-f7c2781eabc6.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/312536/1235f9f9-bda8-4df9-8601-b9c0e43b3334.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "613457",
@@ -850,7 +868,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/613457/79223cb6-8f15-423f-a8e4-321c00fbeca2.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/613457/c7903097-f533-4f85-aa1c-c7755b279c1c.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/613457/4334f21a-25d1-4735-bd91-dc7c7337c6b9.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "910577",
@@ -884,7 +903,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/910577/6a2cd09a-26c9-4d2e-98a9-3a5203a226ba.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/910577/da09e276-1e94-4ea4-b2ff-33d5e15675be.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/910577/05fb3a9c-9795-40d1-9b10-eb71430f1397.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1098951",
@@ -918,7 +938,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1098951/cf572621-1234-454f-b936-cd916863c294.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1098951/aa351c26-e1d9-4369-9e8a-186d49f8f166.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1098951/7bf4f9c0-b31d-4216-8df6-fa054b06c074.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1010522",
@@ -954,7 +975,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1010522/1c608dc6-97f2-4aac-8126-fde4f5686975.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1010522/711fa4ae-4ca5-4e2d-97be-53393a4ce8d4.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1010522/ffe3a1c8-eddd-4bb6-97cd-f091be1171c7.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1098238",
@@ -990,7 +1012,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1098238/5e3dedd1-9522-4319-b813-6c8bb99c08a7.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1098238/d2be0f2d-d20a-4cbd-a17a-7a10d56caa74.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1098238/bd4d922a-6a3d-4744-bb1a-fcc74dbbb327.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1100827",
@@ -1024,7 +1047,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1100827/7534fdc5-88c7-410e-9bd8-0b74d8a47473.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1100827/bd55803a-a7f1-4774-883f-f3a90259c44a.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1100827/4f4e0623-c5e1-4d3d-9c1b-7b1e6eb86470.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1093164",
@@ -1059,7 +1083,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1093164/186e5448-5428-486d-867a-7c91886196af.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1093164/3874eb44-5fd2-4726-afb5-696df75b37a4.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1093164/03388f59-bb5b-4c36-8436-57f07a08acce.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1092035",
@@ -1093,7 +1118,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1092035/2681bc63-cc6e-423b-882d-20fc20d6b837.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1092035/17a577df-606c-4a5b-bc0a-3fac79acdf37.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1092035/c7b230d3-32af-426b-92a1-23b18a9cfb91.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1082419",
@@ -1127,7 +1153,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1082419/06f181bc-107d-43e1-89d2-691b50191dfa.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1082419/ea462893-c33b-4d5a-ae77-972261fbdaa1.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1082419/5295c1a3-ef73-4f9c-a77b-0fc9815985c4.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1086905",
@@ -1163,7 +1190,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1086905/0e8c05ba-2919-469c-9f77-700b00ccd4f8.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1086905/e1d06427-b662-44b7-997d-474192853628.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1086905/ff9760bb-f45f-47c4-81d0-c83751ea6638.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "971124",
@@ -1198,7 +1226,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/971124/086b5a43-b881-4e9e-97da-492d13b9d24d.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/971124/4759852e-9fef-45b2-a4f6-6fe1151e2dc5.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/971124/d7c42ff4-07d7-4f08-befb-3532773970f4.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1071784",
@@ -1233,7 +1262,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1071784/e7c0231f-cc4f-4a90-a3bb-97bc7e408367.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1071784/8c34cbf2-82f4-406d-9685-2f4417e170aa.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1071784/ad846871-e630-4ec2-8d47-48f90419010f.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "804703",
@@ -1269,7 +1299,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/804703/5dc35196-a7c7-4e76-892d-df02418d281e.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/804703/f54b1dd6-8139-41c2-a6c2-2cdd7e3bd1df.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/804703/4949f61b-2e73-4122-8dfe-d0dc057ea778.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "218470",
@@ -1302,7 +1333,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/218470/7b8dd0b7-b92c-4229-a471-a4305aa65713.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/218470/0b8186f3-4fe1-4eac-b054-85da77e70468.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/218470/050c0704-d368-480c-bf88-0882fbdb7c40.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1057614",
@@ -1339,7 +1371,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1057614/657bdd87-f6be-433f-903e-a424cd81816f.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1057614/631c8628-ba4f-418c-afee-f10e551451b6.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1057614/344c750e-09ae-4206-992f-abaffa754f7e.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1063281",
@@ -1373,7 +1406,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1063281/0f99116e-cd48-4f0c-aef3-8b1b0b95b252.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1063281/e555facb-95a6-4a1c-bf0b-496774eba5b1.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1063281/e7338901-38b6-4035-95a7-d0dc1644f38e.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1058750",
@@ -1406,7 +1440,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1058750/a0a5ce00-f342-4e51-8332-9217b3b8e2a5.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1058750/0debf5af-5725-47f4-abc5-7bb044b1d925.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1058750/34a7d606-4158-42ce-923c-5b971db3e5eb.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1053670",
@@ -1439,7 +1474,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053670/dc9ea557-af03-4fd7-88b7-1963424af102.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053670/d1085c1b-88db-4528-a6f8-d78c4524cb55.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053670/5bf6e83a-2586-4874-ad08-e5109ae43c3d.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1053721",
@@ -1473,7 +1509,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053721/4c6d92cd-1f09-47e2-9cdf-3c9e3722972e.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053721/0ffa09c6-f37d-4204-bf6f-507a0daec7c0.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1053721/0e387808-3583-4863-92b1-421e630a687a.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1054014",
@@ -1506,7 +1543,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1054014/13df3f84-8890-4f8e-be86-40a43c87bc30.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1054014/d5ba9c9b-4829-4ec7-9cf5-e1a6bb5a1e27.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1054014/bf7a141a-2093-43a0-a8df-f023154c23d1.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1049071",
@@ -1540,7 +1578,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1049071/e9af250d-1ae7-4bac-a476-ba77f3457eba.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1049071/249d23e0-5db7-4937-b21f-888b803e120f.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1049071/93da445f-6bd5-4458-b574-1b27ce57a50d.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "287555",
@@ -1573,7 +1612,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/287555/d419fb1a-bf86-430f-8835-e9325d652599.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/287555/1a5fee77-cffe-42ec-a423-bc5e10c55619.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/287555/31801b2b-565a-4cd9-a8bc-5a8147a4ce41.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1045160",
@@ -1606,7 +1646,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1045160/11dae340-21cc-49c8-9902-eb32da8caf53.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1045160/74d048b7-46dd-4ff0-8825-9054063de9a7.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1045160/18253c62-4327-4e43-aad5-43f24377554d.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1023247",
@@ -1640,7 +1681,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1023247/6185379e-9b6e-4254-a64f-c56038ada1f0.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1023247/74114e24-49a4-4128-b02a-8c02be16c2fe.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1023247/cb0c87b1-cac2-41c7-b2f0-7fefb7c4b860.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1037050",
@@ -1674,7 +1716,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1037050/5f84c2aa-ce4b-4195-affe-45310ef663ca.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1037050/675a9385-0f62-49f7-b1cb-400c306be53d.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1037050/981e9148-6ab3-43cd-83a4-a1e151b3f99d.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1035616",
@@ -1709,7 +1752,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1035616/8d182c72-6ae0-41ab-9cc0-0a8203c56f0f.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1035616/97d88005-e656-4f18-9247-6cdcbbc90505.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1035616/b3399839-982e-4dfc-8316-e1caa8d523ca.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1033956",
@@ -1745,7 +1789,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1033956/9a6fbfeb-d918-4415-918b-50007a6d856d.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1033956/5833fb62-6f8c-4399-acec-e0466d81cd00.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1033956/a0cdd0a3-1f20-4bb7-a450-2e3e0e38ad21.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1029605",
@@ -1778,7 +1823,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1029605/aecc173e-85af-4e13-95ef-b5a575dc57db.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1029605/14a7fbce-873a-4b70-9d45-cd3fb741ec0c.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1029605/13a5350e-9177-413b-9599-9922676cf71c.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1026389",
@@ -1812,7 +1858,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1026389/bde77462-03d1-4cc5-bd52-9ac1ca833669.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1026389/4f8bc6d9-dfb1-400b-97f7-395a6d208302.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1026389/69a42c49-0615-4caa-b546-5be6896f3bd7.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "1012059",
@@ -1846,7 +1893,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1012059/8772e78f-f2d4-442e-9d4c-f1fae1c3f153.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1012059/c4e73045-296e-48e1-998f-ab53ee68e744.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/1012059/d7bb3ac4-3509-481b-aa77-7f5577e02c0c.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "274642",
@@ -1882,7 +1930,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/274642/ba8873f8-ac69-434c-8f02-bf2cc24f751b.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/274642/260796ba-8d40-4ddb-8734-44d5e3b24b06.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/274642/a455ab25-f92b-4231-a05e-5e857320e041.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "802869",
@@ -1917,7 +1966,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/802869/c5d9acf9-3d48-4bd2-82e2-2f228d08ce80.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/802869/540df3f9-806a-4fd3-801a-a3e8d807446c.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/802869/6591b649-afc6-438d-935b-0caa53c030cc.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "978242",
@@ -1952,7 +2002,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/978242/2eaec35e-fa42-4a9b-add7-9e8afee26ca7.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/978242/ff5bd88a-b40b-4069-98ab-cbfdb641a6ee.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/978242/1920b6f0-34ef-4766-9a1d-688096987550.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "437611",
@@ -2025,7 +2076,8 @@
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/437611/0ba4694f-fa6f-4caf-bb30-b025b1983764.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/437611/3b821d4a-e563-4b36-ac84-0a52cc0177fc.jpg",
         "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/437611/b8efa02c-fb57-47e4-8667-8c0612023ba0.jpg"
-      ]
+      ],
+      "categoria": "carro"
     },
     {
       "id": "836883",
@@ -2054,7 +2106,8 @@
       ],
       "garantia": "Garantia da Loja (3 meses)",
       "descricao": "A procura de um Fiat Toro Volcano 2.0 16V 4x4 TB Diesel Aut. - Preto - 2022 seminovo? Aqui tem. 3 Meses de garantia. Ano: 2021/2022 KM: 41057 km. Gostou deste carro? Temos uma equipe de atendimento on-line pronta para te atender. Tire todas suas dúvidas de forma rápida e descomplicada, através do nosso WhatsApp (47)9123-8422, ou se preferir, faça uma visita. Nosso endereço é Otto Renaux, nº 135, Centro 1, Brusque - Santa Catarina. Te esperamos!",
-      "fotos": []
+      "fotos": [],
+      "categoria": "carro"
     },
     {
       "id": "1098913",
@@ -2081,7 +2134,36 @@
       ],
       "garantia": "Garantia de fábrica até 01/2028",
       "descricao": "A procura de um Toyota Corolla Cross XRE 2.0 16V Flex Aut. - Branco - 2024 seminovo? Aqui tem. Garantia de fábrica até 01/2028  Ano: 2023/2024 KM: 54315 km. Potência: 169 cv.  Câmbio: Automático Consumo: Urbano: 11.7 Km/l - Rodovia: 13.0 Km/l. Gostou deste carro? Temos uma equipe de atendimento on-line pronta para te atender. Tire todas suas dúvidas de forma rápida e descomplicada, através do nosso WhatsApp (47)9123-8422, ou se preferir, faça uma visita. Nosso endereço é Otto Renaux, nº 135, Centro 1, Brusque - Santa Catarina. Te esperamos!",
-      "fotos": []
+      "fotos": [],
+      "categoria": "carro"
+    },
+    {
+      "id": "819875",
+      "url": "https://rtcar.com.br/motos/harley-davidson/fat-boy-flstf/2013/819875",
+      "marca": "Harley",
+      "modelo": "FAT",
+      "versao": "FAT BOY FLSTF",
+      "precoDe": null,
+      "precoPor": "68.900",
+      "ano": "2012/2013",
+      "km": "24048",
+      "potencia": "93",
+      "cambio": "Manual",
+      "cor": "Preto",
+      "opcionais": [
+        "Freios ABS",
+        "Rodas de liga leve"
+      ],
+      "garantia": "Garantia da Loja (3 meses)",
+      "descricao": "A procura de um Harley FAT BOY FLSTF - Preto - 2013 seminovo? Aqui tem. 3 Meses de garantia. Ano: 2012/2013 KM: 24048 km. Potência: 93 cv.  Câmbio: Manual Consumo: Urbano: 17.0 Km/l - Rodovia: 22.0 Km/l. Gostou desta moto? Temos uma equipe de atendimento on-line pronta para te atender. Tire todas suas dúvidas de forma rápida e descomplicada, através do nosso WhatsApp (47)9123-8422, ou se preferir, faça uma visita. Nosso endereço é Otto Renaux, nº 135, Centro 1, Brusque - Santa Catarina. Te esperamos!",
+      "fotos": [
+        "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/819875/a3a403be-2f2f-4ee9-b6f9-e1647074de3e.jpg",
+        "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/819875/8beb0717-d993-4020-b6bc-27e153ad89c5.jpg",
+        "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/819875/ccb295ff-26e0-45d5-9e39-863e96aca6f6.jpg",
+        "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/819875/cb63e3ed-5b82-4f4d-aaeb-ac6ecb69d8ba.jpg",
+        "https://resized-images.autoconf.com.br/1000x750/filters:format(jpg)/veiculos/fotos/819875/12cbebfd-0839-4408-9828-bc7a15422686.jpg"
+      ],
+      "categoria": "moto"
     }
   ],
   "erros": []

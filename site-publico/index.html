@@ -5,129 +5,187 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RT Car — Carros usados e seminovos em Brusque</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 :root{
-  --bg:#f5f5f5;--bg2:#ffffff;--bg3:#f0f0f0;
-  --tx:#1a1814;--tx2:#4a4a4a;--tx3:#888;
-  --red:#e8431e;--redl:#fff0ec;
+  --bg:#f6f5f3;--bg2:#ffffff;--bg3:#f0efec;
+  --tx:#1a1814;--tx2:#4a4a4a;--tx3:#8a8580;
+  --red:#e8431e;--red2:#ff6a3d;--redl:#fff0ec;
   --gold:#b8860b;--goldl:#faf6e8;
   --green:#1a6b3c;--greenl:#e8f5ee;
-  --dark:#1a1a1a;
-  --bdr:#e0e0e0;--r:10px;--r2:14px;
+  --dark:#161513;--dark2:#211f1c;
+  --bdr:#e6e3de;--r:10px;--r2:16px;--r3:22px;
   --f:'DM Sans',sans-serif;--s:'DM Serif Display',serif;
+  --shadow:0 2px 8px rgba(26,24,20,.05);
+  --shadow-hover:0 16px 40px rgba(26,24,20,.14);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5}
+body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .hidden{display:none!important}
 img{max-width:100%;display:block}
+#app{animation:fadeIn .35s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* TOPBAR */
+.topbar{background:var(--dark2);color:#c9c5bf;font-size:11.5px;text-align:center;padding:6px 14px;letter-spacing:.2px}
+.topbar strong{color:#fff}
 
 /* HEADER */
-header{background:var(--dark);color:#fff;position:sticky;top:0;z-index:50}
-.header-top{max-width:1200px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-.logo{font-family:var(--s);font-size:26px;letter-spacing:1px}
-.logo span{color:var(--red)}
-nav{display:flex;gap:22px;align-items:center}
-nav a{font-size:13px;font-weight:600;letter-spacing:.3px;opacity:.9}
-nav a:hover{opacity:1;color:var(--red)}
-.whats-btn{background:#25d366;color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
-.whats-btn:hover{opacity:.9}
+header{background:var(--dark);color:#fff;position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(255,255,255,.06)}
+.header-top{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{font-family:var(--s);font-size:27px;letter-spacing:.5px}
+.logo span{color:var(--red2)}
+nav{display:flex;gap:26px;align-items:center}
+nav a.navlink{font-size:12.5px;font-weight:700;letter-spacing:.8px;opacity:.85;text-transform:uppercase}
+nav a.navlink:hover{opacity:1;color:var(--red2)}
+.whats-btn{background:linear-gradient(135deg,#2fdc76,#1eb85a);color:#fff;padding:9px 18px;border-radius:24px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(37,211,102,.3)}
+.whats-btn:hover{filter:brightness(1.06)}
+
+/* HERO / CARROSSEL */
+.hero{position:relative;overflow:hidden;background:var(--dark);color:#fff}
+.hero-slides{position:relative;height:min(56vw,460px);min-height:260px}
+.hero-slide{position:absolute;inset:0;opacity:0;transition:opacity .6s ease;background-size:cover;background-position:center}
+.hero-slide.on{opacity:1}
+.hero-slide::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,rgba(15,14,12,.92) 0%,rgba(15,14,12,.78) 32%,rgba(15,14,12,.15) 62%,transparent 78%)}
+.hero-slide.sem-foto::before{background:radial-gradient(ellipse 900px 500px at 15% -10%,#2a2622,var(--dark) 60%)}
+.hero-slide.sem-foto::after{content:'';position:absolute;right:-10%;bottom:-40%;width:480px;height:480px;background:radial-gradient(circle,rgba(232,67,30,.25),transparent 70%);border-radius:50%}
+.hero-inner{max-width:1180px;margin:0 auto;padding:0 20px;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;z-index:1}
+.hero-tag{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:6px 14px;border-radius:20px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--red2);margin-bottom:18px;width:fit-content}
+.hero h1{font-family:var(--s);font-size:clamp(24px,4.2vw,42px);line-height:1.18;max-width:600px;font-weight:400;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+.hero h1 em{font-style:normal;color:var(--red2)}
+.hero p{margin-top:14px;color:#e4e0da;font-size:14.5px;max-width:460px}
+.hero-stats{display:flex;gap:30px;margin-top:26px;flex-wrap:wrap}
+.hero-stat b{display:block;font-size:26px;font-weight:800;color:#fff}
+.hero-stat span{font-size:11px;color:#c9c5bf;text-transform:uppercase;letter-spacing:.5px}
+.hero-arrow{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;transition:background .15s}
+.hero-arrow:hover{background:rgba(255,255,255,.24)}
+.hero-arrow.prev{left:16px}
+.hero-arrow.next{right:16px}
+.hero-dots{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:2}
+.hero-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.35);cursor:pointer;transition:background .15s}
+.hero-dot.on{background:#fff}
+@media (max-width:700px){.hero-arrow{display:none}}
 
 /* LAYOUT */
-.wrap{max-width:1200px;margin:0 auto;padding:24px 20px}
-.estoque-layout{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 20px 60px}
+.estoque-layout{display:grid;grid-template-columns:210px 1fr;gap:26px;align-items:start}
 @media (max-width:800px){.estoque-layout{grid-template-columns:1fr}.sidebar{position:static}}
 
-.sidebar{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;position:sticky;top:80px}
-.sidebar h4{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);margin-bottom:10px}
-.sidebar .marca-item{display:flex;justify-content:space-between;padding:6px 4px;font-size:13px;cursor:pointer;border-radius:6px;color:var(--tx2)}
+.sidebar{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px;position:sticky;top:90px;box-shadow:var(--shadow)}
+.sidebar h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:10px;font-weight:700}
+.sidebar .marca-item{display:flex;justify-content:space-between;padding:7px 8px;font-size:13px;cursor:pointer;border-radius:8px;color:var(--tx2);transition:background .12s}
 .sidebar .marca-item:hover{background:var(--bg3)}
 .sidebar .marca-item.on{background:var(--redl);color:var(--red);font-weight:700}
-.busca{width:100%;padding:10px 14px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;margin-bottom:16px}
-.busca:focus{outline:none;border-color:var(--red)}
+.sidebar .marca-item span{color:var(--tx3);font-size:12px}
+.sidebar .marca-item.on span{color:var(--red)}
+.busca{width:100%;padding:11px 14px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;margin-bottom:18px;background:var(--bg3);transition:border .15s,background .15s}
+.busca:focus{outline:none;border-color:var(--red);background:#fff}
 
-.resultado-count{font-size:13px;color:var(--tx3);margin-bottom:14px}
-.grid-carros{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.resultado-count{font-size:13px;color:var(--tx3);margin-bottom:16px;font-weight:500}
+.grid-carros{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
 
-.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden;transition:box-shadow .15s,transform .15s;cursor:pointer;display:flex;flex-direction:column}
-.card:hover{box-shadow:0 6px 20px rgba(0,0,0,.1);transform:translateY(-2px)}
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);overflow:hidden;transition:box-shadow .2s,transform .2s,border-color .2s;cursor:pointer;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.card:hover{box-shadow:var(--shadow-hover);transform:translateY(-3px);border-color:#d8d4cd}
 .card-foto{aspect-ratio:4/3;background:var(--bg3);overflow:hidden;position:relative}
-.card-foto img{width:100%;height:100%;object-fit:cover}
-.card-prep{width:100%;height:100%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#888}
-.card-prep .ti{font-size:26px}
-.card-prep span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
-.card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:4px}
-.card-titulo{font-size:15px;font-weight:700}
+.card-foto img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.card:hover .card-foto img{transform:scale(1.05)}
+.card-badge{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;box-shadow:0 3px 10px rgba(232,67,30,.35)}
+.card-prep{width:100%;height:100%;background:linear-gradient(135deg,#232120,#161513);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#6b6660}
+.card-prep .ti{font-size:28px;opacity:.7}
+.card-prep span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#8a8580}
+.card-body{padding:14px 16px;flex:1;display:flex;flex-direction:column;gap:4px}
+.card-titulo{font-size:15.5px;font-weight:700}
 .card-versao{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-meta{font-size:12px;color:var(--tx3);display:flex;gap:10px;margin-top:2px}
-.card-preco{margin-top:auto;padding-top:8px}
-.card-preco .de{font-size:11px;color:var(--tx3);text-decoration:line-through}
-.card-preco .por{font-size:18px;font-weight:700;color:var(--green)}
+.card-meta{font-size:11.5px;color:var(--tx3);display:flex;gap:12px;margin-top:3px}
+.card-meta span{display:flex;align-items:center;gap:4px}
+.card-preco{margin-top:10px;padding-top:10px;border-top:1px solid var(--bg3)}
+.card-preco .de{font-size:11px;color:var(--tx3);text-decoration:line-through;display:block}
+.card-preco .por{font-size:19px;font-weight:800;color:var(--green)}
 .card-preco .consulte{font-size:13px;font-weight:700;color:var(--gold)}
 
-.vazio{padding:60px 20px;text-align:center;color:var(--tx3)}
+.vazio{padding:70px 20px;text-align:center;color:var(--tx3);background:var(--bg2);border-radius:var(--r2);border:1px dashed var(--bdr)}
 
 /* DETALHE */
-.voltar{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:16px}
+.voltar{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:18px;transition:color .15s}
 .voltar:hover{color:var(--red)}
 .detalhe-layout{display:grid;grid-template-columns:1fr 380px;gap:28px;align-items:start}
 @media (max-width:900px){.detalhe-layout{grid-template-columns:1fr}}
 
-.galeria-principal{aspect-ratio:4/3;background:var(--bg3);border-radius:var(--r2);overflow:hidden;margin-bottom:10px}
+.galeria-principal{aspect-ratio:4/3;background:var(--bg3);border-radius:var(--r2);overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow)}
 .galeria-principal img{width:100%;height:100%;object-fit:cover}
 .galeria-thumbs{display:flex;gap:8px;flex-wrap:wrap}
-.galeria-thumbs img{width:70px;height:52px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;opacity:.7}
+.galeria-thumbs img{width:74px;height:56px;object-fit:cover;border-radius:9px;cursor:pointer;border:2px solid transparent;opacity:.65;transition:all .15s}
 .galeria-thumbs img:hover,.galeria-thumbs img.on{opacity:1;border-color:var(--red)}
 
-.det-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:20px;margin-bottom:16px}
-.det-titulo h1{font-size:22px;font-weight:700}
-.det-titulo h2{font-size:14px;font-weight:400;color:var(--tx2);margin-top:2px}
-.det-preco{margin:14px 0}
-.det-preco .de{font-size:13px;color:var(--tx3);text-decoration:line-through;display:block}
-.det-preco .por{font-size:26px;font-weight:700;color:var(--green)}
+.det-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:22px;margin-bottom:16px;box-shadow:var(--shadow)}
+.det-titulo h1{font-size:23px;font-weight:800}
+.det-titulo h2{font-size:14px;font-weight:400;color:var(--tx2);margin-top:3px}
+.det-preco{margin:16px 0;padding:14px 16px;background:var(--greenl);border-radius:var(--r)}
+.det-preco .de{font-size:13px;color:#6a8f78;text-decoration:line-through;display:block}
+.det-preco .por{font-size:27px;font-weight:800;color:var(--green)}
 .det-preco .consulte{font-size:18px;font-weight:700;color:var(--gold)}
-.btn-whats{width:100%;background:#25d366;color:#fff;padding:12px;border-radius:var(--r);font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px}
-.btn-whats:hover{opacity:.9}
+.btn-whats{width:100%;background:linear-gradient(135deg,#2fdc76,#1eb85a);color:#fff;padding:13px;border-radius:var(--r);font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;box-shadow:0 6px 18px rgba(37,211,102,.28);transition:filter .15s}
+.btn-whats:hover{filter:brightness(1.05)}
+.det-trust{display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--bg3);font-size:12px;color:var(--tx2)}
+.det-trust div{display:flex;align-items:center;gap:8px}
 
 .ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ficha-item{background:var(--bg3);border-radius:8px;padding:9px 12px}
-.ficha-item .lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px}
-.ficha-item .val{font-size:13px;font-weight:600;margin-top:2px}
+.ficha-item{background:var(--bg3);border-radius:10px;padding:10px 13px}
+.ficha-item .lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.ficha-item .val{font-size:13.5px;font-weight:700;margin-top:2px}
 
 .opcionais-lista{display:flex;flex-wrap:wrap;gap:8px}
-.opc-tag{background:var(--greenl);color:var(--green);font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px}
+.opc-tag{background:var(--greenl);color:var(--green);font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px}
 
-.det-descricao{font-size:13px;color:var(--tx2);line-height:1.7;white-space:pre-line}
-.det-sec-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.det-descricao{font-size:13px;color:var(--tx2);line-height:1.75;white-space:pre-line}
+.det-sec-title{font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px}
 
-footer{background:var(--dark);color:#aaa;margin-top:40px;padding:30px 20px;text-align:center;font-size:12px}
-footer strong{color:#fff}
+/* WHATSAPP FLUTUANTE */
+.whats-float{position:fixed;bottom:22px;right:22px;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#2fdc76,#1eb85a);display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 24px rgba(37,211,102,.4);z-index:60;transition:transform .15s}
+.whats-float:hover{transform:scale(1.08)}
+
+footer{background:var(--dark);color:#948f89;margin-top:50px;padding:36px 20px 26px;text-align:center;font-size:12.5px}
+footer .f-logo{font-family:var(--s);font-size:20px;color:#fff;margin-bottom:10px}
+footer .f-logo span{color:var(--red2)}
+footer .f-line{margin-top:4px}
+footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#645f5a}
 </style>
 </head>
 <body>
 
+<div class="topbar">Seg a Sex das <strong>08:00 às 19:00</strong> · Sáb das <strong>08:00 às 13:00</strong></div>
 <header>
   <div class="header-top">
-    <div class="logo">RT<span>CAR</span></div>
+    <a href="#/estoque" class="logo">RT<span>CAR</span></a>
     <nav>
-      <a href="#/estoque">VEÍCULOS</a>
+      <a href="#/estoque" class="navlink">Veículos</a>
+      <a href="https://wa.me/554791238422" target="_blank" class="navlink">Venda seu carro</a>
+      <a href="https://wa.me/554791238422" target="_blank" class="navlink">Financie</a>
+      <a href="tel:+554733508667" class="navlink" style="opacity:.7">📞 (47) 3350-8667</a>
       <a href="https://wa.me/554791238422" target="_blank" class="whats-btn">💬 WhatsApp</a>
     </nav>
   </div>
 </header>
 
-<div id="app" class="wrap"></div>
+<div id="app"></div>
+
+<a class="whats-float" href="https://wa.me/554791238422" target="_blank" title="Fale no WhatsApp">💬</a>
 
 <footer>
-  <strong>RT Car</strong> — Otto Renaux, 135, Centro 1, Brusque/SC<br>
-  (47) 3350-8667 · (47) 9123-8422 · contato@rtcar.com.br
+  <div class="f-logo">RT<span>CAR</span></div>
+  <div class="f-line">Otto Renaux, 135, Centro 1, Brusque/SC</div>
+  <div class="f-line">(47) 3350-8667 · (47) 9123-8422 · contato@rtcar.com.br</div>
+  <div class="f-copy">© 2026 RT Car. Todos os direitos reservados.</div>
 </footer>
 
 <script>
 const DADOS_URL = 'dados/estoque.json';
 const FOTOS_BASE = 'fotos';
 let ESTOQUE = [];
+let BANNERS = [];
 let filtroMarca = '';
 let filtroBusca = '';
 
@@ -140,10 +198,11 @@ function fmtPreco(v){
 function fotoUrl(id, n){ return `${FOTOS_BASE}/${id}/${n}.jpg`; }
 
 function cardFoto(v){
+  const badge = v.precoDe ? `<div class="card-badge">↓ Oferta</div>` : '';
   if(!v.fotos.length){
     return `<div class="card-prep"><span class="ti">🚗</span><span>Em preparação</span></div>`;
   }
-  return `<img src="${fotoUrl(v.id,1)}" alt="${v.marca} ${v.modelo}" loading="lazy">`;
+  return `${badge}<img src="${fotoUrl(v.id,1)}" alt="${v.marca} ${v.modelo}" loading="lazy">`;
 }
 
 function cardHtml(v){
@@ -153,7 +212,7 @@ function cardHtml(v){
     <div class="card-body">
       <div class="card-titulo">${v.marca} ${v.modelo}</div>
       <div class="card-versao">${v.versao||''}</div>
-      <div class="card-meta"><span>${v.ano||'—'}</span><span>${kmFmt}</span></div>
+      <div class="card-meta"><span>📅 ${v.ano||'—'}</span><span>🛣️ ${kmFmt}</span></div>
       <div class="card-preco">${fmtPreco(v)}</div>
     </div>
   </div>`;
@@ -165,22 +224,66 @@ function marcasDisponiveis(){
   return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0]));
 }
 
+// Busca ampla: qualquer palavra do veiculo (marca, modelo, versao, cor,
+// cambio, categoria) - e "moto"/"motos" acha as motos mesmo sem a palavra
+// aparecer no nome do veiculo (pedido da Aline, 07/09/2026).
 function veiculosFiltrados(){
   return ESTOQUE.filter(v=>{
     if(filtroMarca && v.marca!==filtroMarca) return false;
     if(filtroBusca){
-      const b = filtroBusca.toLowerCase();
-      const alvo = `${v.marca} ${v.modelo} ${v.versao}`.toLowerCase();
+      const b = filtroBusca.toLowerCase().trim();
+      const categoriaNome = v.categoria==='moto' ? 'moto motos motocicleta' : 'carro carros';
+      const alvo = `${v.marca} ${v.modelo} ${v.versao} ${v.cor||''} ${v.cambio||''} ${categoriaNome}`.toLowerCase();
       if(!alvo.includes(b)) return false;
     }
     return true;
   });
 }
 
+let heroIndex = 0;
+let heroTimer = null;
+
+function heroHtml(){
+  const slides = BANNERS.length
+    ? BANNERS.map((url,i)=>`<div class="hero-slide${i===0?' on':''}" style="background-image:url('${url}')"></div>`).join('')
+    : `<div class="hero-slide on sem-foto"></div>`;
+  const setas = BANNERS.length>1 ? `
+    <div class="hero-arrow prev" onclick="heroAnterior()">‹</div>
+    <div class="hero-arrow next" onclick="heroProx()">›</div>
+    <div class="hero-dots">${BANNERS.map((_,i)=>`<div class="hero-dot${i===0?' on':''}" onclick="heroIrPara(${i})"></div>`).join('')}</div>` : '';
+  return `<div class="hero">
+    <div class="hero-slides" id="hero-slides">${slides}</div>
+    ${setas}
+    <div class="hero-inner">
+      <div class="hero-tag">🚗 Seminovos selecionados em Brusque</div>
+      <h1>Encontre o carro <em>certo</em> pra sua próxima jornada</h1>
+      <p>Veículos revisados, com procedência garantida e atendimento próximo — do primeiro contato até a entrega das chaves.</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><b>${ESTOQUE.length}</b><span>Veículos em estoque</span></div>
+        <div class="hero-stat"><b>${marcasDisponiveis().length}</b><span>Marcas disponíveis</span></div>
+        <div class="hero-stat"><b>3 meses</b><span>Garantia da loja</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+function heroIrPara(i){
+  heroIndex = i;
+  document.querySelectorAll('#hero-slides .hero-slide').forEach((el,idx)=>el.classList.toggle('on',idx===i));
+  document.querySelectorAll('.hero-dot').forEach((el,idx)=>el.classList.toggle('on',idx===i));
+}
+function heroProx(){ heroIrPara((heroIndex+1) % BANNERS.length); }
+function heroAnterior(){ heroIrPara((heroIndex-1+BANNERS.length) % BANNERS.length); }
+function iniciarCarrossel(){
+  if(heroTimer) clearInterval(heroTimer);
+  if(BANNERS.length>1) heroTimer = setInterval(heroProx, 5000);
+}
+
 function renderEstoque(){
   const lista = veiculosFiltrados();
   const marcas = marcasDisponiveis();
   document.getElementById('app').innerHTML = `
+    ${heroHtml()}
+    <div class="wrap">
     <div class="estoque-layout">
       <div class="sidebar">
         <input class="busca" id="busca-input" placeholder="Buscar veículo..." value="${filtroBusca}">
@@ -194,18 +297,22 @@ function renderEstoque(){
           ? `<div class="grid-carros">${lista.map(cardHtml).join('')}</div>`
           : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
       </div>
+    </div>
     </div>`;
   document.getElementById('busca-input').oninput = (e)=>{ filtroBusca = e.target.value; renderEstoque(); };
+  iniciarCarrossel();
 }
 function setMarca(m){ filtroMarca = m; renderEstoque(); }
 
 function renderDetalhe(id){
+  if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
   const v = ESTOQUE.find(x=>x.id===id);
-  if(!v){ document.getElementById('app').innerHTML = '<div class="vazio">Veículo não encontrado.</div>'; return; }
+  if(!v){ document.getElementById('app').innerHTML = '<div class="wrap"><div class="vazio">Veículo não encontrado.</div></div>'; return; }
   const fotos = v.fotos.length ? v.fotos.map((_,i)=>i+1) : null;
   const kmFmt = v.km ? Number(v.km).toLocaleString('pt-BR') + ' km' : '—';
   const msgWhats = encodeURIComponent(`Olá! Tenho interesse no ${v.marca} ${v.modelo} - ${v.versao} (${v.url})`);
   document.getElementById('app').innerHTML = `
+    <div class="wrap">
     <a class="voltar" href="#/estoque">← Voltar para o estoque</a>
     <div class="detalhe-layout">
       <div>
@@ -238,15 +345,21 @@ function renderDetalhe(id){
       </div>
 
       <div>
-        <div class="det-card">
+        <div class="det-card" style="position:sticky;top:90px">
           <div class="det-titulo">
             <h1>${v.marca} ${v.modelo}</h1>
             <h2>${v.versao||''}</h2>
           </div>
           <div class="det-preco">${fmtPreco(v)}</div>
           <a class="btn-whats" href="https://wa.me/554791238422?text=${msgWhats}" target="_blank">💬 Chamar no WhatsApp</a>
+          <div class="det-trust">
+            <div>✅ Veículo com procedência verificada</div>
+            <div>🛡️ Garantia da loja incluída</div>
+            <div>📍 Otto Renaux, 135 — Brusque/SC</div>
+          </div>
         </div>
       </div>
+    </div>
     </div>`;
 }
 function trocarFoto(id,n,el){
@@ -262,12 +375,28 @@ function rotear(){
   renderEstoque();
 }
 
+// Fotos do banner (topo do site) - sobem pelo admin.html, ficam no Storage
+// em banners/. Se der erro (Storage sem regra, sem fotos ainda), o banner
+// cai pro visual padrão (gradiente) sem quebrar o site.
+const FB = { projectId: 'rtcarprograma', apiKey: 'AIzaSyAHswK1g0CnOJYiN3smElfDL1XQFrOR-Y8' };
+firebase.initializeApp({ apiKey: FB.apiKey, authDomain: `${FB.projectId}.firebaseapp.com`, projectId: FB.projectId, storageBucket: `${FB.projectId}.firebasestorage.app` });
+async function carregarBanners(){
+  try{
+    const res = await firebase.storage().ref('banners').listAll();
+    const ordenados = res.items.sort((a,b)=>a.name.localeCompare(b.name));
+    BANNERS = await Promise.all(ordenados.map(item=>item.getDownloadURL()));
+  }catch(e){ console.error('banners:', e); BANNERS = []; }
+}
+
 window.addEventListener('hashchange', rotear);
-fetch(DADOS_URL).then(r=>r.json()).then(d=>{
+Promise.all([
+  fetch(DADOS_URL).then(r=>r.json()),
+  carregarBanners(),
+]).then(([d])=>{
   ESTOQUE = d.veiculos;
   rotear();
 }).catch(e=>{
-  document.getElementById('app').innerHTML = '<div class="vazio">Erro ao carregar o estoque. Tente novamente em instantes.</div>';
+  document.getElementById('app').innerHTML = '<div class="wrap"><div class="vazio">Erro ao carregar o estoque. Tente novamente em instantes.</div></div>';
   console.error(e);
 });
 </script>

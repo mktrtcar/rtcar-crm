@@ -1,4 +1,7 @@
 {
+  "storage": {
+    "rules": "storage.rules"
+  },
   "functions": [
     {
       "source": "webhook-autoconf",
@@ -26,7 +29,13 @@
     {
       "target": "site-publico",
       "public": "site-publico",
-      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "/dados/**",
+          "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+        }
+      ]
     }
   ]
 }
