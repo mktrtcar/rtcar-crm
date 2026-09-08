@@ -57,7 +57,7 @@
     <h2>Bem-vindo</h2>
     <div class="login-error" id="login-error">E-mail ou senha incorretos.</div>
     <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
-    <div class="field"><label>Senha</label><input type="password" id="login-senha" placeholder="Sua senha" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+    <div class="field"><label>Senha</label><div style="position:relative"><input type="password" id="login-senha" placeholder="Sua senha" style="padding-right:38px" onkeydown="if(event.key==='Enter')fazerLogin()"><i class="ti ti-eye" id="login-senha-icone" onclick="toggleLoginSenhaVisivel()" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--tx3);font-size:17px"></i></div></div>
     <button class="btn btn-red btn-w" id="btn-entrar" onclick="fazerLogin()">→ Entrar</button>
     <div style="text-align:center;margin-top:14px">
       <a href="#" style="color:var(--tx3);font-size:12px;text-decoration:underline" onclick="event.preventDefault();recuperarSenha()">Esqueci minha senha</a>
@@ -613,6 +613,13 @@ function toast(msg,tipo='green',ms=3000){
 }
 
 /* ---- AUTH ---- */
+function toggleLoginSenhaVisivel(){
+  const input=document.getElementById('login-senha');
+  const icone=document.getElementById('login-senha-icone');
+  const mostrar=input.type==='password';
+  input.type=mostrar?'text':'password';
+  icone.className=mostrar?'ti ti-eye-off':'ti ti-eye';
+}
 async function fazerLogin(){
   const e=document.getElementById('login-email').value.trim().toLowerCase();
   const s=document.getElementById('login-senha').value;
