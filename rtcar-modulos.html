@@ -2052,7 +2052,14 @@ async function abrirModalIntegracoes(){
 async function salvarLead(){
   const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
   if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!origem){toast('Selecione a origem','red');return;}
-  if(!G.mk.editandoId){
+  // "Compra" e "BV" sao canais de proposito diferente (troca/resgate) - o
+  // MESMO cliente pode legitimamente ter mais de um lead aberto ao mesmo
+  // tempo, um de cada tipo (ex: Luciano vendeu um carro com o Maicon E
+  // vendeu outro que virou Compra da Milena). Por isso esses dois nao
+  // caem no aviso de "lead duplicado" (pedido da Aline, 09/09/2026 -
+  // mesma regra ja combinada antes pra Gui/BV).
+  const origemPermiteDuplicado=origem==='Compra'||origem==='BV';
+  if(!G.mk.editandoId&&!origemPermiteDuplicado){
     const telDigits=tel.replace(/\D/g,'');
     const dup=G.mk.leads.find(l=>l.clienteTel&&l.clienteTel.replace(/\D/g,'')===telDigits&&!['vendido','perdido'].includes(l.st));
     if(dup){
