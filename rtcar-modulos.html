@@ -963,14 +963,16 @@ function podeVerModulo(mod){
 }
 function mkLeadsFiltrados(){
   let ls=[...G.mk.leads];
-  // CONTROLE DE ACESSO: vendedor vê só seus leads
-  if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  // CONTROLE DE ACESSO: vendedor vê só seus leads (inclui os "replicados"
+  // pra ele - lead que continua do dono original mas tambem conta/aparece
+  // pra um segundo vendedor, pedido da Aline 08/09/2026).
+  if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n||l.captadorReplicado===G.user.n);
   // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
-  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n||l.captadorReplicado===G.user.n);
   // CONTROLE DE ACESSO: RT Cred (resgate BV) ve so os leads que ela mesma
   // cadastrou - mesmo mecanismo da coordenadora, agora pro canal BV
   // (pedido da Aline, 08/09/2026).
-  if(G.user?.r==='rtcred')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n);
+  if(G.user?.r==='rtcred')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n||l.captadorReplicado===G.user.n);
   if(G.mk.busca){
     const b=G.mk.busca.toLowerCase();
     const bDigits=G.mk.busca.replace(/\D/g,'');
@@ -1053,9 +1055,9 @@ function renderKanbanMk(cnt){
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
           </div>
-          ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button></div>`:''}
+          ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button><button class="card-btn card-btn-label" onclick="abrirReplicarLead('${l.id}',event)" title="Faz esse lead contar tambem pra outro vendedor, sem tirar do atual"><i class="ti ti-link"></i> Replicar</button></div>`:''}
         </div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}</div>`;
+        <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}${l.captadorReplicado?` + ${l.captadorReplicado}`:''}</div>`;
       body.appendChild(c);
     });
     const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Novo lead';add.onclick=()=>abrirModalLead(null,col.id);
@@ -1270,7 +1272,7 @@ function vendasPorPeriodoMk(nomes,iniISO,fimISO){
   const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
   const vendidos=base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
   const porVendedor={};
-  vendidos.forEach(l=>{const v=quemVendeu(l);porVendedor[v]=(porVendedor[v]||0)+1;});
+  vendidos.forEach(l=>{const v=quemVendeu(l);porVendedor[v]=(porVendedor[v]||0)+1;if(l.captadorReplicado)porVendedor[l.captadorReplicado]=(porVendedor[l.captadorReplicado]||0)+1;});
   return{total:vendidos.length,porVendedor};
 }
 function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
@@ -1510,8 +1512,11 @@ function statsGeralIntervalo(iniISO,fimISO){
   // Compra, hoje a Milena, nao esta "vendendo" um carro) - por isso fica de
   // fora do "por vendedor" de Vendas e ganha sua propria contagem por quem
   // fechou (pedido da Aline, 04/09/2026).
-  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra').forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;});
-  const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemComprou(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;});
+  // captadorReplicado: lead "replicado" conta 1 venda pra cada um dos 2
+  // vendedores (pedido da Aline, 08/09/2026) - o total geral continua
+  // contando o negocio uma vez so, so o detalhamento por vendedor credita os 2.
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra').forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;if(l.captadorReplicado)vendasPorVendedor[l.captadorReplicado]=(vendasPorVendedor[l.captadorReplicado]||0)+1;});
+  const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemComprou(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;if(l.captadorReplicado)comprasPorVendedor[l.captadorReplicado]=(comprasPorVendedor[l.captadorReplicado]||0)+1;});
   const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
@@ -2105,7 +2110,39 @@ async function confirmarTransferencia(id,vendedor){
   lead.captador=vendedor;
   await salvarCamposMk(id,{captador:vendedor});
   renderMarketing();
-  showToast(`Lead transferido para ${vendedor}`);
+  toast(`Lead transferido para ${vendedor}`);
+}
+/* "Replicar" - pra negocio que envolve 2 pessoas ao mesmo tempo (ex: Maicon
+   vende o carro novo, Milena compra o usado do cliente na troca) - o MESMO
+   lead passa a contar pros 2, sem duplicar o registro. Diferente de
+   "Transferir" (que troca o dono), aqui os 2 continuam donos e os 2 ganham
+   credito se a venda fechar (pedido da Aline, 08/09/2026 - caso real:
+   LEAD-290, Luciano, Maicon + Milena). */
+let _replicarPopup=null;
+function abrirReplicarLead(id,e){
+  e.stopPropagation();
+  if(_replicarPopup){_replicarPopup.remove();_replicarPopup=null;}
+  const lead=G.mk.leads.find(l=>l.id===id);
+  const popup=document.createElement('div');
+  popup.className='transfer-popup';
+  popup.innerHTML=`<div class="tp-title">Replicar também para</div>${VENDEDORES_ATIVOS.filter(v=>v!==lead?.captador).map(v=>`<button onclick="confirmarReplicacao('${id}','${v}')">${v}</button>`).join('')}${lead?.captadorReplicado?`<button onclick="confirmarReplicacao('${id}','')" style="color:var(--red)">Remover réplica (${lead.captadorReplicado})</button>`:''}`;
+  document.getElementById('rtcar-crm-root').appendChild(popup);
+  const btn=e.currentTarget;
+  const rect=btn.getBoundingClientRect();
+  popup.style.top=(rect.bottom+6)+'px';
+  popup.style.left=rect.left+'px';
+  _replicarPopup=popup;
+  setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_replicarPopup=null;},{once:true}),50);
+}
+async function confirmarReplicacao(id,vendedor){
+  if(_replicarPopup){_replicarPopup.remove();_replicarPopup=null;}
+  const lead=G.mk.leads.find(l=>l.id===id);
+  if(!lead)return;
+  lead.captadorReplicado=vendedor;
+  await salvarCamposMk(id,{captadorReplicado:vendedor});
+  await regHistMk(lead,vendedor?'🔗 Réplica de crédito':'🔗 Réplica removida',vendedor?`Esse lead também passa a contar para ${vendedor}, além de ${lead.captador||lead.by||'?'}.`:'A réplica de crédito foi removida.',G.user?.n||'','purple');
+  renderMarketing();
+  toast(vendedor?`Lead replicado também para ${vendedor}`:'Réplica removida');
 }
 function abrirModalObs(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('obs-titulo').textContent=`Registrar — ${l?.clienteNome||id}`;document.getElementById('obs-tipo').value='📞 Contato realizado';document.getElementById('obs-texto').value='';document.getElementById('ov-obs').classList.remove('hidden');setTimeout(()=>document.getElementById('obs-texto').focus(),50);}
 async function salvarObs(){
@@ -2329,7 +2366,7 @@ function abrirDetailLead(id){
           <div class="d-field"><span class="lbl">ID</span><span class="val">${lead.id}</span></div>
           <div class="d-field"><span class="lbl">Data</span><span class="val">${lead.dt||'—'}</span></div>
           <div class="d-field"><span class="lbl">Origem</span><span class="val">${lead.origem||'—'}</span></div>
-          <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}</span></div>
+          <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}${lead.captadorReplicado?` <span style="color:var(--purple)">+ ${lead.captadorReplicado} (réplica)</span>`:''}</span></div>
           <div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`:'—'}</span></div>
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
           ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
@@ -4158,6 +4195,8 @@ window.confirmarOptOut=confirmarOptOut;
 window.confirmarPerda=confirmarPerda;
 window.confirmarResgate=confirmarResgate;
 window.confirmarTransferencia=confirmarTransferencia;
+window.abrirReplicarLead=abrirReplicarLead;
+window.confirmarReplicacao=confirmarReplicacao;
 window.confirmarVendedorPopup=confirmarVendedorPopup;
 window.confirmarVendido=confirmarVendido;
 window.copiarMsg=copiarMsg;
