@@ -2066,6 +2066,14 @@ async function salvarLead(){
   const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
   if(!captador&&!G.mk.editandoId)captador=await proximoVendedorRodizio();
+  // TRAVA: Aline e' Master, nunca vendedora - nao pode salvar lead nenhum
+  // com ela como captador (achado 09/09/2026, ver comentario em
+  // VENDEDORES_ATIVOS). Cai pro rodizio se for lead novo, ou pede pra
+  // escolher se for edicao.
+  if(captador==='Aline'){
+    if(!G.mk.editandoId){captador=origem==='Compra'?'Milena':await proximoVendedorRodizio();}
+    else{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent='Salvar Alterações';toast('Aline não pode ser vendedor(a) de um lead — escolha outra pessoa em "Vendedor".','red',4000);return;}
+  }
   const dtISO=document.getElementById('f-data-contato').value||new Date().toISOString().split('T')[0];
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
@@ -2090,7 +2098,13 @@ async function salvarLead(){
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
 }
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor'];
+// Aline e' Master (gestao/dona), nunca vendedora - nao compra nem vende
+// carro, entao nao pode aparecer como captador de lead nenhum (achado
+// 09/09/2026: Milena registrou uma Compra sem querer logada como Aline,
+// e o mes contou errado). Tirada da lista de quem pode ser escolhido como
+// vendedor/captador (dropdown, Transferir, Replicar) - ver tambem a trava
+// em salvarLead().
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor'];
 let _transferPopup=null;
 function abrirTransferirLead(id,e){
   e.stopPropagation();
