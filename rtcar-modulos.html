@@ -1050,12 +1050,15 @@ function renderKanbanMk(cnt){
           <button class="card-btn card-btn-label" onclick="toggleEncantamentoMk('${l.id}','encTelefone',event)" style="${l.encTelefone?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">${l.encTelefone?'✓ ':''}Ligação</button>
         </div>`:''}
         <div class="card-footer">
-          <div class="card-actions">
+          <div class="card-actions" style="flex-wrap:wrap">
             <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
+            <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
+            ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirReplicarLead('${l.id}',event)" title="Faz esse lead contar tambem pra outro vendedor, sem tirar do atual"><i class="ti ti-link"></i> Replicar</button>`:''}
+            <button class="card-btn card-btn-label" style="color:var(--red)" onclick="confirmarExclusaoLead('${l.id}')"><i class="ti ti-trash"></i> Excluir</button>
           </div>
-          ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button><button class="card-btn card-btn-label" onclick="abrirReplicarLead('${l.id}',event)" title="Faz esse lead contar tambem pra outro vendedor, sem tirar do atual"><i class="ti ti-link"></i> Replicar</button></div>`:''}
+          ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button></div>`:''}
         </div>
         <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}${l.captadorReplicado?` + ${l.captadorReplicado}`:''}</div>`;
       body.appendChild(c);
