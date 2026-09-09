@@ -2763,6 +2763,21 @@ function linhaImportParaCampos(row){
   });
   return campos;
 }
+// Algumas planilhas exportadas vem com linha(s) em branco (ou um titulo)
+// antes do cabecalho de verdade - sem isso, o sistema sempre assumia que
+// a primeira linha era o cabecalho, e com ela em branco nenhuma coluna
+// era reconhecida (nenhuma linha "encontrada"). Acha a primeira linha,
+// dentre as 15 primeiras, que tenha pelo menos uma celula batendo com
+// algum alias conhecido (achado com planilha real da Aline, 09/09/2026 -
+// coluna "2 anos" com 2 linhas em branco no topo antes do cabecalho).
+function acharLinhaCabecalhoImport(sheet){
+  const bruto=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+  const todosAliases=Object.values(IMPORT_ALIASES).flat();
+  for(let i=0;i<Math.min(bruto.length,15);i++){
+    if((bruto[i]||[]).some(cel=>todosAliases.includes(normTxt(cel))))return i;
+  }
+  return 0;
+}
 function processarArquivoImportacao(input){
   const file=input.files&&input.files[0];if(!file)return;
   const reader=new FileReader();
@@ -2770,7 +2785,8 @@ function processarArquivoImportacao(input){
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       const sheet=wb.Sheets[wb.SheetNames[0]];
-      const linhasBrutas=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      const linhaCabecalho=acharLinhaCabecalhoImport(sheet);
+      const linhasBrutas=XLSX.utils.sheet_to_json(sheet,{defval:'',range:linhaCabecalho});
       // dtCompra fica em ISO (aaaa-mm-dd) - ordem crescente por comparacao direta de string
       // ja da a ordem cronologica certa (dia 01/01 antes de 03/01), sem linha nenhuma
       // ficar antes por acaso (linhas sem data vao pro final).
