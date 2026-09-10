@@ -1382,7 +1382,7 @@ function renderDashboardHoje(cnt){
     if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
     return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMk('aindaIACanal','${canal}',null,${offset})" title="Clique pra ver quem são"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
   }
-  function blocoStats(titulo,st,nomesStr,offset){
+  function blocoStats(titulo,st,nomesStr,offset,visitaRel){
     const nm=nomesStr||'';
     // Milena so lida com Compra - o painel dela mostra so os 3 boxes de
     // Compra, sem leads/visita/agendamento/vendas normais (pedido da
@@ -1410,8 +1410,10 @@ function renderDashboardHoje(cnt){
         ${kpiCard(vendasSemana,'Vendas da semana','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${semana.ini}','${semana.fim}')`)}
         ${kpiCard(vendasMes,'Vendas do mês','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${mes.ini}','${mes.fim}')`)}`;
     }else{
+      // Visita Compra e Visita Relacionamento ficam juntas da "Visita" comum
+      // (mais abaixo, fora do boxesFinais) - pedido da Aline, 10/09/2026, pra
+      // agrupar as 3 "visitas" lado a lado, com a mesma fonte das demais.
       boxesFinais=`
-        ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
         ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
         ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
         ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}`;
@@ -1429,6 +1431,8 @@ function renderDashboardHoje(cnt){
           ${listaCanais(st.outrosPorCanal,nm,offset)}
         </div>
         ${kpiCard(st.visitas,'Visita','var(--gold)','var(--goldl)',`abrirDrillMk('visitas',null,'${nm}',${offset})`)}
+        ${!isSeller()?kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`):''}
+        ${!isSeller()&&visitaRel!==undefined?kpiCard(visitaRel,'Visita Relacionamento','var(--gold)','var(--goldl)'):''}
         ${kpiCard(st.agendamentos,'Agendamento','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentos',null,'${nm}',${offset})`)}
         ${boxesFinais}
       </div>
@@ -1465,7 +1469,7 @@ function renderDashboardHoje(cnt){
     const naIAAgora=G.mk.leads.filter(l=>l.st==='ia').length;
     const stNpsIndTodos=statsNpsIndDoDia(null,offset);
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:6px">Total de todos os vendedores + Milena</p>`;
-    html+=blocoStats('Equipe toda',stTodos,TODOS_VENDEDORES.join('|'),offset);
+    html+=blocoStats('Equipe toda',stTodos,TODOS_VENDEDORES.join('|'),offset,stNpsIndTodos.visitas1ano+stNpsIndTodos.visitas2anos);
     html+=`<div class="d-section" style="margin-top:7px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
         ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('chegaramIA',null,null,${offset})`)}
@@ -1485,9 +1489,6 @@ function renderDashboardHoje(cnt){
       const caixas=[
         kpiCard(stNpsIndTodos.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb'),
         kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0'),
-        // Soma 1 ano + 2 anos retirados num numero so' - pedido da Aline,
-        // 10/09/2026 (queria saber os 2, mas junto, sem precisar de 2 caixas).
-        kpiCard(stNpsIndTodos.visitas1ano+stNpsIndTodos.visitas2anos,'🚗 Visita de Relacionamento','#6b3db8','#f3e8fb'),
         boxVendaPeriodoHtml(`Vendas — semana (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim,nm),
         boxVendaPeriodoHtml(`Vendas — mês (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim,nm),
       ];
