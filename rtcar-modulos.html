@@ -2527,6 +2527,13 @@ function renderRelacionamento(){
   // derruba o campo antes do ano ser digitado.
   const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
   if(dataFocada)return;
+  // Mesma correcao do campo de busca do CRM (ver renderMarketing): sem
+  // guardar o foco/selecao, reconstruir a tela a cada letra digitada
+  // derrubava o campo, e so dava pra digitar uma letra de cada vez (pedido
+  // da Aline, 09/09/2026).
+  const buscaFocada=document.activeElement&&document.activeElement.id==='rel-busca';
+  const buscaSelStart=buscaFocada?document.activeElement.selectionStart:null;
+  const buscaSelEnd=buscaFocada?document.activeElement.selectionEnd:null;
   tb.innerHTML=`
     <div class="tb-title"><i class="ti ti-heart-handshake"></i> Relacionamento</div>
     <div class="tb-sep"></div>
@@ -2547,10 +2554,14 @@ function renderRelacionamento(){
       <select id="rel-export-col" class="select-sm" style="min-width:160px"><option value="">📤 Exportar coluna...</option>${COLS_REL.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}</select>
       <button class="btn btn-outline btn-sm" onclick="exportarClientesCSV()"><i class="ti ti-download"></i> Exportar</button>
     </div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="__G().rel.busca=this.value;renderRelacionamento()"></div>
+    <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="rel-busca" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="__G().rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
     `:''}
   `;
+  if(buscaFocada){
+    const buscaEl=document.getElementById('rel-busca');
+    if(buscaEl){buscaEl.focus();buscaEl.setSelectionRange(buscaSelStart,buscaSelEnd);}
+  }
   const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanRel(cnt);
   else if(view==='dashboard') renderDashboardRel(cnt);
