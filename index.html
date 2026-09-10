@@ -1323,14 +1323,14 @@ function blocoVendasPeriodoMk(nomesStr,tituloSecao){
     const porVendedor=Object.keys(st.porVendedor).length
       ?Object.entries(st.porVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMkPeriodo('${k}','${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são"><span>${k}</span><strong>${v}</strong></div>`).join('')
       :'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhuma</div>';
-    return`<div style="background:var(--greenl);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+    return`<div style="background:var(--greenl);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
       <div style="font-size:26px;font-weight:700;color:var(--green);text-align:center;cursor:pointer" onclick="abrirDrillMkPeriodo(null,'${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são">${st.total}</div>
       <div style="font-size:11px;color:var(--tx3);text-align:center">${titulo}</div>
       <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porVendedor}</div>
     </div>`;
   }
-  return`<div class="d-section" style="margin-top:14px"><div class="d-section-title">${tituloSecao||'Vendas — semana e mês atuais (por vendedor)'}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px">
+  return`<div class="d-section" style="margin-top:7px"><div class="d-section-title">${tituloSecao||'Vendas — semana e mês atuais (por vendedor)'}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-top:5px">
       ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim)}
       ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim)}
     </div>
@@ -1350,9 +1350,9 @@ function renderDashboardHoje(cnt){
   function kpiCard(val,label,color,bg,onclick){
     const clic=onclick?`cursor:pointer;`:'';
     const attrs=onclick?` onclick="${onclick}" title="Clique pra ver quem são"`:'';
-    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;text-align:center;${clic}"${attrs}>
+    return`<div style="background:${bg||'var(--bg2)'};border:1px solid var(--bdr);border-radius:var(--r2);padding:10px;text-align:center;${clic}"${attrs}>
       <div style="font-size:28px;font-weight:700;color:${color}">${val}</div>
-      <div style="font-size:11px;color:var(--tx3);margin-top:3px">${label}</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:2px">${label}</div>
     </div>`;
   }
   function listaCanais(porCanal,nomesStr,offset){
@@ -1373,7 +1373,7 @@ function renderDashboardHoje(cnt){
     // Aline, 04/09/2026).
     if(G.user?.r==='coordenadora'){
       return`<div class="d-section"><div class="d-section-title">${titulo}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
           ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
           ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
           ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}
@@ -1401,13 +1401,13 @@ function renderDashboardHoje(cnt){
         ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}`;
     }
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
-        <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
+        <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
           <div style="font-size:26px;font-weight:700;color:var(--blue);text-align:center">${st.marketing}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Marketing</div>
           ${listaCanais(st.marketingPorCanal,nm,offset)}
         </div>
-        <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+        <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
           <div style="font-size:26px;font-weight:700;color:var(--purple);text-align:center">${st.outros}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Outros</div>
           ${listaCanais(st.outrosPorCanal,nm,offset)}
@@ -1420,8 +1420,8 @@ function renderDashboardHoje(cnt){
   }
   const offset=G.mk.hojeOffset||0;
   const rotuloDia=offset===0?'Hoje':(offset===-1?'Ontem':`${Math.abs(offset)} dias atrás`);
-  let html=`<div style="padding:20px;overflow:auto">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+  let html=`<div style="padding:12px;overflow:auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:3px">
       <button class="btn btn-outline btn-sm" ${offset<=-7?'disabled':''} onclick="__G().mk.hojeOffset=(__G().mk.hojeOffset||0)-1;renderMarketing()" title="Dia anterior"><i class="ti ti-chevron-left"></i></button>
       <h2 style="font-size:18px">📅 ${rotuloDia} — ${hoje(offset)}</h2>
       <button class="btn btn-outline btn-sm" ${offset>=0?'disabled':''} onclick="__G().mk.hojeOffset=(__G().mk.hojeOffset||0)+1;renderMarketing()" title="Dia seguinte"><i class="ti ti-chevron-right"></i></button>
@@ -1448,12 +1448,12 @@ function renderDashboardHoje(cnt){
     // nenhum (achado com a Aline, 09/09/2026).
     const naIAAgora=G.mk.leads.filter(l=>l.st==='ia').length;
     const stNpsIndTodos=statsNpsIndDoDia(null,offset);
-    html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
+    html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:6px">Total de todos os vendedores + Milena</p>`;
     html+=blocoStats('Equipe toda',stTodos,TODOS_VENDEDORES.join('|'),offset);
-    html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+    html+=`<div class="d-section" style="margin-top:7px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
         ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('chegaramIA',null,null,${offset})`)}
-        <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+        <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
           <div style="font-size:26px;font-weight:700;color:var(--purple);text-align:center;cursor:pointer" onclick="abrirDrillMk('aindaIA',null,null,${offset})" title="Clique pra ver quem são">${aindaNaIA}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Ainda na I.A.</div>
           ${listaCanaisIA(aindaNaIAPorCanal,offset)}
@@ -1461,15 +1461,15 @@ function renderDashboardHoje(cnt){
         ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)',`abrirDrillMk('jaSairamIA',null,null,${offset})`)}
       </div>
     </div>
-    <div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+    <div class="d-section" style="margin-top:7px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
         ${kpiCard(stNpsIndTodos.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
         ${kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
     </div>
     ${blocoVendasPeriodoMk(TODOS_VENDEDORES.join('|'))}
-    ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+    ${offset===0?`<div class="d-section" style="margin-top:7px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
         ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)")}
         ${kpiCard(naIAAgora,'Parados na I.A. (todos)','var(--purple)','var(--purplel)',"abrirDrillMk('naIATodos',null,null,0)")}
       </div>
@@ -1481,8 +1481,8 @@ function renderDashboardHoje(cnt){
     html+=blocoStats(`Seus números — ${G.user?.n||''}`,st,meusNomes.join('|'),offset);
     // NPS/Indicacoes (Relacionamento) e' informacao da Milena, nao do
     // vendedor comum (pedido da Aline, 04/09/2026).
-    html+=`${isSeller()?'':`<div class="d-section" style="margin-top:14px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
+    html+=`${isSeller()?'':`<div class="d-section" style="margin-top:7px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
         ${kpiCard(stNpsInd.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
         ${kpiCard(stNpsInd.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
       </div>
