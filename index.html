@@ -870,7 +870,11 @@ async function resgatarLeadsIaSemRespostaMk(leads){
 function renderPreservandoScroll(fn){
   const cnt=document.getElementById('cnt');
   const scrollTop=cnt?cnt.scrollTop:0;
+  // Guarda tambem a rolagem da janela inteira - em alguns painéis (ex:
+  // Hoje) quem rola é a pagina, nao o #cnt por dentro.
+  const scrollX=window.scrollX,scrollY=window.scrollY;
   fn();
+  window.scrollTo(scrollX,scrollY);
   const cntNovo=document.getElementById('cnt');
   if(cntNovo)cntNovo.scrollTop=scrollTop;
 }
