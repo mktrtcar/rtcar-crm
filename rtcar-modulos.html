@@ -1259,6 +1259,9 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
   }else if(tipo==='aindaIA'){
     titulo='Ainda na I.A.';
     leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st==='ia');
+  }else if(tipo==='aindaIACanal'){
+    titulo=`Ainda na I.A. — ${chave}`;
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem===chave&&l.st==='ia');
   }else if(tipo==='jaSairamIA'){
     titulo='Já saíram da I.A.';
     leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st!=='ia');
@@ -1335,6 +1338,13 @@ function renderDashboardHoje(cnt){
     if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
     return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMk('canal','${canal}','${nomesStr||''}',${offset})" title="Clique pra ver quem são"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
   }
+  // Mesma ideia do listaCanais, mas pros leads que ainda estao parados na
+  // I.A. sem resposta - pra ver quais canais nao estao respondendo (pedido
+  // da Aline, 09/09/2026).
+  function listaCanaisIA(porCanal,offset){
+    if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
+    return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMk('aindaIACanal','${canal}',null,${offset})" title="Clique pra ver quem são"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
+  }
   function blocoStats(titulo,st,nomesStr,offset){
     const nm=nomesStr||'';
     // Milena so lida com Compra - o painel dela mostra so os 3 boxes de
@@ -1403,7 +1413,12 @@ function renderDashboardHoje(cnt){
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
     // (cadastro manual de vendedor) - o resto passa pela I.A. normalmente.
     const chegaramNoDia=G.mk.leads.filter(l=>l.dtISO===diaISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
-    const aindaNaIA=chegaramNoDia.filter(l=>l.st==='ia').length;
+    const aindaNaIALeads=chegaramNoDia.filter(l=>l.st==='ia');
+    const aindaNaIA=aindaNaIALeads.length;
+    // Por canal - pra ver quais canais estao com lead parado sem resposta,
+    // mesmo estilo das caixas "Leads Marketing"/"Leads Outros" (pedido da
+    // Aline, 09/09/2026).
+    const aindaNaIAPorCanal=(()=>{const m={};aindaNaIALeads.forEach(l=>{const k=l.origem||'(sem origem)';m[k]=(m[k]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);})();
     const jaSairamDaIA=chegaramNoDia.length-aindaNaIA;
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
     // Numero cru de quantos leads estao PARADOS na I.A. agora, sem filtro de
@@ -1417,7 +1432,11 @@ function renderDashboardHoje(cnt){
     html+=`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Dos leads que chegaram ${offset===0?'hoje':'nesse dia'} na I.A.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(chegaramNoDia.length,offset===0?'Chegaram na I.A. hoje':'Chegaram na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('chegaramIA',null,null,${offset})`)}
-        ${kpiCard(aindaNaIA,'Ainda na I.A.','var(--purple)','var(--purplel)',`abrirDrillMk('aindaIA',null,null,${offset})`)}
+        <div style="background:var(--purplel);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px">
+          <div style="font-size:26px;font-weight:700;color:var(--purple);text-align:center;cursor:pointer" onclick="abrirDrillMk('aindaIA',null,null,${offset})" title="Clique pra ver quem são">${aindaNaIA}</div>
+          <div style="font-size:11px;color:var(--tx3);text-align:center">Ainda na I.A.</div>
+          ${listaCanaisIA(aindaNaIAPorCanal,offset)}
+        </div>
         ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)',`abrirDrillMk('jaSairamIA',null,null,${offset})`)}
       </div>
     </div>
