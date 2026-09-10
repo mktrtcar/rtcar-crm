@@ -1265,6 +1265,9 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
   }else if(tipo==='emAtendimento'){
     titulo='Em atendimento agora';
     leads=G.mk.leads.filter(l=>l.st==='atendimento');
+  }else if(tipo==='naIATodos'){
+    titulo='Parados na I.A. (todos, não só os de hoje)';
+    leads=G.mk.leads.filter(l=>l.st==='ia');
   }
   mostrarDrilldownMk(titulo,leads);
 }
@@ -1403,6 +1406,11 @@ function renderDashboardHoje(cnt){
     const aindaNaIA=chegaramNoDia.filter(l=>l.st==='ia').length;
     const jaSairamDaIA=chegaramNoDia.length-aindaNaIA;
     const emAtendimentoAgora=G.mk.leads.filter(l=>l.st==='atendimento').length;
+    // Numero cru de quantos leads estao PARADOS na I.A. agora, sem filtro de
+    // data - "Ainda na I.A." acima so conta os que chegaram hoje, entao um
+    // lead que chegou ha dias e continua parado nunca aparecia em lugar
+    // nenhum (achado com a Aline, 09/09/2026).
+    const naIAAgora=G.mk.leads.filter(l=>l.st==='ia').length;
     const stNpsIndTodos=statsNpsIndDoDia(null,offset);
     html+=`<p style="color:var(--tx3);font-size:12px;margin-bottom:14px">Total de todos os vendedores + Milena</p>`;
     html+=blocoStats('Equipe toda',stTodos,TODOS_VENDEDORES.join('|'),offset);
@@ -1423,6 +1431,7 @@ function renderDashboardHoje(cnt){
     ${offset===0?`<div class="d-section" style="margin-top:14px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:8px">
         ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)")}
+        ${kpiCard(naIAAgora,'Parados na I.A. (todos)','var(--purple)','var(--purplel)',"abrirDrillMk('naIATodos',null,null,0)")}
       </div>
     </div>`:''}`;
   }else{
