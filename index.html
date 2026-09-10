@@ -863,13 +863,24 @@ async function resgatarLeadsIaSemRespostaMk(leads){
   }
   return alvos.length>0;
 }
+// O auto-refresh (a cada 10s) reconstroi o HTML de #cnt do zero - sem isso,
+// a tela voltava pro topo sozinha toda vez que rodava, mesmo com a pessoa
+// no meio da rolagem lendo alguma coisa mais embaixo (pedido da Aline,
+// 09/09/2026). Guarda a posicao da rolagem antes e devolve depois.
+function renderPreservandoScroll(fn){
+  const cnt=document.getElementById('cnt');
+  const scrollTop=cnt?cnt.scrollTop:0;
+  fn();
+  const cntNovo=document.getElementById('cnt');
+  if(cntNovo)cntNovo.scrollTop=scrollTop;
+}
 function iniciarAutoRefreshMk(){
   pararAutoRefreshMk();
   if(!fbOk()||G.mk.modoDemo)return;
   G.mk._autoRefreshInterval=setInterval(async()=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
     if(algumaJanelaAberta())return;
-    try{G.mk.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderMarketing();}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
+    try{G.mk.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderPreservandoScroll(renderMarketing);}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
   },10000);
 }
 function pararAutoRefreshMk(){
@@ -1277,18 +1288,24 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
 // Vendas da semana/mes atuais por vendedor - usado no painel "Hoje" do CRM
 // (a pedido da Aline, 03/09/2026: vendedor nao tem acesso ao Dashboard Geral,
 // entao essa informacao tambem precisa aparecer aqui).
+// Compra usa quemComprou (responsavel do lead), nao quemVendeu (que olha
+// quem clicou no historico) - mesmo motivo da correcao no Dashboard Geral,
+// 06/09/2026: aqui na aba Hoje do CRM tinha o mesmo problema, so' que
+// ninguem tinha reparado ainda (achado com a Aline, 09/09/2026 - LEAD-104
+// continuava aparecendo como Aline aqui mesmo depois da correcao de la).
+function quemVendeuOuComprou(l){return l.origem==='Compra'?quemComprou(l):quemVendeu(l);}
 function vendasPorPeriodoMk(nomes,iniISO,fimISO){
   const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
   const vendidos=base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
   const porVendedor={};
-  vendidos.forEach(l=>{const v=quemVendeu(l);porVendedor[v]=(porVendedor[v]||0)+1;if(l.captadorReplicado)porVendedor[l.captadorReplicado]=(porVendedor[l.captadorReplicado]||0)+1;});
+  vendidos.forEach(l=>{const v=quemVendeuOuComprou(l);porVendedor[v]=(porVendedor[v]||0)+1;if(l.captadorReplicado)porVendedor[l.captadorReplicado]=(porVendedor[l.captadorReplicado]||0)+1;});
   return{total:vendidos.length,porVendedor};
 }
 function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
   const nomes=nomesStr?nomesStr.split('|'):null;
   const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
   const leads=chave
-    ?base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeu(l)===chave)
+    ?base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeuOuComprou(l)===chave)
     :base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
   mostrarDrilldownMk(chave?`Vendas — ${chave}`:'Vendas do período',leads);
 }
@@ -4070,7 +4087,7 @@ function iniciarTimerIA(){
   G.ia._timerInterval=setInterval(async()=>{
     if(G.modulo!=='ia'){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;return;}
     if(document.activeElement&&document.activeElement.id==='ia-busca')return;
-    try{G.ia.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderIA(document.getElementById('cnt'));}catch(e){console.error(e);}
+    try{G.ia.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));}catch(e){console.error(e);}
   },10000);
 }
 function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
