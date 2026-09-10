@@ -1235,7 +1235,11 @@ function statsDoDiaMk(nomes,offset=0){
     agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra').length,
     agendamentosCompra:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra').length,
     vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra').length,
+    // De quem foi a venda/compra do dia - pra mostrar junto do numero, nao
+    // so' o total (pedido da Aline, 10/09/2026).
+    vendasPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra')),
     compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
+    compraPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra')),
   };
 }
 // Clique nos numeros do painel "Hoje" do CRM pra ver quais leads sao esses
@@ -1306,6 +1310,18 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
 // ninguem tinha reparado ainda (achado com a Aline, 09/09/2026 - LEAD-104
 // continuava aparecendo como Aline aqui mesmo depois da correcao de la).
 function quemVendeuOuComprou(l){return l.origem==='Compra'?quemComprou(l):quemVendeu(l);}
+// Agrupa uma lista de leads vendidos por quem vendeu/comprou - usado no
+// resumo do dia (Vendas/Compra) pra mostrar de quem foi, nao so o total
+// (pedido da Aline, 10/09/2026). Credita tambem o captadorReplicado, igual
+// as outras contagens por vendedor.
+function porVendedorDoDia(lista){
+  const m={};
+  lista.forEach(l=>{
+    const v=quemVendeuOuComprou(l);m[v]=(m[v]||0)+1;
+    if(l.captadorReplicado)m[l.captadorReplicado]=(m[l.captadorReplicado]||0)+1;
+  });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
 function vendasPorPeriodoMk(nomes,iniISO,fimISO){
   const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
   const vendidos=base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
@@ -1375,6 +1391,22 @@ function renderDashboardHoje(cnt){
     if(!porCanal.length)return'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhum</div>';
     return`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porCanal.map(([canal,n])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMk('canal','${canal}','${nomesStr||''}',${offset})" title="Clique pra ver quem são"><span>${canal}</span><strong>${n}</strong></div>`).join('')}</div>`;
   }
+  // Caixa de Vendas/Compra do dia, agora com a lista de quem foi (nao so o
+  // total) - pra nao ficar sozinha/sem contexto na linha (pedido da Aline,
+  // 10/09/2026).
+  function boxComQuem(val,titulo,cor,bg,porVendedor,onclick){
+    const linhas=porVendedor.length
+      ?porVendedor.map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2)"><span>${k}</span><strong>${v}</strong></div>`).join('')
+      :'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhuma</div>';
+    const attrs=onclick?` onclick="${onclick}" title="Clique pra ver quem são" style="cursor:pointer"`:'';
+    return`<div style="background:${bg};border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
+      <div${attrs}>
+        <div style="font-size:26px;font-weight:700;color:${cor};text-align:center">${val}</div>
+        <div style="font-size:11px;color:var(--tx3);text-align:center">${titulo}</div>
+      </div>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${linhas}</div>
+    </div>`;
+  }
   // Mesma ideia do listaCanais, mas pros leads que ainda estao parados na
   // I.A. sem resposta - pra ver quais canais nao estao respondendo (pedido
   // da Aline, 09/09/2026).
@@ -1415,11 +1447,11 @@ function renderDashboardHoje(cnt){
       // agrupar as 3 "visitas" lado a lado, com a mesma fonte das demais.
       boxesFinais=`
         ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
-        ${kpiCard(st.vendas,'Vendas','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
-        ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}`;
+        ${boxComQuem(st.vendas,'Vendas','var(--green)','var(--greenl)',st.vendasPorVendedor,`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
+        ${boxComQuem(st.compras,'Compra','var(--green)','var(--greenl)',st.compraPorVendedor,`abrirDrillMk('compras',null,'${nm}',${offset})`)}`;
     }
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px;margin-top:5px">
         <div style="background:var(--bluel);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
           <div style="font-size:26px;font-weight:700;color:var(--blue);text-align:center">${st.marketing}</div>
           <div style="font-size:11px;color:var(--tx3);text-align:center">Leads · Marketing</div>
