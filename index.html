@@ -1740,6 +1740,10 @@ function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO){
             ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic,false,`abrirDrill('leadsGrupoOutros','carteira',${p})`)}
             <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
           </div>
+          <div class="rp-section">
+            <div class="rp-sec-title">🤖 I.A. (agora, não é do período)</div>
+            <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrillMk('naIATodos',null,null,0)" title="Clique pra ver quem são - inclui leads de qualquer data, nao so desse periodo"><span>Parados na I.A.</span><strong>${G.mk.leads.filter(l=>l.st==='ia').length}</strong></div>
+          </div>
         </div>
       </div>
       <div>
