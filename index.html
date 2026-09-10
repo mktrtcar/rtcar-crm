@@ -874,9 +874,17 @@ function renderPreservandoScroll(fn){
   // Hoje) quem rola é a pagina, nao o #cnt por dentro.
   const scrollX=window.scrollX,scrollY=window.scrollY;
   fn();
-  window.scrollTo(scrollX,scrollY);
-  const cntNovo=document.getElementById('cnt');
-  if(cntNovo)cntNovo.scrollTop=scrollTop;
+  // Restaura em 2 camadas de requestAnimationFrame - restaurar na hora (logo
+  // depois do fn()) as vezes acontecia ANTES do navegador recalcular a
+  // altura da pagina nova, e a rolagem voltava a se mexer sozinha de novo
+  // (achado com a Aline, 09/09/2026, mesmo depois da 1a correcao).
+  const restaurar=()=>{
+    window.scrollTo(scrollX,scrollY);
+    const cntNovo=document.getElementById('cnt');
+    if(cntNovo)cntNovo.scrollTop=scrollTop;
+  };
+  restaurar();
+  requestAnimationFrame(()=>requestAnimationFrame(restaurar));
 }
 function iniciarAutoRefreshMk(){
   pararAutoRefreshMk();
@@ -1313,26 +1321,30 @@ function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
     :base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
   mostrarDrilldownMk(chave?`Vendas — ${chave}`:'Vendas do período',leads);
 }
+// Extraido de blocoVendasPeriodoMk pra poder reaproveitar so' a caixa (sem
+// o d-section em volta) na secao combinada de 6 quadrados do painel master
+// (pedido da Aline, 09/09/2026 - juntar NPS/Indicacoes/Vendas/Operacional
+// numa linha so, pra caber mais na tela sem rolar).
+function boxVendaPeriodoHtml(titulo,st,iniISO,fimISO,nm){
+  const porVendedor=Object.keys(st.porVendedor).length
+    ?Object.entries(st.porVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMkPeriodo('${k}','${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são"><span>${k}</span><strong>${v}</strong></div>`).join('')
+    :'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhuma</div>';
+  return`<div style="background:var(--greenl);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
+    <div style="font-size:26px;font-weight:700;color:var(--green);text-align:center;cursor:pointer" onclick="abrirDrillMkPeriodo(null,'${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são">${st.total}</div>
+    <div style="font-size:11px;color:var(--tx3);text-align:center">${titulo}</div>
+    <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porVendedor}</div>
+  </div>`;
+}
 function blocoVendasPeriodoMk(nomesStr,tituloSecao){
   const nm=nomesStr||'';
   const nomes=nomesStr?nomesStr.split('|'):null;
   const semana=limitesSemanaAtual(),mes=limitesMesAtual();
   const stSemana=vendasPorPeriodoMk(nomes,semana.ini,semana.fim);
   const stMes=vendasPorPeriodoMk(nomes,mes.ini,mes.fim);
-  function bloco(titulo,st,iniISO,fimISO){
-    const porVendedor=Object.keys(st.porVendedor).length
-      ?Object.entries(st.porVendedor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);cursor:pointer" onclick="abrirDrillMkPeriodo('${k}','${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são"><span>${k}</span><strong>${v}</strong></div>`).join('')
-      :'<div style="color:var(--tx3);font-size:11px;margin-top:6px">Nenhuma</div>';
-    return`<div style="background:var(--greenl);border:1px solid var(--bdr);border-radius:var(--r2);padding:10px">
-      <div style="font-size:26px;font-weight:700;color:var(--green);text-align:center;cursor:pointer" onclick="abrirDrillMkPeriodo(null,'${nm}','${iniISO}','${fimISO}')" title="Clique pra ver quem são">${st.total}</div>
-      <div style="font-size:11px;color:var(--tx3);text-align:center">${titulo}</div>
-      <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">${porVendedor}</div>
-    </div>`;
-  }
   return`<div class="d-section" style="margin-top:7px"><div class="d-section-title">${tituloSecao||'Vendas — semana e mês atuais (por vendedor)'}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-top:5px">
-      ${bloco(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim)}
-      ${bloco(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim)}
+      ${boxVendaPeriodoHtml(`Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim,nm)}
+      ${boxVendaPeriodoHtml(`Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim,nm)}
     </div>
   </div>`;
 }
@@ -1461,19 +1473,25 @@ function renderDashboardHoje(cnt){
         ${kpiCard(jaSairamDaIA,'Já saíram da I.A.','var(--blue)','var(--bluel)',`abrirDrillMk('jaSairamIA',null,null,${offset})`)}
       </div>
     </div>
-    <div class="d-section" style="margin-top:7px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
-        ${kpiCard(stNpsIndTodos.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb')}
-        ${kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0')}
-      </div>
-    </div>
-    ${blocoVendasPeriodoMk(TODOS_VENDEDORES.join('|'))}
-    ${offset===0?`<div class="d-section" style="margin-top:7px"><div class="d-section-title">Painel operacional (agora, todos os leads em aberto — não só os de hoje)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
-        ${kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)")}
-        ${kpiCard(naIAAgora,'Parados na I.A. (todos)','var(--purple)','var(--purplel)',"abrirDrillMk('naIATodos',null,null,0)")}
-      </div>
-    </div>`:''}`;
+    ${(()=>{
+      const nm=TODOS_VENDEDORES.join('|');
+      const semana=limitesSemanaAtual(),mes=limitesMesAtual();
+      const stSemana=vendasPorPeriodoMk(TODOS_VENDEDORES,semana.ini,semana.fim);
+      const stMes=vendasPorPeriodoMk(TODOS_VENDEDORES,mes.ini,mes.fim);
+      const caixas=[
+        kpiCard(stNpsIndTodos.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb'),
+        kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0'),
+        boxVendaPeriodoHtml(`Vendas — semana (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim,nm),
+        boxVendaPeriodoHtml(`Vendas — mês (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim,nm),
+      ];
+      if(offset===0)caixas.push(
+        kpiCard(emAtendimentoAgora,'Em atendimento agora (todos)','var(--blue)','var(--bluel)',"abrirDrillMk('emAtendimento',null,null,0)"),
+        kpiCard(naIAAgora,'Parados na I.A. (todos)','var(--purple)','var(--purplel)',"abrirDrillMk('naIATodos',null,null,0)"),
+      );
+      return`<div class="d-section" style="margin-top:7px"><div class="d-section-title">Resumo — NPS, Indicações, Vendas e Operacional (${offset===0?'hoje':'nesse dia'})</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:5px">${caixas.join('')}</div>
+      </div>`;
+    })()}`;
   }else{
     const meusNomes=[G.user?.n];
     const st=statsDoDiaMk(meusNomes,offset);
