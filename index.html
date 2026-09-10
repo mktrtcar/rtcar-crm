@@ -1355,6 +1355,10 @@ function statsNpsIndDoDia(nomes,offset=0){
   return{
     nps:G.rel.nps.filter(n=>n.dt===diaISO&&doDia(n.by)).length,
     indicacoes:G.rel.indicacoes.filter(n=>n.dt===diaISO&&doDia(n.by)).length,
+    // Visitas de "1 ano"/"2 anos" retiradas (Relacionamento) - ja existia no
+    // Dashboard Geral, faltava aparecer aqui tambem (pedido da Aline, 10/09/2026).
+    visitas1ano:(G.rel.clientes||[]).filter(c=>c.visita1ano==='realizada'&&c.visita1anoData===diaISO&&doDia(c.responsavel)).length,
+    visitas2anos:(G.rel.clientes||[]).filter(c=>c.visita2anos==='realizada'&&c.visita2anosData===diaISO&&doDia(c.responsavel)).length,
   };
 }
 function renderDashboardHoje(cnt){
@@ -1481,6 +1485,9 @@ function renderDashboardHoje(cnt){
       const caixas=[
         kpiCard(stNpsIndTodos.nps,'💬 NPS pedidos','#0b7ba8','#e8f8fb'),
         kpiCard(stNpsIndTodos.indicacoes,'🎯 Indicações recebidas','#c2185b','#fde8f0'),
+        // Soma 1 ano + 2 anos retirados num numero so' - pedido da Aline,
+        // 10/09/2026 (queria saber os 2, mas junto, sem precisar de 2 caixas).
+        kpiCard(stNpsIndTodos.visitas1ano+stNpsIndTodos.visitas2anos,'🚗 Visita de Relacionamento','#6b3db8','#f3e8fb'),
         boxVendaPeriodoHtml(`Vendas — semana (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana,semana.ini,semana.fim,nm),
         boxVendaPeriodoHtml(`Vendas — mês (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes,mes.ini,mes.fim,nm),
       ];
