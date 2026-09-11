@@ -286,6 +286,29 @@ const FB = { projectId: 'rtcarprograma', apiKey: 'AIzaSyAHswK1g0CnOJYiN3smElfDL1
 const FB_URL = `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
 const REFRESH_MS = 6000;
 
+// 10/09/2026: a regra de seguranca do Firestore passou a exigir login —
+// autentica com a mesma conta dedicada que a Eva usa (eva-bot@rtcar.com.br,
+// sem acesso a mais nada alem do banco de leads), do mesmo jeito que
+// eloa-bot/firestore.js faz.
+const AUTH_API_KEY = 'AIzaSyAjeoMj-JohzYutBm84iG-1JHrTWZB9hoY';
+const BOT_EMAIL = 'eva-bot@rtcar.com.br';
+const BOT_PASSWORD = 'tcMDU2aCcEyTWv4E9cCf';
+let _idToken = null;
+let _idTokenExpiraEm = 0;
+async function getIdToken() {
+  if (_idToken && Date.now() < _idTokenExpiraEm) return _idToken;
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${AUTH_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: BOT_EMAIL, password: BOT_PASSWORD, returnSecureToken: true }),
+  });
+  if (!r.ok) throw new Error('Falha ao autenticar: ' + (await r.text()));
+  const j = await r.json();
+  _idToken = j.idToken;
+  _idTokenExpiraEm = Date.now() + (Number(j.expiresIn || 3600) - 120) * 1000;
+  return _idToken;
+}
+
 let selectedId = null;
 let leadsCache = [];
 let timerIniciado = false;
@@ -305,10 +328,23 @@ function fromFF(fields) {
   if (!fields) return {};
   return Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fromFV(v)]));
 }
+// 10/09/2026: antes buscava so os primeiros 300 documentos, sem jeito de
+// buscar o resto — com a colecao "leads" passando de 300, o painel parava
+// de mostrar leads novos silenciosamente. Segue as paginas (nextPageToken)
+// ate acabar, mesmo padrao ja aplicado no eloa-bot/firestore.js.
 async function fbList(col) {
-  const r = await fetch(`${FB_URL}/${col}?key=${FB.apiKey}&pageSize=300`);
-  if (!r.ok) throw new Error(await r.text());
-  return ((await r.json()).documents || []).map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
+  const token = await getIdToken();
+  let documentos = [];
+  let pageToken;
+  do {
+    const url = `${FB_URL}/${col}?pageSize=300${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    documentos = documentos.concat(j.documents || []);
+    pageToken = j.nextPageToken;
+  } while (pageToken);
+  return documentos.map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
 }
 
 function statusBadge(st) {
