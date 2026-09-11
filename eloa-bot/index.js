@@ -36,6 +36,7 @@ const { gerarResposta, gerarFollowUp, classificarPrimeiraResposta } = require('.
 const { gerarNotaDeVoz } = require('./voz');
 const { buscarDadosReais } = require('./dadosVeiculo');
 const ESTOQUE_RTCAR = require('./estoque.json');
+const { atualizarEstoque } = require('./atualizar-estoque');
 
 const INTERVALO_POLL_MS = 20000; // checa leads novos a cada 20s
 
@@ -992,12 +993,36 @@ async function transcreverAudio(buffer, mimetype) {
   return texto.trim();
 }
 
+/* 11/09/2026, a pedido do Rubens ("preciso que tu mesmo se atualize"):
+   busca o catálogo real do site (rtcar.com.br/estoque) e atualiza o
+   estoque.json sozinha, sem precisar de ninguém editando à mão. Roda uma
+   vez ao iniciar e depois a cada 24h. ESTOQUE_RTCAR é const (a mesma
+   referência é usada em todas as funções de busca de veículo), então
+   atualiza o CONTEÚDO do array no lugar em vez de reatribuir. */
+const INTERVALO_ATUALIZAR_ESTOQUE_MS = 24 * 60 * 60 * 1000; // 24h
+async function cicloAtualizarEstoque() {
+  try {
+    const fs2 = require('fs');
+    const path2 = require('path');
+    await atualizarEstoque();
+    const novo = JSON.parse(fs2.readFileSync(path2.join(__dirname, 'estoque.json'), 'utf8'));
+    ESTOQUE_RTCAR.length = 0;
+    ESTOQUE_RTCAR.push(...novo);
+    console.log(`✅ Estoque atualizado automaticamente: ${ESTOQUE_RTCAR.length} veículos.`);
+  } catch (e) {
+    console.error('Erro ao atualizar estoque automaticamente (mantendo o estoque.json atual):', e.message);
+  } finally {
+    setTimeout(cicloAtualizarEstoque, INTERVALO_ATUALIZAR_ESTOQUE_MS);
+  }
+}
+
 let pollJaIniciado = false;
 function iniciarPollUmaVez() {
   if (pollJaIniciado) return;
   pollJaIniciado = true;
   cicloPoll();
   cicloFollowUp();
+  cicloAtualizarEstoque();
 }
 
 async function start() {
