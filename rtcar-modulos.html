@@ -2709,7 +2709,7 @@ function colAtualRel(c){
 }
 function relClisFiltrados(){
   let ls=[...G.rel.clientes];
-  if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b));}
+  if(G.rel.busca){const b=G.rel.busca.toLowerCase();const bDigits=G.rel.busca.replace(/\D/g,'');ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(c.clienteTel||'').replace(/\D/g,'').includes(bDigits)));}
   if(G.rel.filtroDataInicio){const di=new Date(G.rel.filtroDataInicio+'T00:00:00');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')>=di;});}
   if(G.rel.filtroDataFim){const df=new Date(G.rel.filtroDataFim+'T23:59:59');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')<=df;});}
   ls.sort((a,b)=>diasDesdeCompra(b.dtCompra)-diasDesdeCompra(a.dtCompra));
