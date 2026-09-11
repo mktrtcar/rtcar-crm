@@ -268,10 +268,6 @@
         <div class="field"><label>Vendedor (quem atendeu a venda)</label>
           <select id="rc-vendedor">
             <option value="">Selecione...</option>
-            <option>Rafael</option>
-            <option>Maicon</option>
-            <option>Janderson</option>
-            <option>Victor</option>
           </select>
         </div>
       </div>
@@ -483,7 +479,7 @@ const USUARIOS=[
   {id:'u13',n:'Rubens',  e:'rubens@rtcar.com.br',           r:'dev'},
   {id:'u14',n:'Jean',    e:'rtcargarantia@gmail.com',       r:'seller'},
   {id:'u15',n:'Victor',  e:'victor@rtcar.com.br',           r:'seller'},
-  {id:'u16',n:'Gui',     e:'rtcred@rtcar.com.br',           r:'rtcred'},
+  {id:'u16',n:'Guilmara',e:'rtcred@rtcar.com.br',           r:'rtcred'},
 ];
 
 /* COLUNAS MARKETING */
@@ -726,6 +722,9 @@ function popularSelects(){
     selResp.innerHTML='<option value="">Selecione...</option>';
     vendedores.forEach(u=>{const o=document.createElement('option');o.value=u.n;o.textContent=u.n;selResp.appendChild(o);});
   }
+  // vendedor que atendeu a venda (cadastro manual de cliente no Relacionamento)
+  const selVendCli=document.getElementById('rc-vendedor');
+  if(selVendCli){selVendCli.innerHTML='<option value="">Selecione...</option>'+VENDEDORES_ATIVOS.map(v=>`<option value="${v}">${v}</option>`).join('');}
   // quando origem=Compra, auto-seleciona Milena
   const selOrigem=document.getElementById('f-origem');
   if(selOrigem) selOrigem.onchange=function(){if(this.value==='Compra'&&selCap&&!selCap.value)selCap.value='Milena';};
@@ -930,7 +929,7 @@ function renderMarketing(){
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option><option${G.mk.filtroCaptador==='Marcela'?' selected':''}>Marcela</option><option${G.mk.filtroCaptador==='Rafael'?' selected':''}>Rafael</option><option${G.mk.filtroCaptador==='Aline'?' selected':''}>Aline</option><option${G.mk.filtroCaptador==='Milena'?' selected':''}>Milena</option><option${G.mk.filtroCaptador==='Janderson'?' selected':''}>Janderson</option><option${G.mk.filtroCaptador==='Maicon'?' selected':''}>Maicon</option></select>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
+      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option>${['Aline',...VENDEDORES_ATIVOS].map(v=>`<option${G.mk.filtroCaptador===v?' selected':''}>${v}</option>`).join('')}</select>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
       <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="__G().mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
       <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="__G().mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
       ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().mk.filtroCaptador=\'\';__G().mk.filtroDataInicio=\'\';__G().mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
@@ -1480,7 +1479,7 @@ function renderDashboardHoje(cnt){
       ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
     </div>`;
   if(G.user?.r==='master'){
-    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean'];
+    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara'];
     const stTodos=statsDoDiaMk(TODOS_VENDEDORES,offset);
     const diaISO=hojeISOlocal(offset);
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
@@ -2222,7 +2221,22 @@ async function salvarLead(){
 // e o mes contou errado). Tirada da lista de quem pode ser escolhido como
 // vendedor/captador (dropdown, Transferir, Replicar) - ver tambem a trava
 // em salvarLead().
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara'];
+// Popup de "Transferir/Replicar/Vendedor" abre pra baixo por padrao - no
+// ultimo card de cada coluna (perto do fim da tela) isso cortava a lista,
+// escondendo os ultimos nomes. Agora mede se cabe embaixo e, se nao couber,
+// abre pra cima (pedido da Aline, 11/09/2026).
+function posicionarPopupPertoDoBotao(popup,btn){
+  const rect=btn.getBoundingClientRect();
+  popup.style.left=rect.left+'px';
+  const alturaPopup=popup.offsetHeight;
+  const espacoAbaixo=window.innerHeight-rect.bottom;
+  if(espacoAbaixo<alturaPopup+10&&rect.top>alturaPopup+10){
+    popup.style.top=(rect.top-alturaPopup-6)+'px';
+  }else{
+    popup.style.top=(rect.bottom+6)+'px';
+  }
+}
 let _transferPopup=null;
 function abrirTransferirLead(id,e){
   e.stopPropagation();
@@ -2232,9 +2246,7 @@ function abrirTransferirLead(id,e){
   popup.innerHTML=`<div class="tp-title">Transferir para</div>${VENDEDORES_ATIVOS.map(v=>`<button onclick="confirmarTransferencia('${id}','${v}')">${v}</button>`).join('')}`;
   document.getElementById('rtcar-crm-root').appendChild(popup);
   const btn=e.currentTarget;
-  const rect=btn.getBoundingClientRect();
-  popup.style.top=(rect.bottom+6)+'px';
-  popup.style.left=rect.left+'px';
+  posicionarPopupPertoDoBotao(popup,btn);
   _transferPopup=popup;
   setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_transferPopup=null;},{once:true}),50);
 }
@@ -2263,9 +2275,7 @@ function abrirReplicarLead(id,e){
   popup.innerHTML=`<div class="tp-title">Replicar também para</div>${VENDEDORES_ATIVOS.filter(v=>v!==lead?.captador).map(v=>`<button onclick="confirmarReplicacao('${id}','${v}')">${v}</button>`).join('')}${lead?.captadorReplicado?`<button onclick="confirmarReplicacao('${id}','')" style="color:var(--red)">Remover réplica (${lead.captadorReplicado})</button>`:''}`;
   document.getElementById('rtcar-crm-root').appendChild(popup);
   const btn=e.currentTarget;
-  const rect=btn.getBoundingClientRect();
-  popup.style.top=(rect.bottom+6)+'px';
-  popup.style.left=rect.left+'px';
+  posicionarPopupPertoDoBotao(popup,btn);
   _replicarPopup=popup;
   setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_replicarPopup=null;},{once:true}),50);
 }
@@ -3292,9 +3302,7 @@ function abrirVendedorPopup(id,e){
   popup.innerHTML=`<div class="tp-title">Vendedor que atendeu</div>${VENDEDORES_CARTEIRA.map(v=>`<button onclick="confirmarVendedorPopup('${id}','${v}')">${v}</button>`).join('')}<button onclick="confirmarVendedorPopup('${id}','')" style="color:var(--tx3)">Limpar</button>`;
   (document.getElementById('rtcar-crm-root')||document.body).appendChild(popup);
   const btn=e.currentTarget;
-  const rect=btn.getBoundingClientRect();
-  popup.style.top=(rect.bottom+6)+'px';
-  popup.style.left=rect.left+'px';
+  posicionarPopupPertoDoBotao(popup,btn);
   _vendedorPopup=popup;
   setTimeout(()=>document.addEventListener('click',()=>{popup.remove();_vendedorPopup=null;},{once:true}),50);
 }
