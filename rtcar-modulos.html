@@ -133,7 +133,13 @@
           </div>
           <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Automático (rodízio)</option></select></div>
         </div>
-        <div class="field"><label>Veículo de interesse</label><input type="text" id="f-veiculo" placeholder="Ex: Honda HR-V 2022"></div>
+        <div class="field"><label>Veículo de interesse</label>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="f-veiculo" placeholder="Ex: Honda HR-V 2022" style="flex:1">
+            <button type="button" class="btn btn-outline btn-sm" onclick="abrirBuscaEstoque()">🔍 Buscar no estoque</button>
+          </div>
+          <input type="hidden" id="f-veiculo-placa">
+        </div>
         <div class="field-row">
           <div class="field"><label>Faixa de valor</label><input type="text" id="f-valor" placeholder="Ex: 80.000 - 100.000"></div>
           <div class="field"><label>Etapa inicial</label>
@@ -225,6 +231,16 @@
     </div>
     <div class="mod-foot">
       <button class="btn btn-red" id="btn-duplicado-entendi" onclick="fecharModal('ov-lead-duplicado')">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-busca-estoque" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-busca-estoque')">
+  <div class="mod" style="max-width:560px">
+    <div class="mod-head"><h3>🔍 Buscar veículo no estoque</h3><button class="mod-close" onclick="fecharModal('ov-busca-estoque')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <div class="field"><input type="text" id="be-busca" placeholder="Digite marca, modelo ou placa..." oninput="renderResultadosBuscaEstoque()" autocomplete="off"></div>
+      <div id="be-resultados" style="margin-top:10px;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
     </div>
   </div>
 </div>
@@ -2056,6 +2072,52 @@ function exportarRelatorioCSV(){
 /* ============================================================
    MARKETING — CRUD
    ============================================================ */
+/* Busca do estoque real (coleção rtcar_estoque_publico, mantida pelo
+   sistema principal) - pra vincular o "veículo de interesse" a um carro
+   real, em vez de texto livre (pedido da Aline, 11/09/2026). Só mostra
+   "disponivel" e "em_preparacao" - carro em repasse ou já vendido não
+   faz sentido oferecer como interesse novo. */
+let _estoquePublicoCache=null;
+async function carregarEstoquePublico(){
+  if(_estoquePublicoCache)return _estoquePublicoCache;
+  try{
+    const snap=await db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao']).get();
+    _estoquePublicoCache=snap.docs.map(d=>({placa:d.id,...d.data()}));
+  }catch(e){console.error('Erro ao carregar estoque:',e);_estoquePublicoCache=[];toast('Erro ao carregar o estoque','red');}
+  return _estoquePublicoCache;
+}
+function descricaoVeiculoEstoque(v){return[v.marca,v.modelo,v.versao].filter(Boolean).join(' ');}
+async function abrirBuscaEstoque(){
+  document.getElementById('be-busca').value='';
+  document.getElementById('ov-busca-estoque').classList.remove('hidden');
+  document.getElementById('be-resultados').innerHTML='Carregando...';
+  await carregarEstoquePublico();
+  renderResultadosBuscaEstoque();
+  setTimeout(()=>document.getElementById('be-busca').focus(),50);
+}
+function renderResultadosBuscaEstoque(){
+  const termo=(document.getElementById('be-busca').value||'').toLowerCase().trim();
+  const lista=_estoquePublicoCache||[];
+  const filtrados=termo?lista.filter(v=>descricaoVeiculoEstoque(v).toLowerCase().includes(termo)||(v.placa||'').toLowerCase().includes(termo)):lista;
+  const cont=document.getElementById('be-resultados');
+  if(!filtrados.length){cont.innerHTML='<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum veículo encontrado.</div>';return;}
+  const STATUS_LABEL={disponivel:'Disponível',em_preparacao:'Em preparação'};
+  cont.innerHTML=filtrados.map(v=>`
+    <div class="card-btn-label" style="cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center;gap:10px" onclick="selecionarVeiculoEstoque('${v.placa}')">
+      <div>
+        <div style="font-weight:600;font-size:13px">${descricaoVeiculoEstoque(v)||'(sem descrição)'}</div>
+        <div style="font-size:11px;color:var(--tx3)">Placa ${v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.km?v.km+' km':'—'} · ${STATUS_LABEL[v.status]||v.status}</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--green);white-space:nowrap">${v.preco?'R$ '+Number(v.preco).toLocaleString('pt-BR'):''}</div>
+    </div>`).join('');
+}
+function selecionarVeiculoEstoque(placa){
+  const v=(_estoquePublicoCache||[]).find(x=>x.placa===placa);
+  if(!v)return;
+  document.getElementById('f-veiculo').value=descricaoVeiculoEstoque(v);
+  document.getElementById('f-veiculo-placa').value=v.placa;
+  fecharModal('ov-busca-estoque');
+}
 function abrirModalLead(id=null,etapa=null){
   G.mk.editandoId=id;const l=id?G.mk.leads.find(x=>x.id===id):null;
   document.getElementById('mod-lead-titulo').textContent=id?'Editar Lead':'Novo Lead';
@@ -2063,6 +2125,7 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('f-nome').value=l?.clienteNome||'';document.getElementById('f-tel').value=l?.clienteTel||'';
   document.getElementById('f-email').value=l?.clienteEmail||'';document.getElementById('f-origem').value=l?.origem||'';
   document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';
+  document.getElementById('f-veiculo-placa').value=l?.veiculoPlaca||'';
   // RT Cred (resgate BV) cadastra o lead ja em Atendimento - o trabalho dela
   // e' resgatar um financiamento que caiu, nao fazer triagem do zero pela
   // I.A. (pedido da Aline, 08/09/2026).
@@ -2195,7 +2258,7 @@ async function salvarLead(){
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
   const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
   // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
   // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
   // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
@@ -4351,6 +4414,9 @@ window.abrirModalEvento=abrirModalEvento;
 window.abrirModalInt=abrirModalInt;
 window.abrirModalIntegracoes=abrirModalIntegracoes;
 window.abrirModalLead=abrirModalLead;
+window.abrirBuscaEstoque=abrirBuscaEstoque;
+window.renderResultadosBuscaEstoque=renderResultadosBuscaEstoque;
+window.selecionarVeiculoEstoque=selecionarVeiculoEstoque;
 window.abrirModalObs=abrirModalObs;
 window.abrirModalObsWs=abrirModalObsWs;
 window.abrirModalPerda=abrirModalPerda;
