@@ -1223,7 +1223,12 @@ function hojeISOlocal(offset=0){const d=new Date();d.setDate(d.getDate()+offset)
 // fato atendeu (a pedido da Aline, 02/09/2026). Enquanto nenhum vendedor
 // respondeu ainda, o lead nao conta em nenhum dia.
 function primeiraRespostaVendedorISO(l){
-  const entrada=(l.historico||[]).find(h=>VENDEDORES_ATIVOS.includes(h.by));
+  // "Lead criado" so registra o cadastro no sistema (o "by" fica com o nome
+  // do vendedor atribuido, nao de quem digitou) - nao conta como resposta.
+  // E so conta resposta do PROPRIO dono do lead, nao de qualquer vendedor
+  // ativo que tenha mexido nele (bug reportado pelo Maicon e Janderson,
+  // 11/09/2026: contagem de "recebido hoje" vinha inflada).
+  const entrada=(l.historico||[]).find(h=>h.by===l.captador&&h.acao!=='Lead criado');
   if(!entrada||!entrada.dt)return null;
   const[d,m,a]=entrada.dt.slice(0,10).split('/');
   return(d&&m&&a)?`${a}-${m}-${d}`:null;
