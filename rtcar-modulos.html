@@ -1284,6 +1284,9 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
   if(tipo==='canal'){
     titulo=`Leads — ${chave}`;
     leads=base.filter(l=>primeiraRespostaVendedorISO(l)===hojeISO&&l.origem===chave);
+  }else if(tipo==='recebidosHoje'){
+    titulo='Leads recebido';
+    leads=base.filter(l=>primeiraRespostaVendedorISO(l)===hojeISO);
   }else if(tipo==='visitas'){
     titulo='Visita';
     leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem!=='Compra');
@@ -1444,7 +1447,9 @@ function renderDashboardHoje(cnt){
     if(G.user?.r==='coordenadora'){
       return`<div class="d-section"><div class="d-section-title">${titulo}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:5px">
+          ${kpiCard(st.marketing+st.outros,'Leads recebido','var(--blue)','var(--bluel)',`abrirDrillMk('recebidosHoje',null,'${nm}',${offset})`)}
           ${kpiCard(st.visitasCompra,'Visita Compra','var(--gold)','var(--goldl)',`abrirDrillMk('visitasCompra',null,'${nm}',${offset})`)}
+          ${visitaRel!==undefined?kpiCard(visitaRel,'Visita Relacionamento','var(--gold)','var(--goldl)'):''}
           ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
           ${kpiCard(st.compras,'Compra','var(--green)','var(--greenl)',`abrirDrillMk('compras',null,'${nm}',${offset})`)}
         </div>
@@ -1558,7 +1563,7 @@ function renderDashboardHoje(cnt){
     const meusNomes=[G.user?.n];
     const st=statsDoDiaMk(meusNomes,offset);
     const stNpsInd=statsNpsIndDoDia(meusNomes,offset);
-    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st,meusNomes.join('|'),offset);
+    html+=blocoStats(`Seus números — ${G.user?.n||''}`,st,meusNomes.join('|'),offset,stNpsInd.visitas1ano+stNpsInd.visitas2anos);
     // NPS/Indicacoes (Relacionamento) e' informacao da Milena, nao do
     // vendedor comum (pedido da Aline, 04/09/2026).
     html+=`${isSeller()?'':`<div class="d-section" style="margin-top:7px"><div class="d-section-title">NPS e Indicações — Relacionamento (${offset===0?'hoje':'nesse dia'})</div>
