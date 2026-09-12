@@ -9,6 +9,7 @@ eloa-bot/auth/
 eloa-bot/auth-backup*/
 eloa-bot/qr.png
 eloa-bot/.env
+webhook-autoconf/.env
 eloa-bot/ultimo-check.json
 eloa-bot/simulacao.json
 eloa-bot/testar-conversa-historico.json

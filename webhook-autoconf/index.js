@@ -204,3 +204,5 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     res.status(500).send('erro interno');
   }
 });
+
+Object.assign(exports,require('./litoralcar'));
