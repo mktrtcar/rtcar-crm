@@ -1933,23 +1933,23 @@ function geralBlocoResumoVendas(){
   // (pedido da Aline, 04/09/2026: os leads da Milena sao Compra, nao Venda).
   const totalSemana=stSemana.totalVendasMkt+stSemana.totalVendasOutros;
   const totalMes=stMes.totalVendasMkt+stMes.totalVendasOutros;
-  function bloco(tituloResumo,porVendedorObj,total,iniISO,fimISO,drillVendedor,drillTotal){
+  function bloco(tituloResumo,porVendedorObj,total,iniISO,fimISO,drillVendedor,drillTotal,destaque){
     const p=`'${iniISO}','${fimISO}'`;
     const porVendedor=Object.keys(porVendedorObj).length
       ?Object.entries(porVendedorObj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>geralRpRow(k,v,false,`abrirDrill('${drillVendedor}','${k}',${p})`)).join('')
       :'<div style="color:var(--tx3);font-size:11px">Nenhuma</div>';
-    return`<div class="rp-section">
+    return`<div class="rp-section${destaque?' rp-destaque-total':''}">
       <div class="rp-sec-title">${tituloResumo}</div>
-      <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('${drillTotal}',null,${p})" title="Clique pra ver quem são"><span>Total</span><strong style="color:#1a6b3c">${total}</strong></div>
+      <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('${drillTotal}',null,${p})" title="Clique pra ver quem são"><span>Total</span><strong style="color:${destaque?'var(--red)':'#1a6b3c'}">${total}</strong></div>
       ${porVendedor}
     </div>`;
   }
   return`
     <div class="rel-section-title" style="margin:14px 0 6px"><i class="ti ti-calendar-stats"></i> Vendas e Compras — semana e mês atuais (por vendedor)</div>
     <div class="rp-grid" style="margin-bottom:14px">
-      ${bloco(`💰 Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.vendasPorVendedor,totalSemana,semana.ini,semana.fim,'vendasVendedor','vendasTotal')}
+      ${bloco(`💰 Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.vendasPorVendedor,totalSemana,semana.ini,semana.fim,'vendasVendedor','vendasTotal',true)}
       ${bloco(`💰 Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.vendasPorVendedor,totalMes,mes.ini,mes.fim,'vendasVendedor','vendasTotal')}
-      ${bloco(`🛒 Compras — Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.comprasPorVendedor,stSemana.vendasCompra,semana.ini,semana.fim,'comprasVendedor','vendasCompra')}
+      ${bloco(`🛒 Compras — Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.comprasPorVendedor,stSemana.vendasCompra,semana.ini,semana.fim,'comprasVendedor','vendasCompra',true)}
       ${bloco(`🛒 Compras — Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.comprasPorVendedor,stMes.vendasCompra,mes.ini,mes.fim,'comprasVendedor','vendasCompra')}
     </div>`;
 }
