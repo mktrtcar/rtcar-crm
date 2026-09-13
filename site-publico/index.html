@@ -30,16 +30,17 @@ img{max-width:100%;display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* TOPBAR */
-.topbar{background:var(--dark2);color:#c9c5bf;font-size:11.5px;text-align:center;padding:6px 14px;letter-spacing:.2px}
+.topbar{background:var(--dark2);color:#c9c5bf;font-size:11.5px;text-align:right;padding:6px 20px;letter-spacing:.2px}
 .topbar strong{color:#fff}
 
 /* HEADER */
 header{background:var(--dark);color:#fff;position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(255,255,255,.06)}
-.header-top{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.header-top{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .logo{font-family:var(--s);font-size:27px;letter-spacing:.5px}
 .logo span{color:var(--red2)}
 .logo img{height:30px;width:auto;max-width:none;display:block}
-nav{display:flex;gap:26px;align-items:center}
+nav{display:flex;gap:26px;align-items:center;flex-wrap:wrap;row-gap:10px}
+@media (max-width:700px){nav{gap:14px 18px;justify-content:flex-end}}
 nav a.navlink{font-size:12.5px;font-weight:700;letter-spacing:.8px;opacity:.85;text-transform:uppercase}
 nav a.navlink:hover{opacity:1;color:var(--red2)}
 .whats-btn{background:linear-gradient(135deg,#2fdc76,#1eb85a);color:#fff;padding:9px 18px;border-radius:24px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(37,211,102,.3)}
@@ -72,18 +73,50 @@ nav a.navlink:hover{opacity:1;color:var(--red2)}
 
 /* LAYOUT */
 .wrap{max-width:1180px;margin:0 auto;padding:32px 20px 60px}
-.estoque-layout{display:grid;grid-template-columns:210px 1fr;gap:26px;align-items:start}
 
-.sidebar{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px;position:sticky;top:90px;box-shadow:var(--shadow)}
-.sidebar h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:10px;font-weight:700}
-.sidebar .marca-item{display:flex;justify-content:space-between;padding:7px 8px;font-size:13px;cursor:pointer;border-radius:8px;color:var(--tx2);transition:background .12s}
-.sidebar .marca-item:hover{background:var(--bg3)}
-.sidebar .marca-item.on{background:var(--redl);color:var(--red);font-weight:700}
-.sidebar .marca-item span{color:var(--tx3);font-size:12px}
-.sidebar .marca-item.on span{color:var(--red)}
-@media (max-width:800px){.estoque-layout{grid-template-columns:1fr}.sidebar{position:static}}
-.busca{width:100%;padding:11px 14px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;margin-bottom:18px;background:var(--bg3);transition:border .15s,background .15s}
-.busca:focus{outline:none;border-color:var(--red);background:var(--bg2)}
+/* FAIXA DE MARCAS */
+.marcas-strip-wrap{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.strip-arrow{width:34px;height:34px;border-radius:50%;background:var(--bg2);border:1px solid var(--bdr);color:var(--tx2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;transition:background .15s}
+.strip-arrow:hover{background:var(--bg3);color:var(--tx)}
+.marcas-strip{display:flex;gap:10px;overflow-x:auto;scroll-behavior:smooth;flex:1;padding-bottom:2px;scrollbar-width:none}
+.marcas-strip::-webkit-scrollbar{display:none}
+.marca-card{background:#fff;color:#1a1814;border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:90px;height:64px;cursor:pointer;border:2px solid transparent;flex-shrink:0;transition:border-color .15s,transform .15s}
+.marca-card:hover{transform:translateY(-2px)}
+.marca-card.on{border-color:var(--red)}
+.marca-card img{height:20px;width:auto;max-width:56px;max-height:20px;object-fit:contain}
+.marca-card span{font-size:11.5px;font-weight:700;white-space:nowrap}
+.marca-card.todas{background:var(--bg2);color:var(--tx)}
+.marca-card.todas.on{border-color:var(--red);color:var(--red)}
+
+/* BUSCA / FILTRAR / ORDENAR */
+.busca-row{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:stretch}
+.busca-input-wrap{flex:1;display:flex;min-width:200px}
+.busca-input-wrap input{flex:1;min-width:0;padding:11px 14px;border:1.5px solid var(--bdr);border-right:none;border-radius:var(--r) 0 0 var(--r);background:var(--bg3);color:var(--tx);font-family:var(--f);font-size:13px;transition:border .15s,background .15s}
+.busca-input-wrap input:focus{outline:none;border-color:var(--red);background:var(--bg2)}
+.busca-btn{background:var(--red);color:#fff;border:none;border-radius:0 var(--r) var(--r) 0;padding:0 18px;cursor:pointer;font-size:15px;transition:background .15s}
+.busca-btn:hover{background:var(--red2)}
+.btn-filtro-toggle,.btn-ordenar-toggle{background:var(--bg2);border:1.5px solid var(--bdr);color:var(--tx);border-radius:var(--r);padding:0 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
+.btn-filtro-toggle:hover,.btn-ordenar-toggle:hover{background:var(--bg3)}
+.btn-filtro-toggle.on,.btn-ordenar-toggle.on{border-color:var(--red);color:var(--red)}
+.ordenar-wrap{position:relative}
+.ordenar-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shadow-hover);min-width:180px;z-index:20;overflow:hidden}
+.ordenar-dropdown div{padding:10px 16px;font-size:13px;cursor:pointer;color:var(--tx2);transition:background .12s}
+.ordenar-dropdown div:hover{background:var(--bg3);color:var(--tx)}
+.ordenar-dropdown div.on{color:var(--red);font-weight:700}
+
+/* PAINEL DE FILTRO */
+.filtro-painel{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:24px;margin-bottom:20px;box-shadow:var(--shadow)}
+.filtro-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:24px;margin-bottom:20px}
+.filtro-col h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:12px;font-weight:700}
+.filtro-preco-inputs{display:flex;gap:10px}
+.filtro-preco-inputs>div{flex:1}
+.filtro-preco-inputs label{display:block;font-size:11px;color:var(--tx3);margin-bottom:5px}
+.filtro-select{width:100%;padding:9px 10px;border:1.5px solid var(--bdr);border-radius:8px;background:var(--bg3);color:var(--tx);font-family:var(--f);font-size:13px}
+.filtro-radio-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);margin-bottom:9px;cursor:pointer}
+.filtro-radio-item input{accent-color:var(--red)}
+.btn-aplicar-filtro{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--r);padding:13px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn-aplicar-filtro:hover{background:var(--red2)}
+.btn-limpar-filtro{text-align:center;margin-top:12px;font-size:12.5px;color:var(--tx3);cursor:pointer;text-decoration:underline}
 
 .resultado-count{font-size:13px;color:var(--tx3);margin-bottom:16px;font-weight:500}
 .grid-carros{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
@@ -187,7 +220,7 @@ footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,25
 </head>
 <body>
 
-<div class="topbar">Seg a Sex das <strong>08:00 às 19:00</strong> · Sáb das <strong>08:00 às 13:00</strong></div>
+<div class="topbar">Horário de atendimento: Seg a Sex das <strong>08:00 às 19:00</strong> | Sáb das <strong>08:00 às 13:00</strong></div>
 <header>
   <div class="header-top">
     <a href="#/estoque" class="logo"><img src="logo.png" alt="RT Car"></a>
@@ -222,6 +255,30 @@ let ESTOQUE = [];
 let BANNERS = [];
 let filtroMarca = '';
 let filtroBusca = '';
+let filtroCambio = '';
+let filtroCombustivel = '';
+let filtroPrecoDe = '';
+let filtroPrecoAte = '';
+let ordenacao = 'relevancia';
+let filtroPainelAberto = false;
+let ordenarDropdownAberto = false;
+
+const MARCA_SLUGS = {
+  'Audi':'audi','BMW':'bmw','BYD':'byd','Chevrolet':'gm-chevrolet','Citroën':'citroen',
+  'Ducati':'ducati','Fiat':'fiat','Ford':'ford','Harley':'harley-davidson','Honda':'honda',
+  'Hyundai':'hyundai','Jaecoo':'jaecoo','Jeep':'jeep','Kia Motors':'kia-motors',
+  'Land Rover':'land-rover','Mercedes':'mercedes-benz','Peugeot':'peugeot','Toyota':'toyota',
+  'VolksWagen':'vw-volkswagen','Volvo':'volvo',
+};
+const FAIXAS_PRECO = [50000,75000,100000,125000,150000,175000,200000,250000,300000,350000,400000];
+const ORDENACOES = [
+  {key:'relevancia', label:'Relevância'},
+  {key:'marca', label:'Marca/Modelo'},
+  {key:'menorPreco', label:'Menor Preço'},
+  {key:'maiorPreco', label:'Maior Preço'},
+  {key:'anoNovo', label:'Ano Mais Novo'},
+  {key:'menorKm', label:'Menor KM'},
+];
 
 function fmtPreco(v){
   if(!v.precoPor) return '<span class="consulte">Consulte o preço</span>';
@@ -261,8 +318,10 @@ function marcasDisponiveis(){
 // Busca ampla: qualquer palavra do veiculo (marca, modelo, versao, cor,
 // cambio, categoria) - e "moto"/"motos" acha as motos mesmo sem a palavra
 // aparecer no nome do veiculo (pedido da Aline, 07/09/2026).
+function precoNum(v){ return +((v.precoPor||v.precoDe||'0').replace(/\./g,''))||0; }
+
 function veiculosFiltrados(){
-  return ESTOQUE.filter(v=>{
+  let lista = ESTOQUE.filter(v=>{
     if(filtroMarca && v.marca!==filtroMarca) return false;
     if(filtroBusca){
       const b = filtroBusca.toLowerCase().trim();
@@ -270,8 +329,23 @@ function veiculosFiltrados(){
       const alvo = `${v.marca} ${v.modelo} ${v.versao} ${v.cor||''} ${v.cambio||''} ${categoriaNome}`.toLowerCase();
       if(!alvo.includes(b)) return false;
     }
+    if(filtroCambio && v.cambio!==filtroCambio) return false;
+    if(filtroCombustivel && v.combustivel!==filtroCombustivel) return false;
+    if(filtroPrecoDe && precoNum(v) < +filtroPrecoDe) return false;
+    if(filtroPrecoAte && precoNum(v) > +filtroPrecoAte) return false;
     return true;
   });
+  return ordenarLista(lista);
+}
+
+function ordenarLista(lista){
+  const l = [...lista];
+  if(ordenacao==='marca') l.sort((a,b)=>`${a.marca} ${a.modelo}`.localeCompare(`${b.marca} ${b.modelo}`));
+  else if(ordenacao==='menorPreco') l.sort((a,b)=>precoNum(a)-precoNum(b));
+  else if(ordenacao==='maiorPreco') l.sort((a,b)=>precoNum(b)-precoNum(a));
+  else if(ordenacao==='anoNovo') l.sort((a,b)=>(b.ano||'').localeCompare(a.ano||''));
+  else if(ordenacao==='menorKm') l.sort((a,b)=>(+a.km||0)-(+b.km||0));
+  return l;
 }
 
 let heroIndex = 0;
@@ -346,33 +420,108 @@ function depoimentosHtml(){
   </div>`;
 }
 
+function marcaCardHtml([m,n]){
+  const slug = MARCA_SLUGS[m];
+  const icone = slug ? `<img src="marcas/${slug}.png" alt="${m}">` : `<span style="font-size:18px">🚗</span>`;
+  return `<div class="marca-card ${filtroMarca===m?'on':''}" onclick="setMarca('${m}')">${icone}<span>${m}</span></div>`;
+}
+
+function marcasStripHtml(marcas){
+  return `<div class="marcas-strip-wrap">
+    <div class="strip-arrow" onclick="scrollMarcas(-1)">‹</div>
+    <div class="marcas-strip" id="marcas-strip">
+      <div class="marca-card todas ${filtroMarca===''?'on':''}" onclick="setMarca('')"><span style="font-size:18px">🚗</span><span>Todas</span></div>
+      ${marcas.map(marcaCardHtml).join('')}
+    </div>
+    <div class="strip-arrow" onclick="scrollMarcas(1)">›</div>
+  </div>`;
+}
+
+function filtroPainelHtml(){
+  const opcoesPreco = (sel)=>FAIXAS_PRECO.map(p=>`<option value="${p}" ${String(p)===String(sel)?'selected':''}>R$ ${p.toLocaleString('pt-BR')}</option>`).join('');
+  const cambios = ['Automático','Manual'];
+  const combustiveis = ['Diesel','Elétrico','Flex','Gasolina','Gasolina e Elétrico'];
+  return `<div class="filtro-painel" id="filtro-painel">
+    <div class="filtro-grid">
+      <div class="filtro-col">
+        <h4>Preço</h4>
+        <div class="filtro-preco-inputs">
+          <div><label>De</label><select class="filtro-select" id="f-preco-de"><option value="">—</option>${opcoesPreco(filtroPrecoDe)}</select></div>
+          <div><label>Até</label><select class="filtro-select" id="f-preco-ate"><option value="">—</option>${opcoesPreco(filtroPrecoAte)}</select></div>
+        </div>
+      </div>
+      <div class="filtro-col">
+        <h4>Câmbio</h4>
+        ${cambios.map(c=>`<label class="filtro-radio-item"><input type="radio" name="f-cambio" value="${c}" ${filtroCambio===c?'checked':''}> ${c}</label>`).join('')}
+      </div>
+      <div class="filtro-col">
+        <h4>Combustível</h4>
+        ${combustiveis.map(c=>`<label class="filtro-radio-item"><input type="radio" name="f-combustivel" value="${c}" ${filtroCombustivel===c?'checked':''}> ${c}</label>`).join('')}
+      </div>
+    </div>
+    <button class="btn-aplicar-filtro" onclick="aplicarFiltroPainel()">Filtrar</button>
+    <div class="btn-limpar-filtro" onclick="limparFiltroPainel()">Limpar filtros</div>
+  </div>`;
+}
+
+function ordenarDropdownHtml(){
+  return `<div class="ordenar-dropdown" id="ordenar-dropdown">
+    ${ORDENACOES.map(o=>`<div class="${ordenacao===o.key?'on':''}" onclick="setOrdenacao('${o.key}')">${o.label}</div>`).join('')}
+  </div>`;
+}
+
 function renderEstoque(){
   const lista = veiculosFiltrados();
   const marcas = marcasDisponiveis();
   document.getElementById('app').innerHTML = `
     ${heroHtml()}
     <div class="wrap">
-    <div class="estoque-layout">
-      <div class="sidebar">
-        <input class="busca" id="busca-input" placeholder="Buscar veículo..." value="${filtroBusca}">
-        <h4>Marcas</h4>
-        <div class="marca-item ${filtroMarca===''?'on':''}" onclick="setMarca('')">Todas <span>${ESTOQUE.length}</span></div>
-        ${marcas.map(([m,n])=>`<div class="marca-item ${filtroMarca===m?'on':''}" onclick="setMarca('${m}')">${m} <span>${n}</span></div>`).join('')}
+    ${marcasStripHtml(marcas)}
+    <div class="busca-row">
+      <div class="busca-input-wrap">
+        <input id="busca-input" placeholder="Pesquisar..." value="${filtroBusca}">
+        <button class="busca-btn" onclick="aplicarBusca()">🔍</button>
       </div>
-      <div>
-        <div class="resultado-count">${lista.length} veículo${lista.length===1?'':'s'} encontrado${lista.length===1?'':'s'}</div>
-        ${lista.length
-          ? `<div class="grid-carros">${lista.map(cardHtml).join('')}</div>`
-          : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
+      <button class="btn-filtro-toggle ${filtroPainelAberto?'on':''}" onclick="toggleFiltroPainel()">▽ Filtrar</button>
+      <div class="ordenar-wrap">
+        <button class="btn-ordenar-toggle ${ordenarDropdownAberto?'on':''}" onclick="toggleOrdenarDropdown()">Ordenar por ⇅</button>
+        ${ordenarDropdownAberto ? ordenarDropdownHtml() : ''}
       </div>
     </div>
+    ${filtroPainelAberto ? filtroPainelHtml() : ''}
+    <div class="resultado-count">${lista.length} veículo${lista.length===1?'':'s'} encontrado${lista.length===1?'':'s'}</div>
+    ${lista.length
+      ? `<div class="grid-carros">${lista.map(cardHtml).join('')}</div>`
+      : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
     ${ctasHtml()}
     ${depoimentosHtml()}
     </div>`;
-  document.getElementById('busca-input').oninput = (e)=>{ filtroBusca = e.target.value; renderEstoque(); };
+  const buscaInput = document.getElementById('busca-input');
+  buscaInput.oninput = (e)=>{ filtroBusca = e.target.value; };
+  buscaInput.onkeydown = (e)=>{ if(e.key==='Enter') aplicarBusca(); };
   iniciarCarrossel();
 }
 function setMarca(m){ filtroMarca = m; renderEstoque(); }
+function aplicarBusca(){ renderEstoque(); }
+function scrollMarcas(dir){
+  document.getElementById('marcas-strip').scrollBy({left: dir*220, behavior:'smooth'});
+}
+function toggleFiltroPainel(){ filtroPainelAberto = !filtroPainelAberto; ordenarDropdownAberto = false; renderEstoque(); }
+function toggleOrdenarDropdown(){ ordenarDropdownAberto = !ordenarDropdownAberto; renderEstoque(); }
+function setOrdenacao(key){ ordenacao = key; ordenarDropdownAberto = false; renderEstoque(); }
+function aplicarFiltroPainel(){
+  filtroPrecoDe = document.getElementById('f-preco-de').value;
+  filtroPrecoAte = document.getElementById('f-preco-ate').value;
+  const cambioSel = document.querySelector('input[name="f-cambio"]:checked');
+  const combSel = document.querySelector('input[name="f-combustivel"]:checked');
+  filtroCambio = cambioSel ? cambioSel.value : '';
+  filtroCombustivel = combSel ? combSel.value : '';
+  renderEstoque();
+}
+function limparFiltroPainel(){
+  filtroPrecoDe = ''; filtroPrecoAte = ''; filtroCambio = ''; filtroCombustivel = '';
+  renderEstoque();
+}
 
 function renderSobre(){
   if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
@@ -417,6 +566,7 @@ function renderDetalhe(id){
             <div class="ficha-item"><div class="lbl">KM</div><div class="val">${kmFmt}</div></div>
             <div class="ficha-item"><div class="lbl">Cor</div><div class="val">${v.cor||'—'}</div></div>
             <div class="ficha-item"><div class="lbl">Câmbio</div><div class="val">${v.cambio||'—'}</div></div>
+            <div class="ficha-item"><div class="lbl">Combustível</div><div class="val">${v.combustivel||'—'}</div></div>
             <div class="ficha-item"><div class="lbl">Potência</div><div class="val">${v.potencia?v.potencia+' cv':'—'}</div></div>
             <div class="ficha-item"><div class="lbl">Garantia</div><div class="val">${v.garantia||'—'}</div></div>
           </div>
