@@ -530,15 +530,27 @@ const COLS_MK=[
 const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','atendimento_end'],encantamento:['encantamento_at','encantamento_end'],negociacao:['negociacao_at','negociacao_end'],agendamento:['pendente_at','pendente_end']};
 /* CATEGORIAS DE ORIGEM */
 const ORIGENS_MK={
-  // "Webmotors" e "WebMotors" sao a mesma origem, grafada diferente em
-  // lugares diferentes do sistema - as duas precisam estar aqui, senao uma
-  // delas cai errado em "Outros" (achado ao revisar o painel Hoje com a Aline).
-  marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','Webmotors','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
+  marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
   compra:['Compra'],
   outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','BV']
 };
 const TODAS_ORIGENS=[...ORIGENS_MK.marketing,...ORIGENS_MK.compra,...ORIGENS_MK.outros];
 function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(ORIGENS_MK.compra.includes(o))return'compra';return'outros';}
+
+// Normaliza a grafia de "origem": o Autoconf manda o nome do canal como
+// vier no cadastro de la (ex: "webmotors", "Webmotors", "WEBMOTORS "), mas
+// todo o resto do sistema compara com igualdade exata contra os nomes
+// canonicos acima - qualquer diferenca de maiuscula/minuscula ou espaco a
+// mais fazia o lead "sumir" do painel daquele canal (contava como 0), mesmo
+// existindo. Achado comparando os numeros do Dashboard com o relatorio do
+// proprio Autoconf pra mesma semana (Aline, 12/09/2026).
+const ORIGEM_CANONICA={};
+TODAS_ORIGENS.forEach(o=>{ORIGEM_CANONICA[o.trim().toLowerCase()]=o;});
+function normalizarOrigemLead(l){
+  const chave=(l.origem||'').trim().toLowerCase();
+  if(ORIGEM_CANONICA[chave])l.origem=ORIGEM_CANONICA[chave];
+  return l;
+}
 
 /* COLUNAS RELACIONAMENTO */
 const COLS_REL=[
@@ -593,6 +605,11 @@ const G={
 async function fbList(col){
   const snap=await db.collection(col).get();
   return snap.docs.map(d=>({...d.data(),_docName:d.ref.path}));
+}
+async function fbListLeads(){
+  const leads=await fbList('leads');
+  leads.forEach(normalizarOrigemLead);
+  return leads;
 }
 async function fbCreate(col,id,data){
   await db.collection(col).doc(id).set(data);
@@ -838,7 +855,7 @@ async function initMarketing(){
   document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando leads...</div>';
   if(!fbOk()){initDemoMarketing();toast('Modo demonstração — configure o Firebase para salvar dados.','gold',4000);}
   else{
-    try{G.mk.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}
+    try{G.mk.leads=await fbListLeads();}catch(e){console.error(e);toast('Erro ao carregar leads.','red');}
     // NPS, Indicações e clientes do Relacionamento tambem aparecem no painel
     // "Hoje" do CRM e no Dashboard Geral, entao precisam estar carregados
     // mesmo que a pessoa nunca abra o modulo Relacionamento nessa sessao.
@@ -928,7 +945,7 @@ function iniciarAutoRefreshMk(){
   G.mk._autoRefreshInterval=setInterval(async()=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
     if(algumaJanelaAberta())return;
-    try{G.mk.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderPreservandoScroll(renderMarketing);}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
+    try{G.mk.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderPreservandoScroll(renderMarketing);}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
   },10000);
 }
 function pararAutoRefreshMk(){
@@ -1607,7 +1624,7 @@ async function initGeral(){
   document.getElementById('cnt').innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando...</div>';
   if(fbOk()){
     try{
-      if(!G.mk.leads.length)G.mk.leads=await fbList('leads');
+      if(!G.mk.leads.length)G.mk.leads=await fbListLeads();
       if(!G.rel.clientes.length)G.rel.clientes=await fbList('clientes_rel');
       if(!G.rel.nps.length)G.rel.nps=await fbList('nps_rel');
       if(!G.rel.indicacoes.length)G.rel.indicacoes=await fbList('indicacoes_rel');
@@ -1648,6 +1665,12 @@ function statsGeralIntervalo(iniISO,fimISO){
   const leadsMyBusinessOutra=leadsNoPeriodo.filter(l=>['My Business','Outra'].includes(l.origem)).length;
   const leadsCarteiraProspIndic=leadsNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length;
   const totalLeadsOutros=leadsNoPeriodo.filter(l=>ORIGENS_MK.outros.includes(l.origem)).length;
+  // Leads cuja origem nao bate com NENHUM nome conhecido (nem apos a
+  // normalizacao de maiusculas/espaco em fbListLeads) - em vez de sumir
+  // silenciosamente da contagem por canal, ficam visiveis aqui pra dar pra
+  // perceber rapido quando o Autoconf manda um nome de canal novo/diferente.
+  const leadsNaoMapeados=leadsNoPeriodo.filter(l=>!TODAS_ORIGENS.includes(l.origem));
+  const totalLeadsNaoMapeados=leadsNaoMapeados.length;
 
   const npsInd={
     nps:G.rel.nps.filter(n=>n.dt>=iniISO&&n.dt<=fimISO).length,
@@ -1680,6 +1703,7 @@ function statsGeralIntervalo(iniISO,fimISO){
   const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
 
   return{leadsPorCanalMkt,totalLeadsMkt,leadsPassanteLojaEvento,leadsMyBusinessOutra,leadsCarteiraProspIndic,totalLeadsOutros,leadsCompra,
+    leadsNaoMapeados,totalLeadsNaoMapeados,
     npsInd,visitas1ano,visitas2anos,visitasMkt,visitasOutras,agendamento,agendamentoCompra,
     vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,comprasPorVendedor,totalVendasVendedor};
 }
@@ -1733,6 +1757,11 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor'];
+  }else if(tipo==='leadsNaoMapeados'){
+    titulo='Leads — Origem não identificada';
+    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&!TODAS_ORIGENS.includes(l.origem))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'(vazio)',vendedorLead(l)]);
+    colunas=['Cliente','Veículo','Origem (como veio)','Vendedor'];
   }else if(tipo==='vendasCanal'){
     titulo=`Vendas — ${chave}`;
     itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave)
@@ -1885,6 +1914,7 @@ function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO){
             ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra,false,`abrirDrill('leadsGrupoOutros','mybusiness',${p})`)}
             ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic,false,`abrirDrill('leadsGrupoOutros','carteira',${p})`)}
             <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
+            ${st.totalLeadsNaoMapeados>0?`<div class="rp-row" style="cursor:pointer;color:var(--gold)" onclick="abrirDrill('leadsNaoMapeados',null,${p})" title="Leads com uma origem que o sistema nao reconhece - clique pra ver qual"><span>⚠️ Não identificados</span><strong>${st.totalLeadsNaoMapeados}</strong></div>`:''}
           </div>
           <div class="rp-section">
             <div class="rp-sec-title">🤖 I.A. (agora, não é do período)</div>
@@ -4432,7 +4462,7 @@ function iaLeadsFiltrados(){
   return ls.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
 }
 async function initIA(){
-  try{G.ia.leads=await fbList('leads');}catch(e){console.error(e);toast('Erro ao carregar dados da IA.','red');}
+  try{G.ia.leads=await fbListLeads();}catch(e){console.error(e);toast('Erro ao carregar dados da IA.','red');}
   renderIA(document.getElementById('cnt'));
   iniciarTimerIA();
 }
@@ -4441,7 +4471,7 @@ function iniciarTimerIA(){
   G.ia._timerInterval=setInterval(async()=>{
     if(G.modulo!=='ia'){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;return;}
     if(document.activeElement&&document.activeElement.id==='ia-busca')return;
-    try{G.ia.leads=await fbList('leads');await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));}catch(e){console.error(e);}
+    try{G.ia.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));}catch(e){console.error(e);}
   },10000);
 }
 function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
