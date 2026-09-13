@@ -94,6 +94,7 @@
       <div class="ni" id="ni-ws" onclick="trocarModulo('workshop')"><i class="ti ti-calendar-event"></i> Workshop</div>
       <div class="ni" id="ni-an" onclick="trocarModulo('meta')"><i class="ti ti-speakerphone"></i> Meta</div>
       <div class="ni" id="ni-plataformas" onclick="trocarModulo('plataformas')"><i class="ti ti-apps"></i> Anúncios</div>
+      <div class="ni" id="ni-site" onclick="trocarModulo('site')"><i class="ti ti-world"></i> Site</div>
       <div class="ni-sep"></div>
       <div class="ni-lbl">Sistema</div>
       <div class="ni ni-sistema-principal" onclick="window.open('https://marcelartcar.github.io/rtcar/','_blank')"><i class="ti ti-external-link"></i> Sistema Principal</div>
@@ -585,6 +586,7 @@ const G={
   pf:{veiculos:[],busca:'',litoralcarMap:{},litoralcarRefs:null},
   ia:{leads:[],busca:'',filtroStatus:'todos',filtroVendedor:'',detailId:null,_timerInterval:null},
   geral:{view:'dia',hojeOffset:0,filtroDataInicio:'',filtroDataFim:''},
+  site:{view:'site'},
 };
 
 /* ---- FIREBASE HELPERS (via SDK autenticado — nunca mais fetch cru) ---- */
@@ -700,8 +702,8 @@ function entrarNaApp(u){
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
-  ['ni-geral','ni-rel','ni-ws','ni-an','ni-plataformas','ni-ia'].forEach(id=>{
-    const mod={'ni-geral':'geral','ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'meta','ni-plataformas':'plataformas','ni-ia':'ia'}[id];
+  ['ni-geral','ni-rel','ni-ws','ni-an','ni-plataformas','ni-ia','ni-site'].forEach(id=>{
+    const mod={'ni-geral':'geral','ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'meta','ni-plataformas':'plataformas','ni-ia':'ia','ni-site':'site'}[id];
     const el=document.getElementById(id);
     if(el) el.style.display=podeVerModulo(mod)?'':'none';
   });
@@ -734,7 +736,7 @@ async function logout(){
   if(G.mk._timerInterval){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;}
   G.user=null;G.mk.leads=[];G.rel.clientes=[];
   // Resetar visibilidade das tabs para o próximo login
-  ['ni-rel','ni-ws','ni-an','ni-plataformas','ni-ia'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+  ['ni-rel','ni-ws','ni-an','ni-plataformas','ni-ia','ni-site'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('login-error').style.display='none';
@@ -780,7 +782,8 @@ async function trocarModulo(mod){
   document.getElementById('ni-an').classList.toggle('on',mod==='meta');
   document.getElementById('ni-plataformas').classList.toggle('on',mod==='plataformas');
   document.getElementById('ni-ia').classList.toggle('on',mod==='ia');
-  document.getElementById('sb-tag').textContent={geral:'Dashboard Geral',marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',meta:'Meta',plataformas:'Anúncios',ia:'IA (Eva)'}[mod]||mod;
+  document.getElementById('ni-site').classList.toggle('on',mod==='site');
+  document.getElementById('sb-tag').textContent={geral:'Dashboard Geral',marketing:'CRM',relacionamento:'Relacionamento',workshop:'Workshop',meta:'Meta',plataformas:'Anúncios',ia:'IA (Eva)',site:'Site'}[mod]||mod;
   if(mod==='marketing'){
     if(!G.mk.leads.length)await initMarketing();
     else renderMarketing();
@@ -795,6 +798,8 @@ async function trocarModulo(mod){
     pararTimerCRM();pararAutoRefreshMk();await initPlataformasAnuncio();
   } else if(mod==='ia'){
     pararTimerCRM();pararAutoRefreshMk();await initIA();
+  } else if(mod==='site'){
+    pararTimerCRM();pararAutoRefreshMk();initSite();
   } else {
     pararAutoRefreshMk();
     if(!G.rel.clientes.length)await initRelacionamento();
@@ -4378,6 +4383,37 @@ async function salvarCamposAn(id,campos){
 
 
 /* ============================================================
+   SITE — MÓDULO
+   Mostra o site publico (rtcar-site.web.app) e o admin de banners
+   embutidos num iframe, dentro do proprio CRM.
+   ============================================================ */
+const SITE_URLS={
+  site:'https://rtcar-site.web.app/',
+  admin:'https://rtcar-site.web.app/admin.html',
+};
+function initSite(){
+  renderSite();
+}
+function renderSite(){
+  if(G.modulo!=='site')return;
+  const view=G.site.view;
+  const tb=document.getElementById('tb');
+  tb.innerHTML=`
+    <div class="tb-title"><i class="ti ti-world" style="color:var(--red)"></i> Site</div>
+    <div class="tb-sep"></div>
+    <div class="tb-tabs">
+      <div class="tb-tab${view==='site'?' on':''}" onclick="__G().site.view='site';renderSite()"><i class="ti ti-eye"></i> Site</div>
+      <div class="tb-tab${view==='admin'?' on':''}" onclick="__G().site.view='admin';renderSite()"><i class="ti ti-photo"></i> Banners (admin)</div>
+    </div>
+    <div class="tb-spacer"></div>
+    <button class="btn btn-outline btn-sm" onclick="window.open('${SITE_URLS[G.site.view]}','_blank')"><i class="ti ti-external-link"></i> Abrir em nova aba</button>
+  `;
+  const cnt=document.getElementById('cnt');
+  cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  cnt.innerHTML=`<iframe src="${SITE_URLS[view]}" style="flex:1;border:0;width:100%;height:100%;background:#fff"></iframe>`;
+}
+
+/* ============================================================
    IA (EVA) — MÓDULO
    ============================================================ */
 function iaLeadsEva(){
@@ -4630,6 +4666,8 @@ window.moverLead=moverLead;
 window.processarArquivoImportacao=processarArquivoImportacao;
 window.recuperarSenha=recuperarSenha;
 window.renderAnuncios=renderAnuncios;
+window.initSite=initSite;
+window.renderSite=renderSite;
 window.renderGeral=renderGeral;
 window.renderIA=renderIA;
 window.renderMarketing=renderMarketing;
