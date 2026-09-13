@@ -1973,7 +1973,7 @@ function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO,porChegada){
             <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros${tipoDrill}',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st['totalLeadsOutros'+suf]}</strong></div>
             ${st['totalLeadsNaoMapeados'+suf]>0?`<div class="rp-row" style="cursor:pointer;color:var(--gold)" onclick="abrirDrill('leadsNaoMapeados${tipoDrill}',null,${p})" title="Leads com uma origem que o sistema nao reconhece - clique pra ver qual"><span>⚠️ Não identificados</span><strong>${st['totalLeadsNaoMapeados'+suf]}</strong></div>`:''}
           </div>
-          <div class="rp-section">
+          <div class="rp-section rp-destaque-total">
             <div class="rp-sec-title">🤖 I.A. (agora, não é do período)</div>
             <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrillMk('naIATodos',null,null,0)" title="Clique pra ver quem são - inclui leads de qualquer data, nao so desse periodo"><span>Parados na I.A.</span><strong>${G.mk.leads.filter(l=>l.st==='ia').length}</strong></div>
           </div>
@@ -1982,8 +1982,8 @@ function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO,porChegada){
       <div>
         <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-cash"></i> Vendas</div>
         <div class="geral-vendas-grid">
-          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalMkt',null,${p})`,'full')}
-          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalOutros',null,${p})`,'full')}
+          ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalMkt',null,${p})`,'total')}
+          ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalOutros',null,${p})`,'total')}
         </div>
       </div>
     </div>
