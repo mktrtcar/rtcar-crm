@@ -546,6 +546,13 @@ function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(
 // proprio Autoconf pra mesma semana (Aline, 12/09/2026).
 const ORIGEM_CANONICA={};
 TODAS_ORIGENS.forEach(o=>{ORIGEM_CANONICA[o.trim().toLowerCase()]=o;});
+// Apelidos - grafias diferentes que sao a mesma origem na pratica (confirmado
+// com a Aline, 12/09/2026, revisando o export do CRM): "Carteira de clientes"
+// e "Carteira" sao a mesma coisa, e "Google"/"Site" sozinhos sao a mesma
+// origem que "Google + Site".
+ORIGEM_CANONICA['carteira de clientes']='Carteira';
+ORIGEM_CANONICA['google']='Google + Site';
+ORIGEM_CANONICA['site']='Google + Site';
 function normalizarOrigemLead(l){
   const chave=(l.origem||'').trim().toLowerCase();
   if(ORIGEM_CANONICA[chave])l.origem=ORIGEM_CANONICA[chave];
@@ -1273,7 +1280,10 @@ function primeiraRespostaVendedorISO(l){
   const[d,m,a]=entrada.dt.slice(0,10).split('/');
   return(d&&m&&a)?`${a}-${m}-${d}`:null;
 }
-const ORIGENS_PULA_IA=['Loja','Carteira de clientes','Passante']; // mesma lista do webhook-autoconf
+// "Carteira de clientes" normaliza pra "Carteira" (ver ORIGEM_CANONICA) antes
+// de chegar aqui - por isso a lista usa o nome ja canonico, senao o filtro
+// para de bater silenciosamente depois da normalizacao.
+const ORIGENS_PULA_IA=['Loja','Carteira','Passante']; // mesma lista do webhook-autoconf (la ainda usa "Carteira de clientes")
 // 28/08/2026, a pedido da Aline: setas pra ver o painel "Hoje" de ate 7
 // dias atras (ontem, anteontem...), sem precisar ir no Funil/Relatorios
 // (que misturam lead recebido com lead so atualizado naquele dia).
