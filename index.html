@@ -976,7 +976,13 @@ function renderMarketing(){
   // data, pula a reconstrucao inteira dessa chamada (o valor digitado ja
   // foi salvo no estado/Firestore pelo onchange; a tela so vai refletir
   // isso no proximo render de verdade, ex: proximo auto-refresh).
-  const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
+  // EXCECAO: os campos de periodo do Relatorio (mk-data-inicio/fim) ficam
+  // de fora dessa trava - eles nao tem o problema de onchange prematuro (o
+  // usuario so troca a data pelo seletor/calendario, nao digitando), e
+  // bloquear aqui deixava os numeros do Relatorio travados na tela antiga
+  // mesmo depois de trocar a data (achado com a Aline, 13/09/2026).
+  const focado=document.activeElement;
+  const dataFocada=focado?.tagName==='INPUT'&&focado?.type==='date'&&focado.id!=='mk-data-inicio'&&focado.id!=='mk-data-fim';
   if(dataFocada)return;
   tb.innerHTML=`
     <div class="tb-title"><i class="ti ti-speakerphone" style="color:var(--red)"></i> CRM</div>
@@ -2909,8 +2915,11 @@ function renderRelacionamento(){
   const tb=document.getElementById('tb');const view=G.rel.view;
   // Mesma correcao do CRM (ver renderMarketing): reconstruir a tela
   // inteira enquanto a pessoa esta digitando dentro de um campo de data
-  // derruba o campo antes do ano ser digitado.
-  const dataFocada=document.activeElement?.tagName==='INPUT'&&document.activeElement?.type==='date';
+  // derruba o campo antes do ano ser digitado. Mesma excecao tambem: os
+  // campos de periodo (rel-data-inicio/fim) ficam de fora da trava, senao
+  // os numeros ficam presos na tela antiga ao trocar a data (Aline, 13/09/2026).
+  const focadoRel=document.activeElement;
+  const dataFocada=focadoRel?.tagName==='INPUT'&&focadoRel?.type==='date'&&focadoRel.id!=='rel-data-inicio'&&focadoRel.id!=='rel-data-fim';
   if(dataFocada)return;
   // Mesma correcao do campo de busca do CRM (ver renderMarketing): sem
   // guardar o foco/selecao, reconstruir a tela a cada letra digitada
