@@ -270,6 +270,8 @@ const MARCA_SLUGS = {
   'Land Rover':'land-rover','Mercedes':'mercedes-benz','Peugeot':'peugeot','Toyota':'toyota',
   'VolksWagen':'vw-volkswagen','Volvo':'volvo',
 };
+const MARCA_LABEL = { 'VolksWagen':'Volkswagen' };
+const TODAS_MARCAS = Object.keys(MARCA_SLUGS).sort((a,b)=>a.localeCompare(b));
 const FAIXAS_PRECO = [50000,75000,100000,125000,150000,175000,200000,250000,300000,350000,400000];
 const ORDENACOES = [
   {key:'relevancia', label:'Relevância'},
@@ -420,18 +422,18 @@ function depoimentosHtml(){
   </div>`;
 }
 
-function marcaCardHtml([m,n]){
+function marcaCardHtml(m){
   const slug = MARCA_SLUGS[m];
   const icone = slug ? `<img src="marcas/${slug}.png" alt="${m}">` : `<span style="font-size:18px">🚗</span>`;
-  return `<div class="marca-card ${filtroMarca===m?'on':''}" onclick="setMarca('${m}')">${icone}<span>${m}</span></div>`;
+  return `<div class="marca-card ${filtroMarca===m?'on':''}" onclick="setMarca('${m}')">${icone}<span>${MARCA_LABEL[m]||m}</span></div>`;
 }
 
-function marcasStripHtml(marcas){
+function marcasStripHtml(){
   return `<div class="marcas-strip-wrap">
     <div class="strip-arrow" onclick="scrollMarcas(-1)">‹</div>
     <div class="marcas-strip" id="marcas-strip">
       <div class="marca-card todas ${filtroMarca===''?'on':''}" onclick="setMarca('')"><span style="font-size:18px">🚗</span><span>Todas</span></div>
-      ${marcas.map(marcaCardHtml).join('')}
+      ${TODAS_MARCAS.map(marcaCardHtml).join('')}
     </div>
     <div class="strip-arrow" onclick="scrollMarcas(1)">›</div>
   </div>`;
@@ -472,11 +474,10 @@ function ordenarDropdownHtml(){
 
 function renderEstoque(){
   const lista = veiculosFiltrados();
-  const marcas = marcasDisponiveis();
   document.getElementById('app').innerHTML = `
     ${heroHtml()}
     <div class="wrap">
-    ${marcasStripHtml(marcas)}
+    ${marcasStripHtml()}
     <div class="busca-row">
       <div class="busca-input-wrap">
         <input id="busca-input" placeholder="Pesquisar..." value="${filtroBusca}">
