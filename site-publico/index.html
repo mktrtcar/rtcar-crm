@@ -14,7 +14,7 @@
   --tx:#f3f1ed;--tx2:#c9c5bf;--tx3:#8a8580;
   --red:#e8431e;--red2:#ff6a3d;--redl:rgba(232,67,30,.14);
   --gold:#f0b429;--goldl:rgba(240,180,41,.12);
-  --green:#34d399;--greenl:rgba(52,211,153,.12);
+  --green:#ff6a3d;--greenl:rgba(255,106,61,.12);
   --dark:#000000;--dark2:#141210;
   --bdr:#322f2b;--r:10px;--r2:16px;--r3:22px;
   --f:'DM Sans',sans-serif;--s:'DM Serif Display',serif;
@@ -72,7 +72,6 @@ nav a.navlink:hover{opacity:1;color:var(--red2)}
 /* LAYOUT */
 .wrap{max-width:1180px;margin:0 auto;padding:32px 20px 60px}
 .estoque-layout{display:grid;grid-template-columns:210px 1fr;gap:26px;align-items:start}
-@media (max-width:800px){.estoque-layout{grid-template-columns:1fr}.sidebar{position:static}}
 
 .sidebar{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px;position:sticky;top:90px;box-shadow:var(--shadow)}
 .sidebar h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:10px;font-weight:700}
@@ -81,6 +80,7 @@ nav a.navlink:hover{opacity:1;color:var(--red2)}
 .sidebar .marca-item.on{background:var(--redl);color:var(--red);font-weight:700}
 .sidebar .marca-item span{color:var(--tx3);font-size:12px}
 .sidebar .marca-item.on span{color:var(--red)}
+@media (max-width:800px){.estoque-layout{grid-template-columns:1fr}.sidebar{position:static}}
 .busca{width:100%;padding:11px 14px;border:1.5px solid var(--bdr);border-radius:var(--r);font-family:var(--f);font-size:13px;margin-bottom:18px;background:var(--bg3);transition:border .15s,background .15s}
 .busca:focus{outline:none;border-color:var(--red);background:var(--bg2)}
 
@@ -143,6 +143,32 @@ nav a.navlink:hover{opacity:1;color:var(--red2)}
 .det-descricao{font-size:13px;color:var(--tx2);line-height:1.75;white-space:pre-line}
 .det-sec-title{font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px}
 
+/* CTAS (Venda seu carro / Financie) */
+.ctas{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:44px}
+@media (max-width:700px){.ctas{grid-template-columns:1fr}}
+.cta-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:26px;box-shadow:var(--shadow)}
+.cta-card h3{font-family:var(--s);font-size:21px;font-weight:400;margin-bottom:10px}
+.cta-card p{font-size:13.5px;color:var(--tx2);line-height:1.6;margin-bottom:18px}
+.cta-btn{display:inline-flex;align-items:center;gap:8px;background:var(--red);color:#fff;padding:11px 20px;border-radius:24px;font-size:13px;font-weight:700}
+.cta-btn:hover{background:var(--red2)}
+
+/* DEPOIMENTOS */
+.depoimentos{margin-top:52px}
+.sec-title{font-family:var(--s);font-size:26px;font-weight:400;text-align:center;margin-bottom:26px}
+.depo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media (max-width:900px){.depo-grid{grid-template-columns:1fr}}
+.depo-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:22px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.depo-card .estrelas{color:var(--gold);font-size:13px;margin-bottom:10px}
+.depo-card p{font-size:13px;color:var(--tx2);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+.depo-card .autor{margin-top:14px;font-size:12.5px;font-weight:700;color:var(--tx)}
+
+/* PAGINA SOBRE */
+.sobre-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:30px;box-shadow:var(--shadow);max-width:800px;margin:0 auto}
+.sobre-card h1{font-family:var(--s);font-size:28px;font-weight:400;margin-bottom:18px}
+.sobre-card p{font-size:13.5px;color:var(--tx2);line-height:1.8;margin-bottom:14px}
+.sobre-contato{display:flex;flex-direction:column;gap:10px;margin-top:22px;padding-top:22px;border-top:1px solid var(--bg3);font-size:13.5px}
+.sobre-contato a{font-weight:700;color:var(--red2)}
+
 /* WHATSAPP FLUTUANTE */
 .whats-float{position:fixed;bottom:22px;right:22px;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#2fdc76,#1eb85a);display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 24px rgba(37,211,102,.4);z-index:60;transition:transform .15s}
 .whats-float:hover{transform:scale(1.08)}
@@ -151,6 +177,9 @@ footer{background:var(--dark);color:#948f89;margin-top:50px;padding:36px 20px 26
 footer .f-logo{font-family:var(--s);font-size:20px;color:#fff;margin-bottom:10px}
 footer .f-logo span{color:var(--red2)}
 footer .f-line{margin-top:4px}
+footer .f-social{margin-top:16px;display:flex;justify-content:center;gap:14px}
+footer .f-social a{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:16px;transition:background .15s}
+footer .f-social a:hover{background:var(--redl);color:var(--red2)}
 footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#645f5a}
 </style>
 </head>
@@ -164,6 +193,7 @@ footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,25
       <a href="#/estoque" class="navlink">Veículos</a>
       <a href="https://wa.me/554791238422" target="_blank" class="navlink">Venda seu carro</a>
       <a href="https://wa.me/554791238422" target="_blank" class="navlink">Financie</a>
+      <a href="#/sobre" class="navlink">Sobre</a>
       <a href="tel:+554733508667" class="navlink" style="opacity:.7">📞 (47) 3350-8667</a>
       <a href="https://wa.me/554791238422" target="_blank" class="whats-btn">💬 WhatsApp</a>
     </nav>
@@ -176,8 +206,10 @@ footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,25
 
 <footer>
   <div class="f-logo">RT<span>CAR</span></div>
-  <div class="f-line">Otto Renaux, 135, Centro 1, Brusque/SC</div>
+  <div class="f-line">Otto Renaux, 135, Centro 1, Brusque/SC — CEP 88351300</div>
   <div class="f-line">(47) 3350-8667 · (47) 9123-8422 · contato@rtcar.com.br</div>
+  <div class="f-line">CNPJ: 43.510.524/0001-35</div>
+  <div class="f-social"><a href="https://www.instagram.com/rtcar.brusque" target="_blank" title="Instagram">📷</a></div>
   <div class="f-copy">© 2026 RT Car. Todos os direitos reservados.</div>
 </footer>
 
@@ -278,6 +310,40 @@ function iniciarCarrossel(){
   if(BANNERS.length>1) heroTimer = setInterval(heroProx, 5000);
 }
 
+const DEPOIMENTOS = [
+  { texto: 'Minha experiência foi perfeita do início ao fim, atendimento desde o primeiro contato com o vendedor Rodrigo, depois na parte de documentação com a Jaqueline também com excelência e quando precisei do Pablo fui prontamente atendido com aval dos proprietários que deram ok para a minha solicitação, só tenho a agradecer aos envolvidos e com certeza na minha próxima aquisição irei procurá-los.', autor: 'Fabricio Rafael Hipolito' },
+  { texto: 'Passe aqui para agradecer pela experiência na compra do meu Nivus. Desde o começo foi tudo tranquilo, conversa clara, sem pressão e com cuidado em cada detalhe. Em nenhum momento me senti insegura! Obrigado por todo o atendimento e pela paciência.', autor: 'Ana Testoni' },
+  { texto: 'Experiência sendo incrível, o carro realmente é novo, estamos curtindo muito, sobre a loja sem palavras, desde o primeiro contato foram extremamente atenciosos, sempre tirando todas as dúvidas, principalmente o Maicon, que está de parabéns pelo atendimento, loja nota 10.', autor: 'Thiago Teixeira' },
+];
+
+function ctasHtml(){
+  return `<div class="ctas">
+    <div class="cta-card">
+      <h3>Venda seu carro</h3>
+      <p>Solicite a avaliação do seu carro online, no conforto da sua casa.</p>
+      <a class="cta-btn" href="https://wa.me/554791238422?text=${encodeURIComponent('Olá! Quero avaliar meu carro para venda.')}" target="_blank">Avalie agora →</a>
+    </div>
+    <div class="cta-card">
+      <h3>Financie seu sonho</h3>
+      <p>Trabalhamos com as principais financeiras, isso garante melhores taxas para você!</p>
+      <a class="cta-btn" href="https://wa.me/554791238422?text=${encodeURIComponent('Olá! Quero fazer uma simulação de financiamento.')}" target="_blank">Faça uma simulação →</a>
+    </div>
+  </div>`;
+}
+
+function depoimentosHtml(){
+  return `<div class="depoimentos">
+    <div class="sec-title">O que nossos clientes dizem sobre nós</div>
+    <div class="depo-grid">
+      ${DEPOIMENTOS.map(d=>`<div class="depo-card">
+        <div class="estrelas">★★★★★</div>
+        <p>“${d.texto}”</p>
+        <div class="autor">${d.autor}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 function renderEstoque(){
   const lista = veiculosFiltrados();
   const marcas = marcasDisponiveis();
@@ -298,11 +364,32 @@ function renderEstoque(){
           : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
       </div>
     </div>
+    ${ctasHtml()}
+    ${depoimentosHtml()}
     </div>`;
   document.getElementById('busca-input').oninput = (e)=>{ filtroBusca = e.target.value; renderEstoque(); };
   iniciarCarrossel();
 }
 function setMarca(m){ filtroMarca = m; renderEstoque(); }
+
+function renderSobre(){
+  if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
+  document.getElementById('app').innerHTML = `
+    <div class="wrap">
+    <a class="voltar" href="#/estoque">← Voltar para o estoque</a>
+    <div class="sobre-card">
+      <h1>Sobre nós</h1>
+      <p>A RT Car Veículos atua no mercado automobilístico, caracterizada por ser uma empresa sólida, de tradição, que conjuga excelência no atendimento e veículos com rigorosa qualidade, com o objetivo único de tornar real o sonho de cada cliente.</p>
+      <p>Apostando em confiança e credibilidade como princípios fundamentais de sua atuação, a empresa busca no mercado somente veículos diferenciados, através de um rigoroso critério técnico de avaliação que garante qualidade e procedência.</p>
+      <p>A loja oferece automóveis de diversas marcas, semi-novos e zero quilômetro, nacionais e importados. Todos criteriosamente testados e avaliados, característica que a revenda traz consigo até hoje e a diferencia no mercado. E é assim que a RT Car Veículos solidificou a sua marca, com uma conduta ética e respeito a seus clientes, parceiros e fornecedores.</p>
+      <div class="sobre-contato">
+        <div>Vendemos e compramos carros seminovos com transparência, segurança e o conforto que você merece.</div>
+        <div>💬 Whatsapp: <a href="https://wa.me/554791238422" target="_blank">(47) 9123-8422</a></div>
+        <div>📞 Ou ligue agora: <a href="tel:+554733508667">(47) 3350-8667</a></div>
+      </div>
+    </div>
+    </div>`;
+}
 
 function renderDetalhe(id){
   if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
@@ -372,6 +459,7 @@ function rotear(){
   const hash = location.hash || '#/estoque';
   const mDetalhe = hash.match(/^#\/carro\/(.+)$/);
   if(mDetalhe){ renderDetalhe(mDetalhe[1]); window.scrollTo(0,0); return; }
+  if(hash === '#/sobre'){ renderSobre(); window.scrollTo(0,0); return; }
   renderEstoque();
 }
 
