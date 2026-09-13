@@ -1037,7 +1037,12 @@ function colunaOculta(colId){
 }
 function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora'||G.user?.r==='dev';}
 function isMaster(){return G.user?.r==='master';}
+// Dashboard Geral fica restrito so a esses 3 logins (pedido da Aline,
+// 13/09/2026) - inclusive outros masters (ex: Tiago) nao veem mais esse
+// modulo, diferente do resto do sistema que segue por perfil (role).
+const EMAILS_DASHBOARD_GERAL=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br'];
 function podeVerModulo(mod){
+  if(mod==='geral')return EMAILS_DASHBOARD_GERAL.includes((G.user?.e||'').toLowerCase());
   const r=G.user?.r||'seller';
   if(r==='master')return true;
   if(r==='coordenadora')return true;
@@ -1658,6 +1663,13 @@ function inicioFimMesAtual(){
   return[ini,fim];
 }
 function leadRecebidoNoPeriodo(l,iniISO,fimISO){const r=primeiraRespostaVendedorISO(l);return!!r&&r>=iniISO&&r<=fimISO;}
+// Data em que o lead de fato CHEGOU (veio do Autoconf), diferente de
+// leadRecebidoNoPeriodo (data em que um vendedor respondeu) - usado so no
+// "Dashboard por Filtro" pra mostrar quantos leads vieram por canal de
+// verdade, batendo com o relatorio do Autoconf, mesmo quem ainda esta
+// parado na I.A. sem resposta (pedido da Aline, 13/09/2026 - o "Hoje"
+// continua contando por resposta, igual ao painel dos vendedores).
+function leadChegouNoPeriodo(l,iniISO,fimISO){return!!l.dtISO&&l.dtISO>=iniISO&&l.dtISO<=fimISO;}
 function statsGeralIntervalo(iniISO,fimISO){
   // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
   // vendedor de fato respondeu (nao a data de chegada do lead).
@@ -1681,6 +1693,21 @@ function statsGeralIntervalo(iniISO,fimISO){
   // perceber rapido quando o Autoconf manda um nome de canal novo/diferente.
   const leadsNaoMapeados=leadsNoPeriodo.filter(l=>!TODAS_ORIGENS.includes(l.origem));
   const totalLeadsNaoMapeados=leadsNaoMapeados.length;
+
+  // Mesmos boxes de cima, mas contando por DATA DE CHEGADA do lead (bate com
+  // o relatorio do Autoconf) em vez de data de resposta do vendedor - usado
+  // so no "Dashboard por Filtro" (ver leadChegouNoPeriodo acima).
+  const leadsChegaramNoPeriodo=G.mk.leads.filter(l=>leadChegouNoPeriodo(l,iniISO,fimISO));
+  const leadsPorCanalMktChegada={};ORIGENS_MK.marketing.forEach(o=>{leadsPorCanalMktChegada[o]=leadsChegaramNoPeriodo.filter(l=>l.origem===o).length;});
+  const leadsCompraChegada=leadsChegaramNoPeriodo.filter(l=>ORIGENS_MK.compra.includes(l.origem)).length;
+  leadsPorCanalMktChegada['Compra']=leadsCompraChegada;
+  const totalLeadsMktChegada=Object.values(leadsPorCanalMktChegada).reduce((a,b)=>a+b,0);
+  const leadsPassanteLojaEventoChegada=leadsChegaramNoPeriodo.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length;
+  const leadsMyBusinessOutraChegada=leadsChegaramNoPeriodo.filter(l=>['My Business','Outra'].includes(l.origem)).length;
+  const leadsCarteiraProspIndicChegada=leadsChegaramNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length;
+  const totalLeadsOutrosChegada=leadsChegaramNoPeriodo.filter(l=>ORIGENS_MK.outros.includes(l.origem)).length;
+  const leadsNaoMapeadosChegada=leadsChegaramNoPeriodo.filter(l=>!TODAS_ORIGENS.includes(l.origem));
+  const totalLeadsNaoMapeadosChegada=leadsNaoMapeadosChegada.length;
 
   const npsInd={
     nps:G.rel.nps.filter(n=>n.dt>=iniISO&&n.dt<=fimISO).length,
@@ -1714,6 +1741,8 @@ function statsGeralIntervalo(iniISO,fimISO){
 
   return{leadsPorCanalMkt,totalLeadsMkt,leadsPassanteLojaEvento,leadsMyBusinessOutra,leadsCarteiraProspIndic,totalLeadsOutros,leadsCompra,
     leadsNaoMapeados,totalLeadsNaoMapeados,
+    leadsPorCanalMktChegada,totalLeadsMktChegada,leadsPassanteLojaEventoChegada,leadsMyBusinessOutraChegada,leadsCarteiraProspIndicChegada,totalLeadsOutrosChegada,leadsCompraChegada,
+    leadsNaoMapeadosChegada,totalLeadsNaoMapeadosChegada,
     npsInd,visitas1ano,visitas2anos,visitasMkt,visitasOutras,agendamento,agendamentoCompra,
     vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,comprasPorVendedor,totalVendasVendedor};
 }
@@ -1745,31 +1774,38 @@ const GRUPOS_OUTROS_REL={passante:['Passante','Loja','Evento Externo'],mybusines
 function abrirDrill(tipo,chave,iniISO,fimISO){
   const fmtV=l=>l.valor?`R$ ${l.valor}`:'';
   const vendedorLead=l=>l.captador||l.by||'';
+  // Os tipos "...Chegada" sao os mesmos boxes, so que contando por data de
+  // chegada do lead em vez de data de resposta do vendedor (Dashboard por
+  // Filtro - ver leadChegouNoPeriodo).
+  const porChegada=tipo.endsWith('Chegada');
+  const tipoBase=porChegada?tipo.slice(0,-'Chegada'.length):tipo;
+  const porData=porChegada?leadChegouNoPeriodo:leadRecebidoNoPeriodo;
+  const sufTitulo=porChegada?' (por data de chegada)':'';
   let titulo='',itens=[],colunas=[];
-  if(tipo==='leadsCanal'){
-    titulo=`Leads — ${chave}`;
-    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&l.origem===chave)
+  if(tipoBase==='leadsCanal'){
+    titulo=`Leads — ${chave}${sufTitulo}`;
+    itens=G.mk.leads.filter(l=>porData(l,iniISO,fimISO)&&l.origem===chave)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Vendedor'];
-  }else if(tipo==='leadsGrupoOutros'){
+  }else if(tipoBase==='leadsGrupoOutros'){
     const origens=GRUPOS_OUTROS_REL[chave]||[];
-    titulo=`Leads — ${origens.join(' + ')}`;
-    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&origens.includes(l.origem))
+    titulo=`Leads — ${origens.join(' + ')}${sufTitulo}`;
+    itens=G.mk.leads.filter(l=>porData(l,iniISO,fimISO)&&origens.includes(l.origem))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor'];
-  }else if(tipo==='leadsTotalMkt'){
-    titulo='Leads — Total Marketing (inclui Compra)';
-    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&(tipoOrigem(l.origem)==='marketing'||tipoOrigem(l.origem)==='compra'))
+  }else if(tipoBase==='leadsTotalMkt'){
+    titulo='Leads — Total Marketing (inclui Compra)'+sufTitulo;
+    itens=G.mk.leads.filter(l=>porData(l,iniISO,fimISO)&&(tipoOrigem(l.origem)==='marketing'||tipoOrigem(l.origem)==='compra'))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor'];
-  }else if(tipo==='leadsTotalOutros'){
-    titulo='Leads — Total Outros Canais';
-    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
+  }else if(tipoBase==='leadsTotalOutros'){
+    titulo='Leads — Total Outros Canais'+sufTitulo;
+    itens=G.mk.leads.filter(l=>porData(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor'];
-  }else if(tipo==='leadsNaoMapeados'){
-    titulo='Leads — Origem não identificada';
-    itens=G.mk.leads.filter(l=>leadRecebidoNoPeriodo(l,iniISO,fimISO)&&!TODAS_ORIGENS.includes(l.origem))
+  }else if(tipoBase==='leadsNaoMapeados'){
+    titulo='Leads — Origem não identificada'+sufTitulo;
+    itens=G.mk.leads.filter(l=>porData(l,iniISO,fimISO)&&!TODAS_ORIGENS.includes(l.origem))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'(vazio)',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Origem (como veio)','Vendedor'];
   }else if(tipo==='vendasCanal'){
@@ -1910,21 +1946,25 @@ function geralBlocoResumoVendas(){
       ${bloco(`🛒 Compras — Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.comprasPorVendedor,stMes.vendasCompra,mes.ini,mes.fim,'comprasVendedor','vendasCompra')}
     </div>`;
 }
-function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO){
+function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO,porChegada){
   const p=`'${iniISO}','${fimISO}'`;
+  const suf=porChegada?'Chegada':'';
+  const tipoDrill=porChegada?'Chegada':'';
+  const tituloLeadsMkt=porChegada?'Leads Canal de Marketing (inclui Compra) — por data de chegada':'Leads Canal de Marketing (inclui Compra)';
   return `
     <div class="geral-top-row">
       <div>
         <div class="rel-section-title" style="margin-bottom:6px"><i class="ti ti-users"></i> Leads</div>
+        ${porChegada?`<div style="font-size:11.5px;color:var(--tx3);margin-bottom:8px">Conta todo lead que chegou nesse período, mesmo quem ainda está parado na I.A. sem resposta (bate com o relatório do Autoconf).</div>`:''}
         <div class="geral-leads-grid">
-          ${geralListaCanalCard('Leads Canal de Marketing (inclui Compra)','📢',st.leadsPorCanalMkt,st.totalLeadsMkt,null,true,k=>`abrirDrill('leadsCanal','${k}',${p})`,`abrirDrill('leadsTotalMkt',null,${p})`)}
+          ${geralListaCanalCard(tituloLeadsMkt,'📢',st['leadsPorCanalMkt'+suf],st['totalLeadsMkt'+suf],null,true,k=>`abrirDrill('leadsCanal${tipoDrill}','${k}',${p})`,`abrirDrill('leadsTotalMkt${tipoDrill}',null,${p})`)}
           <div class="rp-section">
             <div class="rp-sec-title">🏪 Leads Outros Canais</div>
-            ${geralRpRow('Passante + Loja + Evento',st.leadsPassanteLojaEvento,false,`abrirDrill('leadsGrupoOutros','passante',${p})`)}
-            ${geralRpRow('My Business + Outra',st.leadsMyBusinessOutra,false,`abrirDrill('leadsGrupoOutros','mybusiness',${p})`)}
-            ${geralRpRow('Carteira + Prospecção + Indicação',st.leadsCarteiraProspIndic,false,`abrirDrill('leadsGrupoOutros','carteira',${p})`)}
-            <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st.totalLeadsOutros}</strong></div>
-            ${st.totalLeadsNaoMapeados>0?`<div class="rp-row" style="cursor:pointer;color:var(--gold)" onclick="abrirDrill('leadsNaoMapeados',null,${p})" title="Leads com uma origem que o sistema nao reconhece - clique pra ver qual"><span>⚠️ Não identificados</span><strong>${st.totalLeadsNaoMapeados}</strong></div>`:''}
+            ${geralRpRow('Passante + Loja + Evento',st['leadsPassanteLojaEvento'+suf],false,`abrirDrill('leadsGrupoOutros${tipoDrill}','passante',${p})`)}
+            ${geralRpRow('My Business + Outra',st['leadsMyBusinessOutra'+suf],false,`abrirDrill('leadsGrupoOutros${tipoDrill}','mybusiness',${p})`)}
+            ${geralRpRow('Carteira + Prospecção + Indicação',st['leadsCarteiraProspIndic'+suf],false,`abrirDrill('leadsGrupoOutros${tipoDrill}','carteira',${p})`)}
+            <div class="rp-row rp-total" style="cursor:pointer" onclick="abrirDrill('leadsTotalOutros${tipoDrill}',null,${p})" title="Clique pra ver quem são"><span>Total Outros</span><strong>${st['totalLeadsOutros'+suf]}</strong></div>
+            ${st['totalLeadsNaoMapeados'+suf]>0?`<div class="rp-row" style="cursor:pointer;color:var(--gold)" onclick="abrirDrill('leadsNaoMapeados${tipoDrill}',null,${p})" title="Leads com uma origem que o sistema nao reconhece - clique pra ver qual"><span>⚠️ Não identificados</span><strong>${st['totalLeadsNaoMapeados'+suf]}</strong></div>`:''}
           </div>
           <div class="rp-section">
             <div class="rp-sec-title">🤖 I.A. (agora, não é do período)</div>
@@ -1987,7 +2027,7 @@ function renderGeral(){
         <span style="color:var(--tx3);font-size:12px">até</span>
         <input type="date" class="select-sm" value="${df||''}" onchange="__G().geral.filtroDataFim=this.value;renderGeral()" title="Até" style="width:150px">
       </div>
-      ${st?geralCorpoHtml(st,'Indicadores do período',di,df):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
+      ${st?geralCorpoHtml(st,'Indicadores do período',di,df,true):'<div style="color:var(--tx3);font-size:13px;padding:20px">Selecione as duas datas (de / até) pra ver o relatório somado do período.</div>'}
     </div>`;
     return;
   }
