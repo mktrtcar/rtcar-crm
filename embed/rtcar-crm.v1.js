@@ -506,9 +506,17 @@ function iniciarAutoRefreshMk(){
   if(!fbOk()||G.mk.modoDemo)return;
   G.mk._autoRefreshInterval=setInterval(async()=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
+    // Aba em segundo plano (minimizada ou outra aba em foco) nao gastava
+    // leitura nenhuma a menos - achado pela Marcela numa auditoria de custo
+    // do Firebase (14/09/2026): com todo mundo deixando o CRM aberto o dia
+    // inteiro, isso sozinho ja multiplicava as leituras do Firestore por
+    // quantas abas ociosas existissem. Intervalo tambem subiu de 10s pra
+    // 1 minuto (a pedido da Aline, 15/09/2026, pra economizar ainda mais -
+    // ainda responsivo o suficiente pro trabalho do dia a dia).
+    if(document.hidden)return;
     if(algumaJanelaAberta())return;
     try{G.mk.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderPreservandoScroll(renderMarketing);}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
-  },10000);
+  },60000);
 }
 function pararAutoRefreshMk(){
   if(G.mk._autoRefreshInterval){clearInterval(G.mk._autoRefreshInterval);G.mk._autoRefreshInterval=null;}
@@ -602,8 +610,14 @@ function isMaster(){return G.user?.r==='master';}
 // 13/09/2026) - inclusive outros masters (ex: Tiago) nao veem mais esse
 // modulo, diferente do resto do sistema que segue por perfil (role).
 const EMAILS_DASHBOARD_GERAL=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br'];
+// Modulo IA (Eloa) e' usado so pela Aline hoje, mas antes liberava pra
+// qualquer master/coordenadora - achado pela Marcela numa auditoria de
+// custo do Firebase (14/09/2026): mais gente com acesso = mais telas
+// abertas com o timer de 10s rodando sem necessidade.
+const EMAILS_IA=['contato@rtcar.com.br'];
 function podeVerModulo(mod){
   if(mod==='geral')return EMAILS_DASHBOARD_GERAL.includes((G.user?.e||'').toLowerCase());
+  if(mod==='ia')return EMAILS_IA.includes((G.user?.e||'').toLowerCase());
   const r=G.user?.r||'seller';
   if(r==='master')return true;
   if(r==='coordenadora')return true;
@@ -4256,9 +4270,12 @@ function iniciarTimerIA(){
   if(G.ia._timerInterval)clearInterval(G.ia._timerInterval);
   G.ia._timerInterval=setInterval(async()=>{
     if(G.modulo!=='ia'){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;return;}
+    // Mesmo motivo do auto-refresh do Marketing (ver comentario la) - achado
+    // pela Marcela na auditoria de custo do Firebase, 14/09/2026.
+    if(document.hidden)return;
     if(document.activeElement&&document.activeElement.id==='ia-busca')return;
     try{G.ia.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));}catch(e){console.error(e);}
-  },10000);
+  },60000);
 }
 function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
 function iaBadgeStatus(st){
