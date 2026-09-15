@@ -967,11 +967,12 @@ function iniciarAutoRefreshMk(){
     // do Firebase (14/09/2026): com todo mundo deixando o CRM aberto o dia
     // inteiro, isso sozinho ja multiplicava as leituras do Firestore por
     // quantas abas ociosas existissem. Intervalo tambem subiu de 10s pra
-    // 30s (ainda bem responsivo pro trabalho do dia a dia).
+    // 1 minuto (a pedido da Aline, 15/09/2026, pra economizar ainda mais -
+    // ainda responsivo o suficiente pro trabalho do dia a dia).
     if(document.hidden)return;
     if(algumaJanelaAberta())return;
     try{G.mk.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderPreservandoScroll(renderMarketing);}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
-  },30000);
+  },60000);
 }
 function pararAutoRefreshMk(){
   if(G.mk._autoRefreshInterval){clearInterval(G.mk._autoRefreshInterval);G.mk._autoRefreshInterval=null;}
@@ -4730,7 +4731,7 @@ function iniciarTimerIA(){
     if(document.hidden)return;
     if(document.activeElement&&document.activeElement.id==='ia-busca')return;
     try{G.ia.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));}catch(e){console.error(e);}
-  },30000);
+  },60000);
 }
 function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
 function iaBadgeStatus(st){
