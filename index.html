@@ -142,6 +142,9 @@
           </div>
           <input type="hidden" id="f-veiculo-placa">
         </div>
+        <div class="field">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-veiculo-troca" onclick="abrirVeiculoTroca()">🔄 Veículo de troca</button>
+        </div>
         <div class="field-row">
           <div class="field"><label>Faixa de valor</label><input type="text" id="f-valor" placeholder="Ex: 80.000 - 100.000"></div>
           <div class="field"><label>Etapa inicial</label>
@@ -257,6 +260,30 @@
     <div class="mod-foot">
       <button class="btn btn-outline" id="btn-excluir-nao" onclick="fecharModal('ov-excluir-lead')">Não, cancelar</button>
       <button class="btn btn-red" onclick="executarExclusaoLead()">Sim, excluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov-veiculo-troca" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-veiculo-troca')">
+  <div class="mod" style="max-width:440px">
+    <div class="mod-head"><h3>🔄 Veículo de troca</h3><button class="mod-close" onclick="fecharModal('ov-veiculo-troca')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body">
+      <p style="font-size:12px;color:var(--tx3);margin-bottom:14px">Carro do próprio cliente, oferecido na troca. Detalhes completos ficam pra avaliação — aqui é só uma marcação inicial.</p>
+      <div class="field-row">
+        <div class="field"><label>Marca</label><input type="text" id="vt-marca" placeholder="Ex: Honda"></div>
+        <div class="field"><label>Modelo</label><input type="text" id="vt-modelo" placeholder="Ex: Civic"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Ano</label><input type="text" id="vt-ano" placeholder="Ex: 2018"></div>
+        <div class="field"><label>Placa</label><input type="text" id="vt-placa" placeholder="Ex: ABC1234" style="text-transform:uppercase"></div>
+      </div>
+      <div style="text-align:right">
+        <button type="button" class="card-btn card-btn-label" id="btn-remover-veiculo-troca" style="color:var(--red)" onclick="removerVeiculoTroca()">Remover tag</button>
+      </div>
+    </div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-veiculo-troca')">Cancelar</button>
+      <button class="btn btn-red" onclick="salvarVeiculoTroca()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1147,8 +1174,9 @@ function renderKanbanMk(cnt){
         `<span class="badge live-timer" data-start="${l.ultimaMensagemEm||l._criadoEm}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:
         (col.id==='atendimento'&&l.aguardandoRetornoDesde?
           `<span class="badge live-timer" data-start="${l.aguardandoRetornoDesde}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:'');
+      const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
-        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${timerInline}${tagAguardando}</div>
+        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
         ${col.id==='atendimento'?`<button class="card-btn card-btn-label" onclick="toggleAguardandoRetornoMk('${l.id}',event)" style="margin:4px 0;${l.aguardandoRetornoDesde?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">⏳ ${l.aguardandoRetornoDesde?'Cliente respondeu':'Marcar aguardando retorno'}</button>`:''}
         ${(col.id==='perdido'||col.id==='resgate')?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
@@ -2287,8 +2315,46 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('f-valor').value=l?.valor||'';document.getElementById('f-etapa').value=l?.st||etapa||(G.user?.r==='rtcred'?'atendimento':'ia');
   document.getElementById('f-obs').value=l?.obs||'';
   document.getElementById('f-data-contato').value=l?.dtISO||new Date().toISOString().slice(0,10);
+  _veiculoTrocaAtual=l?.veiculoTroca||null;
+  atualizarBotaoVeiculoTroca();
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
 }
+// Veiculo de troca - carro do PROPRIO CLIENTE oferecido na troca, so uma
+// tag inicial (marca/modelo/ano/placa) pra sinalizar que existe; detalhe
+// de verdade vira depois numa avaliacao (pedido da Aline, 15/09/2026, fase
+// 1 de 2 - a fase 2, gatilho automatico de avaliacao no sistema principal
+// da Marcela, ainda esta em desenho, ver conversa/plano separado).
+let _veiculoTrocaAtual=null;
+function atualizarBotaoVeiculoTroca(){
+  const btn=document.getElementById('btn-veiculo-troca');
+  if(!btn)return;
+  const vt=_veiculoTrocaAtual;
+  btn.textContent=vt?`🔄 ${[vt.marca,vt.modelo,vt.ano].filter(Boolean).join(' ')||'Veículo de troca'} ✏️`:'🔄 Veículo de troca';
+}
+function abrirVeiculoTroca(){
+  const vt=_veiculoTrocaAtual||{};
+  document.getElementById('vt-marca').value=vt.marca||'';
+  document.getElementById('vt-modelo').value=vt.modelo||'';
+  document.getElementById('vt-ano').value=vt.ano||'';
+  document.getElementById('vt-placa').value=vt.placa||'';
+  document.getElementById('btn-remover-veiculo-troca').style.display=_veiculoTrocaAtual?'':'none';
+  document.getElementById('ov-veiculo-troca').classList.remove('hidden');
+}
+function salvarVeiculoTroca(){
+  const marca=document.getElementById('vt-marca').value.trim(),modelo=document.getElementById('vt-modelo').value.trim(),ano=document.getElementById('vt-ano').value.trim(),placa=document.getElementById('vt-placa').value.trim();
+  if(!marca&&!modelo&&!placa){toast('Informe pelo menos marca/modelo ou placa','red');return;}
+  _veiculoTrocaAtual={marca,modelo,ano,placa};
+  atualizarBotaoVeiculoTroca();
+  fecharModal('ov-veiculo-troca');
+}
+function removerVeiculoTroca(){
+  _veiculoTrocaAtual=null;
+  atualizarBotaoVeiculoTroca();
+  fecharModal('ov-veiculo-troca');
+}
+window.abrirVeiculoTroca=abrirVeiculoTroca;
+window.salvarVeiculoTroca=salvarVeiculoTroca;
+window.removerVeiculoTroca=removerVeiculoTroca;
 /* RODÍZIO DE VENDEDORES — lead sem vendedor definido cai automaticamente no próximo da fila.
    Para incluir mais alguém no rodízio, basta acrescentar o nome no array abaixo.
    O contador é incrementado via fieldTransform atômico do Firestore (increment), em vez de
@@ -2728,7 +2794,7 @@ async function salvarLead(){
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
   const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroca:_veiculoTrocaAtual||null,valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
   // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
   // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
   // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
@@ -3047,6 +3113,7 @@ function abrirDetailLead(id){
           <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}${lead.captadorReplicado?` <span style="color:var(--purple)">+ ${lead.captadorReplicado} (réplica)</span>`:''}</span></div>
           <div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`:'—'}</span></div>
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
+          ${lead.veiculoTroca?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">🔄 Veículo de troca</span><span class="val">${[lead.veiculoTroca.marca,lead.veiculoTroca.modelo,lead.veiculoTroca.ano].filter(Boolean).join(' ')||'—'}${lead.veiculoTroca.placa?` · ${lead.veiculoTroca.placa}`:''}</span></div>`:''}
           ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
           ${lead.resgateMotivo?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Estratégia de resgate</span><span class="val" style="color:var(--purple)">${lead.resgateMotivo}${lead.resgateData?` · Contato previsto: ${isoParaBR(lead.resgateData)}`:''}</span></div>`:''}
         </div>
