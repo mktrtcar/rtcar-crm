@@ -2380,6 +2380,32 @@ async function litoralCarFetch(path,opts={}){
   if(!resp.ok)throw new Error(json.erro||`Erro ${resp.status}`);
   return json;
 }
+/* Marca/modelo na LitoralCar tem que vir de uma lista fechada deles (senão
+   a API recusa) - igual já acontece hoje quando ela publica manualmente
+   pelo Autoconf: ele sugere a marca/modelo mais provável, mas ela pode
+   corrigir antes de confirmar (pedido dela, 14/09/2026 - "eu preciso
+   acertar a versão do carro, senão não posso colocar errado"). */
+function normalizarTextoLitoral(s){return(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();}
+function melhorCorrespondenciaLitoral(valor,lista){
+  const alvo=normalizarTextoLitoral(valor);
+  if(!alvo||!lista.length)return lista[0]||'';
+  const direta=lista.find(x=>normalizarTextoLitoral(x)===alvo);
+  if(direta)return direta;
+  const parcial=lista.find(x=>alvo.includes(normalizarTextoLitoral(x))||normalizarTextoLitoral(x).includes(alvo));
+  return parcial||lista[0];
+}
+async function litoralCarMarcasModelos(categoria){
+  G.pf.litoralcarMM=G.pf.litoralcarMM||{};
+  if(!G.pf.litoralcarMM[categoria]){
+    G.pf.litoralcarMM[categoria]=await litoralCarFetch(`litoralcarMarcasModelos?categoria=${encodeURIComponent(categoria)}`);
+  }
+  return G.pf.litoralcarMM[categoria];
+}
+function popularSelectLitoralEl(el,lista,selecionado){
+  if(!el)return;
+  el.innerHTML=lista.map(x=>`<option ${x===selecionado?'selected':''}>${x}</option>`).join('');
+}
+function popularSelectLitoral(id,lista,selecionado){popularSelectLitoralEl(document.getElementById(id),lista,selecionado);}
 
 async function initPlataformasAnuncio(){
   const cnt=document.getElementById('cnt');
@@ -2454,37 +2480,85 @@ async function abrirPublicarTodosLitoralCar(){
   try{
     if(!G.pf.litoralcarRefs)G.pf.litoralcarRefs=await litoralCarFetch('litoralcarReferencias');
     const{categorias=[],combustiveis=[]}=G.pf.litoralcarRefs;
+    const categoriasNecessarias=[...new Set(pendentes.map(v=>litoralCarCategoriaSugerida(v.marca)))];
+    await Promise.all(categoriasNecessarias.map(c=>litoralCarMarcasModelos(c)));
     body.innerHTML=`
-      <p style="font-size:12px;color:var(--tx3);margin-bottom:10px">${pendentes.length} veículo(s) ainda não publicado(s). Confira categoria/combustível (sugeridos automaticamente) antes de publicar — nossa base não guarda esses dois campos.</p>
+      <p style="font-size:12px;color:var(--tx3);margin-bottom:10px">${pendentes.length} veículo(s) ainda não publicado(s). Confira marca, modelo, categoria e combustível de cada um (sugeridos automaticamente) — a LitoralCar só aceita marca/modelo de uma lista fechada dela, então corrija se a sugestão não bater.</p>
       <div style="max-height:55vh;overflow:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="border-bottom:2px solid var(--bdr)">
-            <th style="text-align:left;padding:6px">Veículo</th>
-            <th style="text-align:left;padding:6px">Preço</th>
+            <th style="text-align:left;padding:6px">Nosso cadastro</th>
             <th style="text-align:left;padding:6px">Categoria</th>
+            <th style="text-align:left;padding:6px">Marca</th>
+            <th style="text-align:left;padding:6px">Modelo</th>
+            <th style="text-align:left;padding:6px">Versão</th>
             <th style="text-align:left;padding:6px">Combustível</th>
           </tr></thead>
-          <tbody>${pendentes.map(v=>`
+          <tbody>${pendentes.map(v=>{
+            const categoriaSugerida=litoralCarCategoriaSugerida(v.marca);
+            const mm=G.pf.litoralcarMM[categoriaSugerida];
+            const marcaSugerida=melhorCorrespondenciaLitoral(v.marca,mm.marcas);
+            const modelosDaMarca=mm.modelos.filter(m=>m.marca===marcaSugerida).map(m=>m.modelo);
+            const modeloSugerido=melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
+            return`
             <tr style="border-bottom:1px solid var(--bdr)" data-placa="${v.placa}">
-              <td style="padding:6px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}<div style="font-size:10px;color:var(--tx3)">${v.placa}</div></td>
-              <td style="padding:6px">${v.preco?'R$ '+v.preco:'<span style="color:var(--red)">sem preço — não vai publicar</span>'}</td>
-              <td style="padding:6px"><select data-campo="categoria" style="width:100%">${categorias.map(c=>`<option ${c===litoralCarCategoriaSugerida(v.marca)?'selected':''}>${c}</option>`).join('')}</select></td>
-              <td style="padding:6px"><select data-campo="combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c==='Flex'?'selected':''}>${c}</option>`).join('')}</select></td>
-            </tr>`).join('')}
+              <td style="padding:6px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}<div style="font-size:10px;color:var(--tx3)">${v.placa} · ${v.preco?'R$ '+v.preco:'<span style="color:var(--red)">sem preço</span>'}</div></td>
+              <td style="padding:6px"><select data-campo="categoria" style="width:110px" onchange="lcbAtualizarMarcas(this)">${categorias.map(c=>`<option ${c===categoriaSugerida?'selected':''}>${c}</option>`).join('')}</select></td>
+              <td style="padding:6px"><select data-campo="marca" style="width:120px" onchange="lcbAtualizarModelos(this)"></select></td>
+              <td style="padding:6px"><select data-campo="modelo" style="width:140px"></select></td>
+              <td style="padding:6px"><input type="text" data-campo="versao" value="${(v.versao||'').trim()}" style="width:120px"></td>
+              <td style="padding:6px"><select data-campo="combustivel" style="width:100px"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c==='Flex'?'selected':''}>${c}</option>`).join('')}</select></td>
+            </tr>`;
+          }).join('')}
           </tbody>
         </table>
       </div>`;
+    // Popula marca/modelo depois de injetar o HTML (evita escapar aspas
+    // dentro dos atributos onchange dos <option>, que a marca/modelo podem ter).
+    pendentes.forEach(v=>{
+      const tr=body.querySelector(`tr[data-placa="${CSS.escape(v.placa)}"]`);
+      if(!tr)return;
+      const categoriaSugerida=litoralCarCategoriaSugerida(v.marca);
+      const mm=G.pf.litoralcarMM[categoriaSugerida];
+      const marcaSugerida=melhorCorrespondenciaLitoral(v.marca,mm.marcas);
+      const modelosDaMarca=mm.modelos.filter(m=>m.marca===marcaSugerida).map(m=>m.modelo);
+      const modeloSugerido=melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
+      popularSelectLitoralEl(tr.querySelector('[data-campo="marca"]'),mm.marcas,marcaSugerida);
+      popularSelectLitoralEl(tr.querySelector('[data-campo="modelo"]'),modelosDaMarca,modeloSugerido);
+    });
   }catch(e){
     body.innerHTML=`<p style="color:var(--red)">Erro: ${e.message}</p>`;
   }
 }
+async function lcbAtualizarMarcas(select){
+  const tr=select.closest('tr');
+  const mm=await litoralCarMarcasModelos(select.value);
+  popularSelectLitoralEl(tr.querySelector('[data-campo="marca"]'),mm.marcas,mm.marcas[0]);
+  lcbAtualizarModelos(tr.querySelector('[data-campo="marca"]'));
+}
+function lcbAtualizarModelos(select){
+  const tr=select.closest('tr');
+  const categoria=tr.querySelector('[data-campo="categoria"]').value;
+  const marca=tr.querySelector('[data-campo="marca"]').value;
+  const mm=G.pf.litoralcarMM[categoria]||{modelos:[]};
+  const modelos=mm.modelos.filter(m=>m.marca===marca).map(m=>m.modelo);
+  popularSelectLitoralEl(tr.querySelector('[data-campo="modelo"]'),modelos,modelos[0]);
+}
+window.lcbAtualizarMarcas=lcbAtualizarMarcas;
+window.lcbAtualizarModelos=lcbAtualizarModelos;
 async function confirmarPublicarTodosLitoralCar(){
   const linhas=[...document.querySelectorAll('#lcb-body tr[data-placa]')];
   if(!linhas.length)return;
   const veiculos=linhas.map(tr=>{
     const placa=tr.dataset.placa;
     const v=(G.pf.veiculos||[]).find(x=>x.placa===placa);
-    return{...v,categoria:tr.querySelector('[data-campo="categoria"]').value,combustivel:tr.querySelector('[data-campo="combustivel"]').value};
+    return{...v,
+      categoria:tr.querySelector('[data-campo="categoria"]').value,
+      marca:tr.querySelector('[data-campo="marca"]').value,
+      modelo:tr.querySelector('[data-campo="modelo"]').value,
+      versao:tr.querySelector('[data-campo="versao"]').value.trim(),
+      combustivel:tr.querySelector('[data-campo="combustivel"]').value,
+    };
   });
   const semCombustivel=veiculos.filter(v=>!v.combustivel);
   if(semCombustivel.length){toast(`Selecione o combustível de todos os veículos (faltou em ${semCombustivel.length}).`,'red');return;}
@@ -2522,15 +2596,40 @@ async function abrirPublicarPlataforma(placa,plataformaId){
   try{
     if(!G.pf.litoralcarRefs)G.pf.litoralcarRefs=await litoralCarFetch('litoralcarReferencias');
     const{categorias=[],combustiveis=[]}=G.pf.litoralcarRefs;
+    const categoriaSugerida=litoralCarCategoriaSugerida(v.marca);
+    const mm=await litoralCarMarcasModelos(categoriaSugerida);
+    const marcaSugerida=melhorCorrespondenciaLitoral(v.marca,mm.marcas);
+    const modelosDaMarca=mm.modelos.filter(m=>m.marca===marcaSugerida).map(m=>m.modelo);
+    const modeloSugerido=melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
     body.innerHTML=`
-      <p style="font-size:12px;color:var(--tx2);margin-bottom:10px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')} — ${v.placa}</p>
-      <div class="field"><label>Categoria</label><select id="pp-categoria" style="width:100%">${categorias.map(c=>`<option ${c===litoralCarCategoriaSugerida(v.marca)?'selected':''}>${c}</option>`).join('')}</select></div>
+      <p style="font-size:12px;color:var(--tx2);margin-bottom:10px">Nosso cadastro: <strong>${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</strong> — ${v.placa}. Confira/corrija marca, modelo e versão como devem aparecer na LitoralCar.</p>
+      <div class="field"><label>Categoria</label><select id="pp-categoria" style="width:100%" onchange="ppAtualizarMarcas()">${categorias.map(c=>`<option ${c===categoriaSugerida?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Marca</label><select id="pp-marca" style="width:100%" onchange="ppAtualizarModelos()"></select></div>
+      <div class="field"><label>Modelo</label><select id="pp-modelo" style="width:100%"></select></div>
+      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${(v.versao||'').trim()}" style="width:100%"></div>
       <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c==='Flex'?'selected':''}>${c}</option>`).join('')}</select></div>
       ${v.preco?'':'<p style="color:var(--red);font-size:12px;margin-top:8px">⚠️ Este veículo está sem preço no estoque — a LitoralCar vai recusar.</p>'}`;
+    _ppMarcasModelos=mm;
+    popularSelectLitoral('pp-marca',mm.marcas,marcaSugerida);
+    popularSelectLitoral('pp-modelo',modelosDaMarca,modeloSugerido);
   }catch(e){
     body.innerHTML=`<p style="color:var(--red)">Erro: ${e.message}</p>`;
   }
 }
+let _ppMarcasModelos=null;
+async function ppAtualizarMarcas(){
+  const categoria=document.getElementById('pp-categoria').value;
+  _ppMarcasModelos=await litoralCarMarcasModelos(categoria);
+  popularSelectLitoral('pp-marca',_ppMarcasModelos.marcas,_ppMarcasModelos.marcas[0]);
+  ppAtualizarModelos();
+}
+function ppAtualizarModelos(){
+  const marca=document.getElementById('pp-marca').value;
+  const modelos=(_ppMarcasModelos?.modelos||[]).filter(m=>m.marca===marca).map(m=>m.modelo);
+  popularSelectLitoral('pp-modelo',modelos,modelos[0]);
+}
+window.ppAtualizarMarcas=ppAtualizarMarcas;
+window.ppAtualizarModelos=ppAtualizarModelos;
 async function confirmarPublicarPlataforma(){
   if(!_pfPublicarCtx)return;
   const{placa,plataformaId}=_pfPublicarCtx;
@@ -2538,12 +2637,15 @@ async function confirmarPublicarPlataforma(){
   const v=(G.pf.veiculos||[]).find(x=>x.placa===placa);
   if(!v)return;
   const categoria=document.getElementById('pp-categoria').value;
+  const marca=document.getElementById('pp-marca').value;
+  const modelo=document.getElementById('pp-modelo').value;
+  const versao=document.getElementById('pp-versao').value.trim();
   const combustivel=document.getElementById('pp-combustivel').value;
   if(!combustivel){toast('Selecione o combustível','red');return;}
   const btn=document.getElementById('btn-pp-confirmar');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Publicando...';
   try{
-    const{resultados}=await litoralCarFetch('litoralcarPublicarEstoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({veiculos:[{...v,categoria,combustivel}]})});
+    const{resultados}=await litoralCarFetch('litoralcarPublicarEstoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({veiculos:[{...v,categoria,marca,modelo,versao,combustivel}]})});
     const r=resultados[0];
     if(r&&r.ok){
       const placaLimpa=placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase();

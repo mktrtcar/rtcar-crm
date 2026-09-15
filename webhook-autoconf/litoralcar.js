@@ -72,6 +72,15 @@ function limparPlaca(p){
   return String(p||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
 }
 
+/* método marcas/modelos usa um "slug" de categoria diferente do valor
+   gravado no veículo (ex: categoria "Carro/Camionetas" vira "carro" aqui). */
+const CATEGORIA_PARA_SLUG={
+  'Caminhão':'caminhao','Carreta':'carreta','Carro/Camionetas':'carro',
+  'Implemento Rod.':'implemento-rodoviario','Moto':'moto','Motor home':'motorhome',
+  'Náutica':'nautica','Ônibus':'onibus','Quadriciclo/Triciclo':'quadriciclo-triciclo',
+  'Trator/Maquinas':'trator-maquina',
+};
+
 /* Referências (categorias/cores/combustíveis) pra tela de revisão no CRM
    sugerir/validar os campos que a LitoralCar exige mas nossa base não tem. */
 exports.litoralcarReferencias=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
@@ -86,6 +95,32 @@ exports.litoralcarReferencias=onRequest({region:'southamerica-east1',cors:true},
       categorias:categorias.body.categorias||[],
       cores:cores.body.cores||[],
       combustiveis:combustiveis.body.combustiveis||[],
+    });
+  }catch(e){
+    console.error(e);
+    res.status(e.status||500).json({erro:e.message||String(e)});
+  }
+});
+
+/* Marcas/modelos aceitos pela LitoralCar para uma categoria - usado pra
+   deixar o usuário corrigir a versão/modelo certinho antes de publicar
+   (pedido da Aline, 14/09/2026: "eu preciso acertar a versão do carro,
+   porque senão eu não posso colocar um carro com informação errada" -
+   mesma experiência que ela já tem hoje publicando manualmente pelo
+   Autoconf, que sugere e deixa corrigir). */
+exports.litoralcarMarcasModelos=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+  try{
+    await exigirGestor(req);
+    const categoria=req.query.categoria;
+    const slug=CATEGORIA_PARA_SLUG[categoria];
+    if(!slug){res.status(400).json({erro:`Categoria "${categoria}" desconhecida`});return;}
+    const[marcasR,modelosR]=await Promise.all([
+      litoralFetch('buscar','marcas',slug),
+      litoralFetch('buscar','modelos',slug),
+    ]);
+    res.json({
+      marcas:marcasR.body.marcas||[],
+      modelos:modelosR.body.modelos||[],
     });
   }catch(e){
     console.error(e);
