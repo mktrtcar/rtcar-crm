@@ -138,7 +138,7 @@
         <div class="field"><label>Veículo de interesse</label>
           <div style="display:flex;gap:6px">
             <input type="text" id="f-veiculo" placeholder="Ex: Honda HR-V 2022" style="flex:1">
-            <button type="button" class="btn btn-outline btn-sm" onclick="abrirBuscaEstoque()">🔍 Buscar no estoque</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="abrirBuscaEstoque('lead')">🔍 Buscar no estoque</button>
           </div>
           <input type="hidden" id="f-veiculo-placa">
         </div>
@@ -183,8 +183,9 @@
     <div class="mod-head"><h3>✅ Marcar como Vendido</h3><button class="mod-close" onclick="fecharModal('ov-vendido')"><i class="ti ti-x"></i></button></div>
     <div class="mod-body">
       <p style="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.6">O lead será marcado como <strong>Vendido</strong> e ficará disponível para acompanhamento pós-venda.</p>
+      <button type="button" class="btn btn-outline btn-sm" style="margin-bottom:12px" onclick="abrirBuscaEstoque('venda')">🔍 Buscar no estoque</button>
       <div class="field"><label>Veículo negociado</label><input type="text" id="vend-veiculo" placeholder="Confirme o veículo..."></div>
-      <div class="field"><label>Placa do veículo *</label><input type="text" id="vend-placa" placeholder="Ex: TRM-1510" style="text-transform:uppercase"></div>
+      <div class="field"><label>Placa do veículo *</label><input type="text" id="vend-placa" placeholder="Ex: ABC1234" style="text-transform:uppercase"></div>
       <div class="field"><label>Observações</label><textarea id="vend-obs" placeholder="Detalhes do fechamento..."></textarea></div>
     </div>
     <div class="mod-foot">
@@ -2230,7 +2231,13 @@ async function carregarEstoquePublico(){
   return _estoquePublicoCache;
 }
 function descricaoVeiculoEstoque(v){return[v.marca,v.modelo,v.versao].filter(Boolean).join(' ');}
-async function abrirBuscaEstoque(){
+// destino: 'lead' (padrao, preenche o campo "veiculo de interesse" do
+// cadastro) ou 'venda' (preenche o modal de "Marcar como Vendido") - mesma
+// busca/coleção, só muda quais campos selecionarVeiculoEstoque() preenche
+// no final (pedido da Aline, 15/09/2026).
+let _buscaEstoqueDestino='lead';
+async function abrirBuscaEstoque(destino){
+  _buscaEstoqueDestino=destino||'lead';
   document.getElementById('be-busca').value='';
   document.getElementById('ov-busca-estoque').classList.remove('hidden');
   document.getElementById('be-resultados').innerHTML='Carregando...';
@@ -2257,8 +2264,13 @@ function renderResultadosBuscaEstoque(){
 function selecionarVeiculoEstoque(placa){
   const v=(_estoquePublicoCache||[]).find(x=>x.placa===placa);
   if(!v)return;
-  document.getElementById('f-veiculo').value=descricaoVeiculoEstoque(v);
-  document.getElementById('f-veiculo-placa').value=v.placa;
+  if(_buscaEstoqueDestino==='venda'){
+    document.getElementById('vend-veiculo').value=descricaoVeiculoEstoque(v);
+    document.getElementById('vend-placa').value=v.placa;
+  }else{
+    document.getElementById('f-veiculo').value=descricaoVeiculoEstoque(v);
+    document.getElementById('f-veiculo-placa').value=v.placa;
+  }
   fecharModal('ov-busca-estoque');
 }
 function abrirModalLead(id=null,etapa=null){
@@ -2820,7 +2832,7 @@ async function salvarObs(){
   await regHistMk(lead,tipo,obs,G.user?.n||'',icone);
   fecharModal('ov-obs');toast('Registrado!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
-function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.placa||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
+function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
@@ -2839,9 +2851,9 @@ async function vincularClienteRelacionamento(lead){
 }
 async function confirmarVendido(){
   const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
-  const veiculo=document.getElementById('vend-veiculo').value.trim(),obs=document.getElementById('vend-obs').value.trim();
-  if(veiculo)lead.veiculo=veiculo;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();
-  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo};
+  const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim();
+  if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();
+  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa};
   if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
   await salvarCamposMk(id,camposVenda);
   await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',obs||'Negócio fechado!',G.user?.n||'','green');
