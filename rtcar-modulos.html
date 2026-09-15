@@ -267,6 +267,17 @@
   </div>
 </div>
 
+<div id="ov-litoralcar-bulk" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-litoralcar-bulk')">
+  <div class="mod" style="max-width:820px">
+    <div class="mod-head"><h3><i class="ti ti-upload"></i> Publicar todos na LitoralCar</h3><button class="mod-close" onclick="fecharModal('ov-litoralcar-bulk')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body" id="lcb-body">Carregando...</div>
+    <div class="mod-foot">
+      <button class="btn btn-outline" onclick="fecharModal('ov-litoralcar-bulk')">Fechar</button>
+      <button class="btn btn-red" id="btn-lcb-confirmar" onclick="confirmarPublicarTodosLitoralCar()"><i class="ti ti-upload"></i> Publicar todos</button>
+    </div>
+  </div>
+</div>
+
 <div id="ov-plataforma-publicar" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-plataforma-publicar')">
   <div class="mod" style="max-width:420px">
     <div class="mod-head"><h3 id="pp-titulo">Publicar</h3><button class="mod-close" onclick="fecharModal('ov-plataforma-publicar')"><i class="ti ti-x"></i></button></div>
@@ -2375,7 +2386,7 @@ async function initPlataformasAnuncio(){
   const tb=document.getElementById('tb');
   cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   cnt.innerHTML='<div style="padding:40px;text-align:center;color:var(--tx3)"><i class="ti ti-loader-2"></i> Carregando estoque...</div>';
-  tb.innerHTML=`<div class="tb-title"><i class="ti ti-apps" style="color:var(--red)"></i> Anúncios</div><div class="tb-sep"></div><div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar por marca, modelo ou placa..." value="${G.pf.busca}" oninput="__G().pf.busca=this.value;renderPlataformasAnuncio()"></div>`;
+  tb.innerHTML=`<div class="tb-title"><i class="ti ti-apps" style="color:var(--red)"></i> Anúncios</div><div class="tb-sep"></div><div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar por marca, modelo ou placa..." value="${G.pf.busca}" oninput="__G().pf.busca=this.value;renderPlataformasAnuncio()"></div><div class="tb-spacer"></div><button class="btn btn-red btn-sm" onclick="abrirPublicarTodosLitoralCar()"><i class="ti ti-upload"></i> Publicar todos na LitoralCar</button>`;
   try{
     const[estoqueSnap,mapSnap]=await Promise.all([
       db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao']).get(),
@@ -2426,6 +2437,77 @@ function renderPlataformasAnuncio(){
     </div>`;
   }).join('');
 }
+
+function litoralCarPendentes(){
+  return(G.pf.veiculos||[]).filter(v=>{
+    const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
+    return!(litoral&&litoral.codVeiculo);
+  });
+}
+async function abrirPublicarTodosLitoralCar(){
+  const pendentes=litoralCarPendentes();
+  document.getElementById('ov-litoralcar-bulk').classList.remove('hidden');
+  const body=document.getElementById('lcb-body');
+  if(!pendentes.length){body.innerHTML='<p style="color:var(--tx3)">Todos os veículos já estão publicados na LitoralCar.</p>';document.getElementById('btn-lcb-confirmar').style.display='none';return;}
+  document.getElementById('btn-lcb-confirmar').style.display='';
+  body.innerHTML='Carregando referências da LitoralCar...';
+  try{
+    if(!G.pf.litoralcarRefs)G.pf.litoralcarRefs=await litoralCarFetch('litoralcarReferencias');
+    const{categorias=[],combustiveis=[]}=G.pf.litoralcarRefs;
+    body.innerHTML=`
+      <p style="font-size:12px;color:var(--tx3);margin-bottom:10px">${pendentes.length} veículo(s) ainda não publicado(s). Confira categoria/combustível (sugeridos automaticamente) antes de publicar — nossa base não guarda esses dois campos.</p>
+      <div style="max-height:55vh;overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="border-bottom:2px solid var(--bdr)">
+            <th style="text-align:left;padding:6px">Veículo</th>
+            <th style="text-align:left;padding:6px">Preço</th>
+            <th style="text-align:left;padding:6px">Categoria</th>
+            <th style="text-align:left;padding:6px">Combustível</th>
+          </tr></thead>
+          <tbody>${pendentes.map(v=>`
+            <tr style="border-bottom:1px solid var(--bdr)" data-placa="${v.placa}">
+              <td style="padding:6px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}<div style="font-size:10px;color:var(--tx3)">${v.placa}</div></td>
+              <td style="padding:6px">${v.preco?'R$ '+v.preco:'<span style="color:var(--red)">sem preço — não vai publicar</span>'}</td>
+              <td style="padding:6px"><select data-campo="categoria" style="width:100%">${categorias.map(c=>`<option ${c===litoralCarCategoriaSugerida(v.marca)?'selected':''}>${c}</option>`).join('')}</select></td>
+              <td style="padding:6px"><select data-campo="combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c==='Flex'?'selected':''}>${c}</option>`).join('')}</select></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }catch(e){
+    body.innerHTML=`<p style="color:var(--red)">Erro: ${e.message}</p>`;
+  }
+}
+async function confirmarPublicarTodosLitoralCar(){
+  const linhas=[...document.querySelectorAll('#lcb-body tr[data-placa]')];
+  if(!linhas.length)return;
+  const veiculos=linhas.map(tr=>{
+    const placa=tr.dataset.placa;
+    const v=(G.pf.veiculos||[]).find(x=>x.placa===placa);
+    return{...v,categoria:tr.querySelector('[data-campo="categoria"]').value,combustivel:tr.querySelector('[data-campo="combustivel"]').value};
+  });
+  const semCombustivel=veiculos.filter(v=>!v.combustivel);
+  if(semCombustivel.length){toast(`Selecione o combustível de todos os veículos (faltou em ${semCombustivel.length}).`,'red');return;}
+  const btn=document.getElementById('btn-lcb-confirmar');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Publicando...';
+  try{
+    const{resultados}=await litoralCarFetch('litoralcarPublicarEstoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({veiculos})});
+    const ok=resultados.filter(r=>r.ok).length;
+    const falhas=resultados.filter(r=>!r.ok);
+    toast(`${ok}/${resultados.length} publicado(s) na LitoralCar${falhas.length?'. Veja os erros abaixo.':'!'}`,falhas.length?'red':'green',6000);
+    document.getElementById('lcb-body').insertAdjacentHTML('afterbegin',`<div style="margin-bottom:10px">${resultados.map(r=>`<div style="font-size:11px;padding:4px 0;color:${r.ok?'var(--green)':'var(--red)'}">${r.ok?'✅':'❌'} ${r.placa} — ${r.ok?(r.status||'ok'):(r.erro||'erro')}</div>`).join('')}</div>`);
+    const mapSnap=await db.collection('litoralcar_veiculos').get();
+    G.pf.litoralcarMap={};
+    mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
+    renderPlataformasAnuncio();
+  }catch(e){
+    console.error(e);
+    toast('Erro ao publicar: '+e.message,'red',5000);
+  }
+  btn.disabled=false;btn.innerHTML='<i class="ti ti-upload"></i> Publicar todos';
+}
+window.abrirPublicarTodosLitoralCar=abrirPublicarTodosLitoralCar;
+window.confirmarPublicarTodosLitoralCar=confirmarPublicarTodosLitoralCar;
 
 let _pfPublicarCtx=null;
 async function abrirPublicarPlataforma(placa,plataformaId){
