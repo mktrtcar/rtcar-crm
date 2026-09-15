@@ -291,7 +291,7 @@ function fmtPreco(v){
 function fotoUrl(id, n){ return `${FOTOS_BASE}/${id}/${n}.jpg`; }
 
 function cardFoto(v){
-  const badge = v.precoDe ? `<div class="card-badge">↓ Oferta</div>` : '';
+  const badge = v.precoDe ? `<div class="card-badge">OPORTUNIDADE</div>` : '';
   if(!v.fotos.length){
     return `<div class="card-prep"><span class="ti">🚗</span><span>Em preparação</span></div>`;
   }
