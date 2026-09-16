@@ -72,6 +72,51 @@ function limparPlaca(p){
   return String(p||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
 }
 
+/* Fotos: hoje (16/09/2026) as fotos reais dos carros ficam cadastradas no
+   Autoconf (inseridas manualmente por lá) - o site novo (site-publico) ja
+   baixou copia real de cada uma pra hospedagem propria (nao depende mais
+   do CDN do Autoconf, que para de funcionar quando a assinatura for
+   cancelada). Por enquanto usamos esse catalogo (so 55 veiculos, extraidos
+   uma vez em 07/09) pra achar por aproximacao (marca+modelo, desempate por
+   km) o veiculo equivalente e pegar as fotos JA HOSPEDADAS NO NOSSO SITE -
+   pedido da Aline: "por enquanto pode puxar do Autoconf [via esse
+   catalogo], quando desabilitar vai puxar direto do nosso site proprio"
+   (ja fica assim desde já, sem depender do Autoconf ao vivo). Quando o
+   site tiver populacao automatica de verdade (Fase 2 do site-publico),
+   so trocar SITE_ESTOQUE_URL. */
+const SITE_ESTOQUE_URL='https://rtcar-site.web.app/dados/estoque.json';
+const SITE_FOTOS_BASE='https://rtcar-site.web.app/fotos';
+let _catalogoSiteCache=null;
+async function catalogoSite(){
+  if(_catalogoSiteCache)return _catalogoSiteCache;
+  try{
+    const resp=await fetch(SITE_ESTOQUE_URL);
+    const json=await resp.json();
+    _catalogoSiteCache=json.veiculos||[];
+  }catch(e){
+    console.error('Erro ao buscar catalogo do site para fotos:',e);
+    _catalogoSiteCache=[];
+  }
+  return _catalogoSiteCache;
+}
+function normalizarTextoLitoral(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();}
+async function fotosParaVeiculo(v){
+  const catalogo=await catalogoSite();
+  const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
+  if(!marcaAlvo||!modeloAlvo)return[];
+  const candidatos=catalogo.filter(c=>{
+    const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
+    return marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
+  });
+  if(!candidatos.length)return[];
+  const kmAlvo=parseKm(v.km);
+  candidatos.sort((a,b)=>Math.abs(parseKm(a.km)-kmAlvo)-Math.abs(parseKm(b.km)-kmAlvo));
+  const escolhido=candidatos[0];
+  const qtdFotos=(escolhido.fotos||[]).length;
+  if(!qtdFotos)return[];
+  return Array.from({length:qtdFotos},(_,i)=>`${SITE_FOTOS_BASE}/${escolhido.id}/${i+1}.jpg`);
+}
+
 /* método marcas/modelos usa um "slug" de categoria diferente do valor
    gravado no veículo (ex: categoria "Carro/Camionetas" vira "carro" aqui). */
 const CATEGORIA_PARA_SLUG={
@@ -159,11 +204,13 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       if(!valor){resultados.push({placa:v.placa,ok:false,erro:'Preço ausente/inválido'});continue;}
       if(!v.categoria||!v.combustivel){resultados.push({placa:v.placa,ok:false,erro:'Categoria ou combustível não informado'});continue;}
 
+      const fotos=await fotosParaVeiculo(v);
       const payload={
         categoria:v.categoria,marca:v.marca,modelo:v.modelo,versao:v.versao||'',
         combustivel:v.combustivel,cor,ano,km:parseKm(v.km),placa,
         valor,situacao:'exibir',
       };
+      if(fotos.length)payload.fotos=fotos;
       porPlaca[placa]=v.placa;
 
       const mapRef=db.collection('litoralcar_veiculos').doc(placa);
