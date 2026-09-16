@@ -716,6 +716,7 @@ function renderKanbanMk(cnt){
         <div class="card-footer">
           <div class="card-actions" style="flex-wrap:wrap">
             <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
+            <button class="card-btn card-btn-label" style="color:var(--red)" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="Marcar veículo de troca / criar avaliação"><i class="ti ti-car"></i> Criar Avaliação</button>
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
             <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
@@ -1841,27 +1842,48 @@ function abrirModalLead(id=null,etapa=null){
 // 1 de 2 - a fase 2, gatilho automatico de avaliacao no sistema principal
 // da Marcela, ainda esta em desenho, ver conversa/plano separado).
 let _veiculoTrocaAtual=null;
+// Se setado (id de um lead ja existente), o modal de troca foi aberto pela
+// tela de DETALHE (nao pelo formulario de editar lead) - salva na hora via
+// salvarCamposMk, em vez de esperar o "Salvar Lead" do formulario grande
+// (pedido da Aline, 16/09/2026: a tag precisa estar disponivel pra marcar
+// DEPOIS que o lead ja existe, sem reabrir o formulario inteiro).
+let _veiculoTrocaLeadDireto=null;
 function atualizarBotaoVeiculoTroca(){
   const btn=document.getElementById('btn-veiculo-troca');
   if(!btn)return;
   const vt=_veiculoTrocaAtual;
   btn.textContent=vt?`🔄 ${[vt.marca,vt.modelo,vt.ano].filter(Boolean).join(' ')||'Veículo de troca'} ✏️`:'🔄 Veículo de troca';
 }
-function abrirVeiculoTroca(){
-  const vt=_veiculoTrocaAtual||{};
+function abrirVeiculoTroca(leadIdDireto){
+  _veiculoTrocaLeadDireto=leadIdDireto||null;
+  const vt=leadIdDireto?(G.mk.leads.find(l=>l.id===leadIdDireto)?.veiculoTroca||{}):(_veiculoTrocaAtual||{});
   document.getElementById('vt-marca').value=vt.marca||'';
   document.getElementById('vt-modelo').value=vt.modelo||'';
   document.getElementById('vt-ano').value=vt.ano||'';
   document.getElementById('vt-placa').value=vt.placa||'';
-  document.getElementById('btn-remover-veiculo-troca').style.display=_veiculoTrocaAtual?'':'none';
+  document.getElementById('btn-remover-veiculo-troca').style.display=(vt.marca||vt.modelo||vt.placa)?'':'none';
   document.getElementById('ov-veiculo-troca').classList.remove('hidden');
 }
-function salvarVeiculoTroca(){
+async function salvarVeiculoTroca(){
   const marca=document.getElementById('vt-marca').value.trim(),modelo=document.getElementById('vt-modelo').value.trim(),ano=document.getElementById('vt-ano').value.trim(),placa=document.getElementById('vt-placa').value.trim();
   if(!marca&&!modelo&&!placa){toast('Informe pelo menos marca/modelo ou placa','red');return;}
-  _veiculoTrocaAtual={marca,modelo,ano,placa};
-  atualizarBotaoVeiculoTroca();
+  const dados={marca,modelo,ano,placa};
   fecharModal('ov-veiculo-troca');
+  let clienteNome,clienteTel;
+  if(_veiculoTrocaLeadDireto){
+    const id=_veiculoTrocaLeadDireto;
+    const lead=G.mk.leads.find(l=>l.id===id);
+    if(lead){lead.veiculoTroca=dados;clienteNome=lead.clienteNome;clienteTel=lead.clienteTel;}
+    await salvarCamposMk(id,{veiculoTroca:dados});
+    toast('Veículo de troca salvo!');
+    if(G.mk.detailId===id)abrirDetailLead(id);
+    renderMarketing();
+  }else{
+    _veiculoTrocaAtual=dados;
+    atualizarBotaoVeiculoTroca();
+    clienteNome=document.getElementById('f-nome').value.trim();
+    clienteTel=document.getElementById('f-tel').value.trim();
+  }
   // Fase 2 (15/09/2026): quando rodando embutido dentro do sistema
   // principal (mesma janela, sem iframe), pula direto pra tela de
   // Avaliacao de la ja preenchida - sem passo manual de confirmacao do
@@ -1869,17 +1891,23 @@ function salvarVeiculoTroca(){
   // Marcela; enquanto nao existir, isso e' um no-op (so a tag e' salva,
   // igual a Fase 1).
   if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
-    window.abrirAvaliacaoDoCRM({
-      cliente:document.getElementById('f-nome').value.trim(),
-      telefone:document.getElementById('f-tel').value.trim(),
-      veiculo:_veiculoTrocaAtual,
-    });
+    window.abrirAvaliacaoDoCRM({cliente:clienteNome,telefone:clienteTel,veiculo:dados});
   }
 }
-function removerVeiculoTroca(){
-  _veiculoTrocaAtual=null;
-  atualizarBotaoVeiculoTroca();
+async function removerVeiculoTroca(){
   fecharModal('ov-veiculo-troca');
+  if(_veiculoTrocaLeadDireto){
+    const id=_veiculoTrocaLeadDireto;
+    const lead=G.mk.leads.find(l=>l.id===id);
+    if(lead)lead.veiculoTroca=null;
+    await salvarCamposMk(id,{veiculoTroca:null});
+    toast('Tag de troca removida');
+    if(G.mk.detailId===id)abrirDetailLead(id);
+    renderMarketing();
+  }else{
+    _veiculoTrocaAtual=null;
+    atualizarBotaoVeiculoTroca();
+  }
 }
 window.abrirVeiculoTroca=abrirVeiculoTroca;
 window.salvarVeiculoTroca=salvarVeiculoTroca;
@@ -2021,6 +2049,14 @@ async function litoralCarMarcasModelos(categoria){
     G.pf.litoralcarMM[categoria]=await litoralCarFetch(`litoralcarMarcasModelos?categoria=${encodeURIComponent(categoria)}`);
   }
   return G.pf.litoralcarMM[categoria];
+}
+function mensagemErroLitoral(r){
+  if(!r)return'falha desconhecida';
+  const partes=[];
+  if(r.erro)partes.push(r.erro);
+  if(r.status)partes.push(r.status);
+  if(r.alertas&&r.alertas.length)partes.push(r.alertas.join('; '));
+  return partes.length?partes.join(' — '):'falha desconhecida';
 }
 function popularSelectLitoralEl(el,lista,selecionado){
   if(!el)return;
@@ -2190,7 +2226,7 @@ async function confirmarPublicarTodosLitoralCar(){
     const ok=resultados.filter(r=>r.ok).length;
     const falhas=resultados.filter(r=>!r.ok);
     toast(`${ok}/${resultados.length} publicado(s) na LitoralCar${falhas.length?'. Veja os erros abaixo.':'!'}`,falhas.length?'red':'green',6000);
-    document.getElementById('lcb-body').insertAdjacentHTML('afterbegin',`<div style="margin-bottom:10px">${resultados.map(r=>`<div style="font-size:11px;padding:4px 0;color:${r.ok?'var(--green)':'var(--red)'}">${r.ok?'✅':'❌'} ${r.placa} — ${r.ok?(r.status||'ok'):(r.erro||'erro')}</div>`).join('')}</div>`);
+    document.getElementById('lcb-body').insertAdjacentHTML('afterbegin',`<div style="margin-bottom:10px">${resultados.map(r=>`<div style="font-size:11px;padding:4px 0;color:${r.ok?'var(--green)':'var(--red)'}">${r.ok?'✅':'❌'} ${r.placa} — ${r.ok?(r.status||'ok'):mensagemErroLitoral(r)}</div>`).join('')}</div>`);
     const mapSnap=await db.collection('litoralcar_veiculos').get();
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
@@ -2276,7 +2312,7 @@ async function confirmarPublicarPlataforma(){
       fecharModal('ov-plataforma-publicar');
       renderPlataformasAnuncio();
     }else{
-      toast('Erro: '+(r?.erro||'falha desconhecida'),'red',5000);
+      toast('Erro: '+mensagemErroLitoral(r),'red',6000);
     }
   }catch(e){
     console.error(e);
