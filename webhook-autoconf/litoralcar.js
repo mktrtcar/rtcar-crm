@@ -232,6 +232,10 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
     async function processarLote(acao,lote){
       if(!lote.length)return;
       const r=await litoralFetch(acao,'estoque',undefined,{veiculos:lote});
+      // Log de depuracao - a LitoralCar as vezes muda o formato da resposta
+      // de um jeito que nao esperamos, e sem ver o corpo bruto e' impossivel
+      // saber o motivo real de uma falha (achado pela Aline, 16/09/2026).
+      console.log(`litoralcar ${acao} status=${r.status} body=`,JSON.stringify(r.body));
       /* Com so 1 veiculo no lote, a LitoralCar as vezes devolve "veiculos"
          como objeto solto em vez de array de 1 item (comum em APIs PHP que
          nao forcam array_values() na resposta) - sem isso, o for..of
@@ -252,7 +256,10 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
           },{merge:true});
         }
       }
-      if(r.status>=400&&!itens.length){
+      if(!itens.length){
+        // Sem isso, uma resposta 200 num formato inesperado (sem "veiculos")
+        // desaparecia sem deixar rastro nenhum pro usuario - virava "falha
+        // desconhecida" no CRM sem nenhuma pista real (achado 16/09/2026).
         lote.forEach(x=>resultados.push({placa:porPlaca[x.placa]||x.placa,ok:false,erro:JSON.stringify(r.body)}));
       }
     }
