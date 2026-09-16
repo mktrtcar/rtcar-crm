@@ -2346,6 +2346,19 @@ function salvarVeiculoTroca(){
   _veiculoTrocaAtual={marca,modelo,ano,placa};
   atualizarBotaoVeiculoTroca();
   fecharModal('ov-veiculo-troca');
+  // Fase 2 (15/09/2026): quando rodando embutido dentro do sistema
+  // principal (mesma janela, sem iframe), pula direto pra tela de
+  // Avaliacao de la ja preenchida - sem passo manual de confirmacao do
+  // outro lado. window.abrirAvaliacaoDoCRM ainda nao existe do lado da
+  // Marcela; enquanto nao existir, isso e' um no-op (so a tag e' salva,
+  // igual a Fase 1).
+  if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
+    window.abrirAvaliacaoDoCRM({
+      cliente:document.getElementById('f-nome').value.trim(),
+      telefone:document.getElementById('f-tel').value.trim(),
+      veiculo:_veiculoTrocaAtual,
+    });
+  }
 }
 function removerVeiculoTroca(){
   _veiculoTrocaAtual=null;
