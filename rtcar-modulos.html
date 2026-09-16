@@ -2992,6 +2992,21 @@ async function confirmarVendido(){
   await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',obs||'Negócio fechado!',G.user?.n||'','green');
   await vincularClienteRelacionamento(lead);
   fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+  // Fase 3 (16/09/2026, mesmo espirito da Fase 2/Avaliacao): ao confirmar a
+  // venda, se estiver rodando embutido no sistema principal, pula direto
+  // pro Termo de Venda ja preenchido com o que o CRM sabe (cliente/
+  // telefone/veiculo/placa/valor) - o vendedor/Marcela completa o resto
+  // (forma de pagamento, veiculo de troca formal etc) pelo formulario
+  // normal deles. window.abrirTermoDoCRM ainda nao existe do lado da
+  // Marcela; enquanto nao existir, isso e' um no-op.
+  if(window.RTCARCRM_EMBED&&typeof window.abrirTermoDoCRM==='function'){
+    window.abrirTermoDoCRM({
+      cliente:lead.clienteNome,
+      telefone:lead.clienteTel,
+      origem:lead.origem,
+      veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor},
+    });
+  }
 }
 function abrirModalPerda(id){G.mk.detailId=id;document.getElementById('perda-motivo').value='';document.getElementById('perda-obs').value='';document.getElementById('ov-perda').classList.remove('hidden');}
 async function confirmarPerda(){
