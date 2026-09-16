@@ -185,7 +185,13 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
     async function processarLote(acao,lote){
       if(!lote.length)return;
       const r=await litoralFetch(acao,'estoque',undefined,{veiculos:lote});
-      const itens=(r.body&&r.body.veiculos)||[];
+      /* Com so 1 veiculo no lote, a LitoralCar as vezes devolve "veiculos"
+         como objeto solto em vez de array de 1 item (comum em APIs PHP que
+         nao forcam array_values() na resposta) - sem isso, o for..of
+         quebrava com "itens is not iterable" (achado pela Aline, 16/09/2026,
+         publicando 1 carro por vez). */
+      let itens=(r.body&&r.body.veiculos)||[];
+      if(!Array.isArray(itens))itens=(itens&&typeof itens==='object')?Object.values(itens):[itens];
       for(const item of itens){
         const vlt=item.veiculo||{};
         const placa=limparPlaca(vlt.placa);
