@@ -2540,6 +2540,7 @@ function mensagemErroLitoral(r){
   if(r.erro)partes.push(r.erro);
   if(r.status)partes.push(r.status);
   if(r.alertas&&r.alertas.length)partes.push(r.alertas.join('; '));
+  if(!partes.length&&r.debug)partes.push(r.debug);
   return partes.length?partes.join(' — '):'falha desconhecida';
 }
 function popularSelectLitoralEl(el,lista,selecionado){

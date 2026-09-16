@@ -247,7 +247,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
         const vlt=item.veiculo||{};
         const placa=limparPlaca(vlt.placa);
         const ok=/sucesso/i.test(vlt.status||'');
-        resultados.push({placa:porPlaca[placa]||placa,ok,status:vlt.status,alertas:vlt.alertas||[]});
+        resultados.push({placa:porPlaca[placa]||placa,ok,status:vlt.status,alertas:vlt.alertas||[],debug:ok?undefined:JSON.stringify(item)});
         if(ok&&vlt.cod_veiculo){
           await db.collection('litoralcar_veiculos').doc(placa).set({
             codImportacao:Number(vlt.cod_importacao),
