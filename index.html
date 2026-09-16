@@ -274,9 +274,10 @@
         <div class="field"><label>Modelo</label><input type="text" id="vt-modelo" placeholder="Ex: Civic"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Ano</label><input type="text" id="vt-ano" placeholder="Ex: 2018"></div>
-        <div class="field"><label>Placa</label><input type="text" id="vt-placa" placeholder="Ex: ABC1234" style="text-transform:uppercase"></div>
+        <div class="field"><label>Ano/Mod.</label><input type="text" id="vt-ano" placeholder="Ex: 2018/2019"></div>
+        <div class="field"><label>Cor</label><input type="text" id="vt-cor" placeholder="Ex: Prata"></div>
       </div>
+      <div class="field"><label>Placa</label><input type="text" id="vt-placa" placeholder="Ex: ABC1234" style="text-transform:uppercase"></div>
       <div style="text-align:right">
         <button type="button" class="card-btn card-btn-label" id="btn-remover-veiculo-troca" style="color:var(--red)" onclick="removerVeiculoTroca()">Remover tag</button>
       </div>
@@ -562,6 +563,11 @@ const COLS_MK=[
   {id:'resgate',     label:'Resgate',      emoji:'🔄', desc:'Tentativa de resgatar o cliente perdido',       cor:'#6b3db8', bg:'#f3e8fb'},
   {id:'perdido',     label:'Perdido',      emoji:'❌', desc:'Cliente desistiu ou sem interesse',             cor:'#e8431e', bg:'#fff0ec', fim:true},
 ];
+// So faz sentido informar/solicitar avaliacao de veiculo de troca a partir
+// do momento que um vendedor de verdade esta conversando com o cliente -
+// nao no "I.A." (ainda e' so a Eva/bot), nem em Visita/Resgate/Perdido
+// (pedido da Aline, 16/09/2026, especificou exatamente essas 5 colunas).
+const COLS_PERMITE_TROCA=['atendimento','encantamento','negociacao','agendamento','vendido'];
 // Campo de inicio/fim do cronometro de cada coluna do Funil. "ia" usa
 // _criadoEm (data real de criacao do lead - nao pode ser mexida por
 // interacoes, outros lugares do sistema dependem dela); as demais usam
@@ -1174,7 +1180,7 @@ function renderKanbanMk(cnt){
         `<span class="badge live-timer" data-start="${l.ultimaMensagemEm||l._criadoEm}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:
         (col.id==='atendimento'&&l.aguardandoRetornoDesde?
           `<span class="badge live-timer" data-start="${l.aguardandoRetornoDesde}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:'');
-      const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
+      const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano,l.veiculoTroca.cor].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
@@ -1200,7 +1206,8 @@ function renderKanbanMk(cnt){
         <div class="card-footer">
           <div class="card-actions" style="flex-wrap:wrap">
             <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
-            <button class="card-btn card-btn-label" style="color:var(--red)" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="Marcar veículo de troca / criar avaliação"><i class="ti ti-car"></i> Criar Avaliação</button>
+            ${COLS_PERMITE_TROCA.includes(col.id)?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="Informar/editar o veículo de troca"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||'Veículo de troca':'Veículo de troca'}</button>`:''}
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&l.veiculoTroca)?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`:''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
             <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
@@ -2344,20 +2351,25 @@ function abrirVeiculoTroca(leadIdDireto){
   document.getElementById('vt-marca').value=vt.marca||'';
   document.getElementById('vt-modelo').value=vt.modelo||'';
   document.getElementById('vt-ano').value=vt.ano||'';
+  document.getElementById('vt-cor').value=vt.cor||'';
   document.getElementById('vt-placa').value=vt.placa||'';
   document.getElementById('btn-remover-veiculo-troca').style.display=(vt.marca||vt.modelo||vt.placa)?'':'none';
   document.getElementById('ov-veiculo-troca').classList.remove('hidden');
 }
 async function salvarVeiculoTroca(){
-  const marca=document.getElementById('vt-marca').value.trim(),modelo=document.getElementById('vt-modelo').value.trim(),ano=document.getElementById('vt-ano').value.trim(),placa=document.getElementById('vt-placa').value.trim();
+  const marca=document.getElementById('vt-marca').value.trim(),modelo=document.getElementById('vt-modelo').value.trim(),ano=document.getElementById('vt-ano').value.trim(),cor=document.getElementById('vt-cor').value.trim(),placa=document.getElementById('vt-placa').value.trim();
   if(!marca&&!modelo&&!placa){toast('Informe pelo menos marca/modelo ou placa','red');return;}
-  const dados={marca,modelo,ano,placa};
+  const dados={marca,modelo,ano,cor,placa};
   fecharModal('ov-veiculo-troca');
-  let clienteNome,clienteTel;
+  // Isso so INFORMA/marca o veiculo de troca - nao dispara avaliacao
+  // nenhuma sozinho. O pedido de avaliacao e' uma acao separada e manual
+  // (botao "📋 Solicitar Avaliação" no card), a qualquer momento depois de
+  // informado (pedido da Aline, 16/09/2026 - antes disparava junto, mas
+  // ela quer poder so anotar o carro sem já pedir a avaliacao).
   if(_veiculoTrocaLeadDireto){
     const id=_veiculoTrocaLeadDireto;
     const lead=G.mk.leads.find(l=>l.id===id);
-    if(lead){lead.veiculoTroca=dados;clienteNome=lead.clienteNome;clienteTel=lead.clienteTel;}
+    if(lead)lead.veiculoTroca=dados;
     await salvarCamposMk(id,{veiculoTroca:dados});
     toast('Veículo de troca salvo!');
     if(G.mk.detailId===id)abrirDetailLead(id);
@@ -2365,19 +2377,24 @@ async function salvarVeiculoTroca(){
   }else{
     _veiculoTrocaAtual=dados;
     atualizarBotaoVeiculoTroca();
-    clienteNome=document.getElementById('f-nome').value.trim();
-    clienteTel=document.getElementById('f-tel').value.trim();
-  }
-  // Fase 2 (15/09/2026): quando rodando embutido dentro do sistema
-  // principal (mesma janela, sem iframe), pula direto pra tela de
-  // Avaliacao de la ja preenchida - sem passo manual de confirmacao do
-  // outro lado. window.abrirAvaliacaoDoCRM ainda nao existe do lado da
-  // Marcela; enquanto nao existir, isso e' um no-op (so a tag e' salva,
-  // igual a Fase 1).
-  if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
-    window.abrirAvaliacaoDoCRM({cliente:clienteNome,telefone:clienteTel,veiculo:dados});
   }
 }
+// Botao "📋 Solicitar Avaliação" do card - so aparece quando o lead ja tem
+// veiculoTroca informado. Dispara a Fase 2 (abrirAvaliacaoDoCRM, que so
+// existe quando o CRM roda embutido no sistema principal) a qualquer
+// momento escolhido pelo vendedor, nao mais automatico ao informar o
+// veiculo (pedido da Aline, 16/09/2026).
+function solicitarAvaliacaoTroca(id,e){
+  if(e)e.stopPropagation();
+  const lead=G.mk.leads.find(l=>l.id===id);
+  if(!lead||!lead.veiculoTroca){toast('Informe o veículo de troca primeiro','red');return;}
+  if(!(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function')){
+    toast('Isso só funciona dentro do sistema principal (CRM embutido)','red',5000);
+    return;
+  }
+  window.abrirAvaliacaoDoCRM({cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:lead.veiculoTroca});
+}
+window.solicitarAvaliacaoTroca=solicitarAvaliacaoTroca;
 async function removerVeiculoTroca(){
   fecharModal('ov-veiculo-troca');
   if(_veiculoTrocaLeadDireto){
@@ -3163,7 +3180,7 @@ function abrirDetailLead(id){
           <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}${lead.captadorReplicado?` <span style="color:var(--purple)">+ ${lead.captadorReplicado} (réplica)</span>`:''}</span></div>
           <div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`:'—'}</span></div>
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
-          ${lead.veiculoTroca?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">🔄 Veículo de troca</span><span class="val">${[lead.veiculoTroca.marca,lead.veiculoTroca.modelo,lead.veiculoTroca.ano].filter(Boolean).join(' ')||'—'}${lead.veiculoTroca.placa?` · ${lead.veiculoTroca.placa}`:''}</span></div>`:''}
+          ${lead.veiculoTroca?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">🔄 Veículo de troca</span><span class="val">${[lead.veiculoTroca.marca,lead.veiculoTroca.modelo,lead.veiculoTroca.ano,lead.veiculoTroca.cor].filter(Boolean).join(' ')||'—'}${lead.veiculoTroca.placa?` · ${lead.veiculoTroca.placa}`:''}</span></div>`:''}
           ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
           ${lead.resgateMotivo?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Estratégia de resgate</span><span class="val" style="color:var(--purple)">${lead.resgateMotivo}${lead.resgateData?` · Contato previsto: ${isoParaBR(lead.resgateData)}`:''}</span></div>`:''}
         </div>
