@@ -2506,6 +2506,14 @@ async function litoralCarMarcasModelos(categoria){
   }
   return G.pf.litoralcarMM[categoria];
 }
+function mensagemErroLitoral(r){
+  if(!r)return'falha desconhecida';
+  const partes=[];
+  if(r.erro)partes.push(r.erro);
+  if(r.status)partes.push(r.status);
+  if(r.alertas&&r.alertas.length)partes.push(r.alertas.join('; '));
+  return partes.length?partes.join(' — '):'falha desconhecida';
+}
 function popularSelectLitoralEl(el,lista,selecionado){
   if(!el)return;
   el.innerHTML=lista.map(x=>`<option ${x===selecionado?'selected':''}>${x}</option>`).join('');
@@ -2674,7 +2682,7 @@ async function confirmarPublicarTodosLitoralCar(){
     const ok=resultados.filter(r=>r.ok).length;
     const falhas=resultados.filter(r=>!r.ok);
     toast(`${ok}/${resultados.length} publicado(s) na LitoralCar${falhas.length?'. Veja os erros abaixo.':'!'}`,falhas.length?'red':'green',6000);
-    document.getElementById('lcb-body').insertAdjacentHTML('afterbegin',`<div style="margin-bottom:10px">${resultados.map(r=>`<div style="font-size:11px;padding:4px 0;color:${r.ok?'var(--green)':'var(--red)'}">${r.ok?'✅':'❌'} ${r.placa} — ${r.ok?(r.status||'ok'):(r.erro||'erro')}</div>`).join('')}</div>`);
+    document.getElementById('lcb-body').insertAdjacentHTML('afterbegin',`<div style="margin-bottom:10px">${resultados.map(r=>`<div style="font-size:11px;padding:4px 0;color:${r.ok?'var(--green)':'var(--red)'}">${r.ok?'✅':'❌'} ${r.placa} — ${r.ok?(r.status||'ok'):mensagemErroLitoral(r)}</div>`).join('')}</div>`);
     const mapSnap=await db.collection('litoralcar_veiculos').get();
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
@@ -2760,7 +2768,7 @@ async function confirmarPublicarPlataforma(){
       fecharModal('ov-plataforma-publicar');
       renderPlataformasAnuncio();
     }else{
-      toast('Erro: '+(r?.erro||'falha desconhecida'),'red',5000);
+      toast('Erro: '+mensagemErroLitoral(r),'red',6000);
     }
   }catch(e){
     console.error(e);
