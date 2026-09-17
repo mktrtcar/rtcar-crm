@@ -208,3 +208,4 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
 Object.assign(exports,require('./litoralcar'));
 Object.assign(exports,require('./cadastro'));
 Object.assign(exports,require('./sync-venda'));
+Object.assign(exports,require('./diagnostico'));
