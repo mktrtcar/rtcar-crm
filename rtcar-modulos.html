@@ -97,7 +97,6 @@
       <div class="ni" id="ni-site" onclick="trocarModulo('site')"><i class="ti ti-world"></i> Site</div>
       <div class="ni-sep"></div>
       <div class="ni-lbl">Sistema</div>
-      <div class="ni ni-sistema-principal" onclick="window.open('https://marcelartcar.github.io/rtcar/','_blank')"><i class="ti ti-external-link"></i> Sistema Principal</div>
       <div class="ni ni-integracoes" id="ni-integracoes" onclick="abrirModalIntegracoes()" style="display:none"><i class="ti ti-plug"></i> Integrações</div>
     </nav>
     <div class="sb-foot">
@@ -778,7 +777,6 @@ function entrarNaApp(u){
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   document.getElementById('sb-name').textContent=u.n;
   document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor',rtcred:'RT Cred'}[u.r]||u.r);
-  document.querySelectorAll('.ni-sistema-principal').forEach(el=>el.style.display=(u.r==='dev'?'none':''));
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
