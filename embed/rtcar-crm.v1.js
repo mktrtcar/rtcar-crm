@@ -211,9 +211,16 @@ function brParaISO(br){if(!br)return'';const[d,m,a]=br.split('/');return`${a}-${
 // nela (campo "by"), que e' a fonte confiavel - so cai pra captador/by do
 // lead se por algum motivo essa entrada nao existir (achado a pedido da
 // Aline, 02/09/2026: venda de Carteira do Maicon aparecia como do Janderson).
+// EXCECAO: Aline e' Master, nunca vendedora - se foi ELA quem clicou em
+// "Vendido" (registrando/confirmando por outra pessoa), isso nao conta
+// como venda dela; cai pro captador de verdade (mesma trava ja aplicada
+// em salvarLead()). Achado por ela mesma, 16/09/2026: uma compra da
+// Milena apareceu como venda seguido no dashboard so porque a Aline
+// clicou em Confirmar.
 function quemVendeu(l){
   const entrada=[...(l.historico||[])].reverse().find(h=>/vendido/i.test(h.acao||''));
-  return (entrada&&entrada.by)||l.captador||l.by||'?';
+  const quemClicou=entrada&&entrada.by;
+  return (quemClicou&&quemClicou!=='Aline'&&quemClicou)||l.captador||l.by||'?';
 }
 // Compra e' diferente de Venda pra fins de atribuicao: sempre e' de quem
 // CONSTA como responsavel do lead (captador/by), nunca de quem clicou em
