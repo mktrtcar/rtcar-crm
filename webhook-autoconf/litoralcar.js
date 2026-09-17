@@ -166,6 +166,31 @@ async function fotosDaPaginaAutoconf(pagina){
       if(!r.ok)return[];
       html=await r.text();
     }finally{clearTimeout(timeout);}
+    /* A pagina so renderiza <img> pra um punhado de fotos (as visiveis de
+       cara, sem precisar rolar) - as outras ficam SO dentro de um array JS
+       "let photos = [...]" (usado pela galeria/lightbox), com barras
+       escapadas ("\/") - por isso um regex procurando "veiculos/fotos/..."
+       com barra normal so achava essas poucas primeiras e nunca as 14 que
+       existem de verdade (achado pela Aline, 17/09/2026: publicou e so
+       vieram 5 fotos, o Autoconf tinha 14). Path pega o array "photos" e
+       usa o campo "url" (original no S3, sem proxy de resize/filtro - mais
+       seguro ainda contra o bloqueio do WAF da LitoralCar). */
+    const idxArray=html.search(/(?:var|let|const)\s+photos\s*=\s*\[/);
+    if(idxArray>=0){
+      const inicio=html.indexOf('[',idxArray);
+      const fim=html.indexOf('];',inicio);
+      if(fim>inicio){
+        try{
+          const photos=JSON.parse(html.slice(inicio,fim+1));
+          const urls=photos.map(p=>p&&p.url).filter(Boolean);
+          if(urls.length)return urls;
+        }catch(e){
+          console.error('Erro ao parsear array "photos" da pagina do Autoconf:',e);
+        }
+      }
+    }
+    // Fallback: se o formato da pagina mudar e o array "photos" sumir/nao
+    // parsear, tenta pegar ao menos as fotos visiveis no <img> da pagina.
     const regex=new RegExp(`veiculos/fotos/${id}/([a-f0-9-]+)\\.jpg`,'g');
     const hashes=new Set();
     let m;while((m=regex.exec(html)))hashes.add(m[1]);
