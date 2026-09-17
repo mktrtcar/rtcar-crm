@@ -360,3 +360,39 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
     res.status(e.status||500).json({erro:e.message||String(e)});
   }
 });
+
+/* Despublica (remove) um veiculo do estoque na LitoralCar - pedido da
+   Aline, 16/09/2026: "depois que publica tem que aparecer despublicar,
+   se a gente quiser fazer edicao ou nao publicar mais". Doc da LitoralCar
+   (metodo estoque, acao excluir): DELETE .../excluir/estoque/cod_loja,
+   Header Content = {veiculos:[{cod_importacao,cod_veiculo}]}. So precisa
+   dos dois codigos que ja guardamos em litoralcar_veiculos/{placa} desde
+   a primeira publicacao. */
+exports.litoralcarDespublicarEstoque=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+  if(req.method!=='POST'){res.status(405).send('Method not allowed');return;}
+  try{
+    await exigirGestor(req);
+    const placa=limparPlaca(req.body.placa);
+    if(!placa){res.status(400).json({erro:'Placa não informada'});return;}
+    const mapRef=db.collection('litoralcar_veiculos').doc(placa);
+    const mapSnap=await mapRef.get();
+    if(!mapSnap.exists||!mapSnap.data().codVeiculo){res.status(400).json({erro:'Veículo não está publicado na LitoralCar'});return;}
+    const{codImportacao,codVeiculo}=mapSnap.data();
+    const r=await litoralFetch('excluir','estoque',undefined,{veiculos:[{cod_importacao:Number(codImportacao),cod_veiculo:Number(codVeiculo)}]});
+    console.log(`litoralcar excluir status=${r.status} body=`,JSON.stringify(r.body));
+    let itens=(r.body&&r.body.veiculos)||[];
+    if(!Array.isArray(itens))itens=(itens&&typeof itens==='object')?Object.values(itens):[itens];
+    const item=itens[0];
+    const vlt=(item&&item.veiculo)||{};
+    const ok=/excluido|excluído/i.test(vlt.status||'');
+    if(ok){
+      await mapRef.set({codVeiculo:admin.firestore.FieldValue.delete(),ultimaRemocao:new Date().toISOString()},{merge:true});
+      res.json({ok:true,status:vlt.status});
+    }else{
+      res.json({ok:false,status:vlt.status,alertas:vlt.alertas||[],debug:JSON.stringify(item||r.body)});
+    }
+  }catch(e){
+    console.error(e);
+    res.status(e.status||500).json({erro:e.message||String(e)});
+  }
+});

@@ -2633,7 +2633,7 @@ function renderPlataformasAnuncio(){
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
-          if(p.id==='litoralcar'&&publicadoLitoral)return`<span style="background:${p.cor}22;color:${p.cor};border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600"><i class="ti ti-check"></i> ${p.nome}</span>`;
+          if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
         }).join('')}
       </div>
@@ -2842,6 +2842,27 @@ async function confirmarPublicarPlataforma(){
 }
 window.abrirPublicarPlataforma=abrirPublicarPlataforma;
 window.confirmarPublicarPlataforma=confirmarPublicarPlataforma;
+
+async function despublicarPlataforma(placa,plataformaId){
+  if(plataformaId!=='litoralcar')return;
+  const v=(G.pf.veiculos||[]).find(x=>x.placa===placa);
+  if(!confirm(`Remover ${v?[v.marca,v.modelo].filter(Boolean).join(' '):placa} do anúncio na LitoralCar? Ele deixa de aparecer lá até ser publicado de novo.`))return;
+  try{
+    const r=await litoralCarFetch('litoralcarDespublicarEstoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({placa})});
+    if(r.ok){
+      const placaLimpa=placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+      delete G.pf.litoralcarMap[placaLimpa];
+      toast('Removido da LitoralCar');
+      renderPlataformasAnuncio();
+    }else{
+      toast('Erro ao despublicar: '+mensagemErroLitoral(r),'red',6000);
+    }
+  }catch(e){
+    console.error(e);
+    toast('Erro ao despublicar: '+e.message,'red',5000);
+  }
+}
+window.despublicarPlataforma=despublicarPlataforma;
 
 async function salvarLead(){
   const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
