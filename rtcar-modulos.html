@@ -3090,7 +3090,7 @@ async function confirmarVendido(){
   // janela); standalone abre o sistema principal em aba nova com os dados
   // na URL - os dois dependem de window.abrirTermoDoCRM existir do lado
   // dela; enquanto nao existir, isso e' um no-op no modo embutido.
-  const dadosTermo={cliente:lead.clienteNome,telefone:lead.clienteTel,origem:lead.origem,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor}};
+  const dadosTermo={leadId:lead.id,cliente:lead.clienteNome,telefone:lead.clienteTel,origem:lead.origem,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor}};
   if(window.RTCARCRM_EMBED&&typeof window.abrirTermoDoCRM==='function'){
     window.abrirTermoDoCRM(dadosTermo);
   }else if(!window.RTCARCRM_EMBED){
@@ -4998,6 +4998,15 @@ function iaKpiCard(val,label,color,icone){
 }
 function renderIA(cnt){
   if(G.modulo!=='ia')return;
+  // Sem isso, cada tecla digitada em "Buscar por nome/telefone/ID..."
+  // reconstroi o #cnt inteiro (inclusive o proprio campo), destruindo o
+  // input e derrubando o foco - so dava pra digitar uma letra de cada vez,
+  // precisando clicar de novo no campo a cada tecla (achado a pedido da
+  // Aline, 17/09/2026). Mesmo padrao ja usado em renderMarketing() pro
+  // campo "mk-busca".
+  const buscaFocada=document.activeElement&&document.activeElement.id==='ia-busca';
+  const buscaSelStart=buscaFocada?document.activeElement.selectionStart:null;
+  const buscaSelEnd=buscaFocada?document.activeElement.selectionEnd:null;
   const todos=iaLeadsEva();
   const total=todos.length;
   const naIA=todos.filter(l=>l.st==='ia').length;
@@ -5092,6 +5101,11 @@ function renderIA(cnt){
       </div>
     </div>
   `;
+  if(buscaFocada){
+    const buscaEl=document.getElementById('ia-busca');
+    buscaEl.focus();
+    buscaEl.setSelectionRange(buscaSelStart,buscaSelEnd);
+  }
 }
 
 
