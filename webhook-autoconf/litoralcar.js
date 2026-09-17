@@ -40,7 +40,15 @@ async function litoralFetch(acao,metodo,parametro,body){
   if(parametro!==undefined&&parametro!==null)partes.push(parametro);
   partes.push(COD_LOJA);
   const tipo={buscar:'GET',salvar:'POST',alterar:'PUT',excluir:'DELETE'}[acao];
-  const resp=await fetch(partes.join('/'),{method:tipo,headers:headersLitoral(),body:body?JSON.stringify(body):undefined});
+  const headers=headersLitoral();
+  // A doc da LitoralCar chama isso de "(Header) Content" - nao e' o corpo
+  // (body) da requisicao como toda API normal, e' literalmente um HEADER
+  // HTTP chamado "Content" carregando o JSON. Mandar so no body (como
+  // qualquer API REST comum faria) fazia a LitoralCar responder "Parametro
+  // 'veiculos' invalido ou nao encontrado" - ela nunca olhava o body
+  // (achado pela Aline, 16/09/2026, testando publicar de verdade).
+  if(body)headers.Content=JSON.stringify(body);
+  const resp=await fetch(partes.join('/'),{method:tipo,headers,body:body?JSON.stringify(body):undefined});
   const texto=await resp.text();
   let json;try{json=JSON.parse(texto);}catch{json={raw:texto};}
   return{status:resp.status,body:json};
