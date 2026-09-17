@@ -169,7 +169,13 @@ async function fotosDaPaginaAutoconf(pagina){
     const regex=new RegExp(`veiculos/fotos/${id}/([a-f0-9-]+)\\.jpg`,'g');
     const hashes=new Set();
     let m;while((m=regex.exec(html)))hashes.add(m[1]);
-    return[...hashes].map(h=>`https://resized-images.autoconf.com.br/810x608/filters:format(jpg)/veiculos/fotos/${id}/${h}.jpg`);
+    /* SEM "filters:format(jpg)/" no path - a imagem carrega igual (testado,
+       mesmo byte a byte), mas o WAF da LitoralCar (GoCache) bloqueia com
+       403 "Acesso Bloqueado" qualquer foto cuja URL tenha ":" e "()" no
+       caminho (achado pela Aline, 17/09/2026, republicando o HB20 depois
+       do fix de fotos ao vivo - o proprio veiculo sem foto nenhuma
+       publicava normal, com foto do Autoconf sempre dava erro). */
+    return[...hashes].map(h=>`https://resized-images.autoconf.com.br/810x608/veiculos/fotos/${id}/${h}.jpg`);
   }catch(e){
     console.error('Erro ao buscar fotos da pagina do veiculo no Autoconf:',e);
     return[];
