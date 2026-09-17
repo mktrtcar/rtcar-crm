@@ -121,11 +121,15 @@
     <div class="mod-body">
       <div class="mod-section">
         <div class="mod-section-title"><i class="ti ti-user"></i> Dados do Cliente</div>
-        <div class="field"><label>Nome completo *</label><input type="text" id="f-nome" placeholder="Nome do cliente"></div>
+        <div class="field" style="position:relative">
+          <label>Nome completo *</label><input type="text" id="f-nome" placeholder="Nome do cliente" oninput="leadClienteSugerir()" autocomplete="off">
+          <div id="lead-cliente-sug" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:200px;overflow-y:auto"></div>
+        </div>
         <div class="field-row">
-          <div class="field"><label>Telefone *</label><input type="tel" id="f-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
+          <div class="field"><label>Telefone *</label><input type="tel" id="f-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this);leadClienteSugerir()" autocomplete="off"></div>
           <div class="field"><label>E-mail</label><input type="email" id="f-email" placeholder="email@exemplo.com"></div>
         </div>
+        <input type="hidden" id="f-cliente-cidade"><input type="hidden" id="f-cliente-uf">
       </div>
       <div class="mod-section">
         <div class="mod-section-title"><i class="ti ti-car"></i> Interesse e Origem</div>
@@ -2330,6 +2334,8 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('f-valor').value=l?.valor||'';document.getElementById('f-etapa').value=l?.st||etapa||(G.user?.r==='rtcred'?'atendimento':'ia');
   document.getElementById('f-obs').value=l?.obs||'';
   document.getElementById('f-data-contato').value=l?.dtISO||new Date().toISOString().slice(0,10);
+  document.getElementById('f-cliente-cidade').value=l?.clienteCidade||'';document.getElementById('f-cliente-uf').value=l?.clienteUF||'';
+  document.getElementById('lead-cliente-sug').style.display='none';
   _veiculoTrocaAtual=l?.veiculoTroca||null;
   atualizarBotaoVeiculoTroca();
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
@@ -2864,6 +2870,53 @@ async function despublicarPlataforma(placa,plataformaId){
 }
 window.despublicarPlataforma=despublicarPlataforma;
 
+/* Sugestao de cliente ja cadastrado no sistema principal (cadastroPF/PJ da
+   Marcela) ao criar um lead - pedido da Aline, 17/09/2026: "ao informar um
+   lead e ele ja ser da nossa base de dados, o sistema buscar as
+   informacoes". Busca por nome OU telefone (qualquer um dos dois campos
+   digitado), com debounce pra nao disparar uma function a cada tecla.
+   So LEITURA - nunca grava nada de volta no cadastro dela. */
+let _leadClienteBuscaTimer=null;
+function leadClienteSugerir(){
+  clearTimeout(_leadClienteBuscaTimer);
+  const nome=document.getElementById('f-nome').value.trim();
+  const tel=document.getElementById('f-tel').value.trim();
+  const q=tel.replace(/\D/g,'').length>=6?tel:nome;
+  if(nome.length<3&&tel.replace(/\D/g,'').length<6){
+    document.getElementById('lead-cliente-sug').style.display='none';
+    return;
+  }
+  _leadClienteBuscaTimer=setTimeout(()=>leadClienteBuscar(q),400);
+}
+async function leadClienteBuscar(q){
+  const box=document.getElementById('lead-cliente-sug');
+  try{
+    const{resultados}=await litoralCarFetch(`buscarClienteCadastro?q=${encodeURIComponent(q)}`);
+    if(!resultados||!resultados.length){box.style.display='none';box.innerHTML='';return;}
+    box.innerHTML=resultados.map(r=>`<div data-id="${r.id}" onmousedown="leadClienteEscolher('${r.id}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''"><span style="font-size:12px;font-weight:600">${r.tipo==='PF'?'👤':'🏢'} ${r.nome}</span><span style="font-size:11px;color:var(--tx3);white-space:nowrap">${r.tel||''}</span></div>`).join('');
+    box.dataset.resultados=JSON.stringify(resultados);
+    box.style.display='block';
+  }catch(e){
+    console.error('Erro ao buscar cliente no cadastro:',e);
+    box.style.display='none';
+  }
+}
+function leadClienteEscolher(id){
+  const box=document.getElementById('lead-cliente-sug');
+  const resultados=JSON.parse(box.dataset.resultados||'[]');
+  const c=resultados.find(r=>r.id===id);
+  box.style.display='none';
+  if(!c)return;
+  document.getElementById('f-nome').value=c.nome||'';
+  if(c.tel){const elTel=document.getElementById('f-tel');elTel.value=c.tel;mascaraTel(elTel);}
+  if(c.email)document.getElementById('f-email').value=c.email;
+  document.getElementById('f-cliente-cidade').value=c.cidade||'';
+  document.getElementById('f-cliente-uf').value=c.uf||'';
+  toast(`Dados preenchidos: ${c.nome}`);
+}
+window.leadClienteSugerir=leadClienteSugerir;
+window.leadClienteEscolher=leadClienteEscolher;
+
 async function salvarLead(){
   const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
   if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!origem){toast('Selecione a origem','red');return;}
@@ -2900,7 +2953,7 @@ async function salvarLead(){
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
   const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroca:_veiculoTrocaAtual||null,valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),clienteCidade:document.getElementById('f-cliente-cidade').value.trim(),clienteUF:document.getElementById('f-cliente-uf').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroca:_veiculoTrocaAtual||null,valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
   // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
   // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
   // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
