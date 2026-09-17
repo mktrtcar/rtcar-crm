@@ -1899,15 +1899,26 @@ async function salvarVeiculoTroca(){
 // existe quando o CRM roda embutido no sistema principal) a qualquer
 // momento escolhido pelo vendedor, nao mais automatico ao informar o
 // veiculo (pedido da Aline, 16/09/2026).
+// Sistema principal da Marcela - usado tanto no gatilho embutido (mesma
+// janela) quanto no link direto (janelas/sites separados) abaixo.
+const URL_SISTEMA_PRINCIPAL='https://rtcaroficial.github.io/rtcar/dev.html';
 function solicitarAvaliacaoTroca(id,e){
   if(e)e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);
   if(!lead||!lead.veiculoTroca){toast('Informe o veículo de troca primeiro','red');return;}
-  if(!(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function')){
-    toast('Isso só funciona dentro do sistema principal (CRM embutido)','red',5000);
+  const dados={cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:lead.veiculoTroca};
+  if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
+    window.abrirAvaliacaoDoCRM(dados);
     return;
   }
-  window.abrirAvaliacaoDoCRM({cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:lead.veiculoTroca});
+  // Fora do embed (rtcar-crm standalone) - sites diferentes, sem janela
+  // compartilhada, entao nao da pra chamar funcao nenhuma direto. Abre o
+  // sistema principal numa aba nova com os dados codificados na URL; o
+  // lado da Marcela precisa ler isso ao carregar (pedido da Aline,
+  // 16/09/2026 - ainda depende de uma funcao nova la, ver conversa).
+  const payload=btoa(unescape(encodeURIComponent(JSON.stringify(dados))));
+  window.open(`${URL_SISTEMA_PRINCIPAL}?crmAvaliacao=${encodeURIComponent(payload)}`,'_blank');
+  toast('Abrindo o sistema principal numa nova aba...');
 }
 window.solicitarAvaliacaoTroca=solicitarAvaliacaoTroca;
 async function removerVeiculoTroca(){
@@ -2508,19 +2519,19 @@ async function confirmarVendido(){
   await vincularClienteRelacionamento(lead);
   fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
   // Fase 3 (16/09/2026, mesmo espirito da Fase 2/Avaliacao): ao confirmar a
-  // venda, se estiver rodando embutido no sistema principal, pula direto
-  // pro Termo de Venda ja preenchido com o que o CRM sabe (cliente/
-  // telefone/veiculo/placa/valor) - o vendedor/Marcela completa o resto
-  // (forma de pagamento, veiculo de troca formal etc) pelo formulario
-  // normal deles. window.abrirTermoDoCRM ainda nao existe do lado da
-  // Marcela; enquanto nao existir, isso e' um no-op.
+  // venda, pula direto pro Termo de Venda ja preenchido com o que o CRM
+  // sabe (cliente/telefone/veiculo/placa/valor) - o vendedor/Marcela
+  // completa o resto (forma de pagamento, veiculo de troca formal etc)
+  // pelo formulario normal deles. Embutido chama a funcao direto (mesma
+  // janela); standalone abre o sistema principal em aba nova com os dados
+  // na URL - os dois dependem de window.abrirTermoDoCRM existir do lado
+  // dela; enquanto nao existir, isso e' um no-op no modo embutido.
+  const dadosTermo={cliente:lead.clienteNome,telefone:lead.clienteTel,origem:lead.origem,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor}};
   if(window.RTCARCRM_EMBED&&typeof window.abrirTermoDoCRM==='function'){
-    window.abrirTermoDoCRM({
-      cliente:lead.clienteNome,
-      telefone:lead.clienteTel,
-      origem:lead.origem,
-      veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor},
-    });
+    window.abrirTermoDoCRM(dadosTermo);
+  }else if(!window.RTCARCRM_EMBED){
+    const payloadTermo=btoa(unescape(encodeURIComponent(JSON.stringify(dadosTermo))));
+    window.open(`${URL_SISTEMA_PRINCIPAL}?crmTermo=${encodeURIComponent(payloadTermo)}`,'_blank');
   }
 }
 function abrirModalPerda(id){G.mk.detailId=id;document.getElementById('perda-motivo').value='';document.getElementById('perda-obs').value='';document.getElementById('ov-perda').classList.remove('hidden');}
