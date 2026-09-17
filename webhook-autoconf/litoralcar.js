@@ -108,6 +108,85 @@ async function catalogoSite(){
   return _catalogoSiteCache;
 }
 function normalizarTextoLitoral(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();}
+
+/* Fallback ao vivo: o catalogo estatico (catalogoSite) so tem 55 carros de
+   uma extracao unica em 07/09 - muita coisa do estoque atual nao esta la
+   (achado 16/09/2026: HB20 BEO-4H98 publicou sem foto por isso). Em vez de
+   esperar o site ser recatalogado (tarefa grande, de outra sessao), busca
+   direto na listagem publica do Autoconf ao vivo pra achar QUALQUER
+   veiculo atual por marca+modelo, e usa o link de foto deles mesmo
+   (pedido da Aline: "por enquanto pode puxar do Autoconf"). Cache de 15min
+   em memoria por instancia, pra nao rescanear tudo a cada publicacao. */
+const AUTOCONF_ESTOQUE_URL='https://rtcar.com.br/estoque';
+const AUTOCONF_POR_PAGINA=18;
+const AUTOCONF_MAX_PAGINAS=12;
+const AUTOCONF_CACHE_TTL_MS=15*60*1000;
+let _catalogoAoVivoCache=null,_catalogoAoVivoQuando=0;
+function extrairCardsAutoconf(html){
+  const veiculos=[];
+  const regex=/<div class="card card-car\s*">[\s\S]*?<a href="(https:\/\/rtcar\.com\.br\/carros\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<span[^>]*>([^<]+)<\/span><\/h3>/g;
+  let m;
+  while((m=regex.exec(html)))veiculos.push({pagina:m[1],marca:m[2].trim(),modelo:m[3].trim()});
+  return veiculos;
+}
+async function buscarCatalogoAoVivo(){
+  if(_catalogoAoVivoCache&&(Date.now()-_catalogoAoVivoQuando)<AUTOCONF_CACHE_TTL_MS)return _catalogoAoVivoCache;
+  const todos=[];
+  try{
+    for(let pagina=1;pagina<=AUTOCONF_MAX_PAGINAS;pagina++){
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),8000);
+      let html;
+      try{
+        const r=await fetch(`${AUTOCONF_ESTOQUE_URL}?registros_por_pagina=${AUTOCONF_POR_PAGINA}&pagina=${pagina}`,{headers:{'User-Agent':'Mozilla/5.0'},signal:controller.signal});
+        if(!r.ok)break;
+        html=await r.text();
+      }finally{clearTimeout(timeout);}
+      const veiculos=extrairCardsAutoconf(html);
+      if(!veiculos.length)break;
+      todos.push(...veiculos);
+    }
+    _catalogoAoVivoCache=todos;_catalogoAoVivoQuando=Date.now();
+  }catch(e){
+    console.error('Erro ao buscar catalogo ao vivo do Autoconf:',e);
+    if(!_catalogoAoVivoCache)_catalogoAoVivoCache=[];
+  }
+  return _catalogoAoVivoCache;
+}
+function extrairIdDaPaginaAutoconf(pagina){const m=String(pagina||'').match(/\/(\d+)\/?$/);return m?m[1]:null;}
+async function fotosDaPaginaAutoconf(pagina){
+  const id=extrairIdDaPaginaAutoconf(pagina);
+  if(!id)return[];
+  try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),8000);
+    let html;
+    try{
+      const r=await fetch(pagina,{headers:{'User-Agent':'Mozilla/5.0'},signal:controller.signal});
+      if(!r.ok)return[];
+      html=await r.text();
+    }finally{clearTimeout(timeout);}
+    const regex=new RegExp(`veiculos/fotos/${id}/([a-f0-9-]+)\\.jpg`,'g');
+    const hashes=new Set();
+    let m;while((m=regex.exec(html)))hashes.add(m[1]);
+    return[...hashes].map(h=>`https://resized-images.autoconf.com.br/810x608/filters:format(jpg)/veiculos/fotos/${id}/${h}.jpg`);
+  }catch(e){
+    console.error('Erro ao buscar fotos da pagina do veiculo no Autoconf:',e);
+    return[];
+  }
+}
+async function fotosAoVivoAutoconf(v){
+  const catalogo=await buscarCatalogoAoVivo();
+  const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
+  if(!marcaAlvo||!modeloAlvo)return[];
+  const candidato=catalogo.find(c=>{
+    const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
+    return marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
+  });
+  if(!candidato)return[];
+  return fotosDaPaginaAutoconf(candidato.pagina);
+}
+
 async function fotosParaVeiculo(v){
   const catalogo=await catalogoSite();
   const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
@@ -116,12 +195,12 @@ async function fotosParaVeiculo(v){
     const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
     return marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
   });
-  if(!candidatos.length)return[];
+  if(!candidatos.length)return fotosAoVivoAutoconf(v);
   const kmAlvo=parseKm(v.km);
   candidatos.sort((a,b)=>Math.abs(parseKm(a.km)-kmAlvo)-Math.abs(parseKm(b.km)-kmAlvo));
   const escolhido=candidatos[0];
   const qtdFotos=(escolhido.fotos||[]).length;
-  if(!qtdFotos)return[];
+  if(!qtdFotos)return fotosAoVivoAutoconf(v);
   return Array.from({length:qtdFotos},(_,i)=>`${SITE_FOTOS_BASE}/${escolhido.id}/${i+1}.jpg`);
 }
 
