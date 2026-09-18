@@ -1486,9 +1486,12 @@ function vendasPorPeriodoMk(nomes,iniISO,fimISO){
 }
 function abrirDrillMkPeriodo(chave,nomesStr,iniISO,fimISO){
   const nomes=nomesStr?nomesStr.split('|'):null;
-  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)):G.mk.leads;
+  const base=nomes?G.mk.leads.filter(l=>nomes.includes(l.captador)||nomes.includes(l.captadorReplicado)):G.mk.leads;
+  // Mesma correcao do abrirDrill: a contagem (vendasPorPeriodoMk) credita o
+  // captadorReplicado tambem, entao o filtro da lista precisa considerar
+  // isso pra nao mostrar menos itens do que o numero exibido.
   const leads=chave
-    ?base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&quemVendeuOuComprou(l)===chave)
+    ?base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&(quemVendeuOuComprou(l)===chave||l.captadorReplicado===chave))
     :base.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO));
   mostrarDrilldownMk(chave?`Vendas — ${chave}`:'Vendas do período',leads);
 }
@@ -1902,12 +1905,16 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasVendedor'){
     titulo=`Vendas — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&quemVendeu(l)===chave)
+    // A contagem (vendasPorVendedor) credita tambem o captadorReplicado
+    // (lead "replicado" conta pros 2 vendedores) - sem incluir aqui, o
+    // numero do resumo nao batia com a lista (ex: mostrava 2 mas a lista
+    // só trazia 1 - achado pela Aline, 18/09/2026, caso da Milena).
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Valor'];
   }else if(tipo==='comprasVendedor'){
     titulo=`Compras — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra'&&quemComprou(l)===chave)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra'&&(quemComprou(l)===chave||l.captadorReplicado===chave))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Valor'];
   }else if(tipo==='vendasTotal'){
