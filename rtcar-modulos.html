@@ -1382,8 +1382,8 @@ function statsDoDiaMk(nomes,offset=0){
     marketingPorCanal:porCanal(marketingLeads),
     outros:outrosLeads.length,
     outrosPorCanal:porCanal(outrosLeads),
-    visitas:ls.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem!=='Compra').length,
-    visitasCompra:ls.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem==='Compra').length,
+    visitas:ls.filter(l=>l.agendamentoStatus==='compareceu'&&(l.agendamentoData===hojeISO||(l.agendamentoCompareceuEm&&l.agendamentoCompareceuEm.slice(0,10)===hojeISO))&&l.origem!=='Compra').length,
+    visitasCompra:ls.filter(l=>l.agendamentoStatus==='compareceu'&&(l.agendamentoData===hojeISO||(l.agendamentoCompareceuEm&&l.agendamentoCompareceuEm.slice(0,10)===hojeISO))&&l.origem==='Compra').length,
     agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra').length,
     agendamentosCompra:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra').length,
     vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra').length,
@@ -1419,10 +1419,10 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
     leads=base.filter(l=>primeiraRespostaVendedorISO(l)===hojeISO);
   }else if(tipo==='visitas'){
     titulo='Visita';
-    leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem!=='Compra');
+    leads=base.filter(l=>l.agendamentoStatus==='compareceu'&&(l.agendamentoData===hojeISO||(l.agendamentoCompareceuEm&&l.agendamentoCompareceuEm.slice(0,10)===hojeISO))&&l.origem!=='Compra');
   }else if(tipo==='visitasCompra'){
     titulo='Visita Compra';
-    leads=base.filter(l=>l.agendamentoData===hojeISO&&l.agendamentoStatus==='compareceu'&&l.origem==='Compra');
+    leads=base.filter(l=>l.agendamentoStatus==='compareceu'&&(l.agendamentoData===hojeISO||(l.agendamentoCompareceuEm&&l.agendamentoCompareceuEm.slice(0,10)===hojeISO))&&l.origem==='Compra');
   }else if(tipo==='agendamentos'){
     titulo='Agendamento';
     leads=base.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra');
@@ -3197,7 +3197,14 @@ async function setAgendamentoStatusMk(id,valor,e){
   e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead.agendamentoStatus=lead.agendamentoStatus===valor?'':valor;
-  await salvarCamposMk(id,{agendamentoStatus:lead.agendamentoStatus});
+  const campos={agendamentoStatus:lead.agendamentoStatus};
+  // Painel "Hoje" contava visita pela data AGENDADA (agendamentoData), nao
+  // por quando o "Compareceu" foi realmente clicado - se o vendedor marca
+  // com atraso (visita agendada pra ontem, confirmada hoje), a visita nunca
+  // aparecia no Hoje de nenhum dos dois dias (achado pela Aline, 19/09/2026,
+  // caso da Milena - marcou 2 "compareceu" e nenhum apareceu no Hoje).
+  if(lead.agendamentoStatus==='compareceu'){lead.agendamentoCompareceuEm=new Date().toISOString();campos.agendamentoCompareceuEm=lead.agendamentoCompareceuEm;}
+  await salvarCamposMk(id,campos);
   renderMarketing();
 }
 async function setAgendamentoDataMk(id,valor,e){
