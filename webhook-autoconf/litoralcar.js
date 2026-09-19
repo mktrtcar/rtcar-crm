@@ -35,6 +35,18 @@ async function exigirGestor(req){
   return decoded;
 }
 
+// Cabecalho HTTP so aceita ASCII de verdade - qualquer acento (ex: "Elétrico",
+// "Camionetes") no JSON mandado via header "Content" faz a LitoralCar
+// responder o MESMO erro generico "Parametro 'veiculos' invalido ou nao
+// encontrado" (nao consegue nem parsear o header) - achado pela Aline,
+// 19/09/2026, publicando um Volvo hibrido ("Gasolina/Elétrico"). Sem tocar
+// no acento em si (continua UTF-8 normal no corpo/no nosso banco), so troca
+// cada caractere fora do ASCII por escape \uXXXX antes de colocar no
+// header - isso e' JSON 100% valido, a LitoralCar decodifica de volta pro
+// mesmo caractere igualzinho.
+function jsonAsciiSafe(obj){
+  return JSON.stringify(obj).replace(/[-￿]/g,c=>'\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4));
+}
 async function litoralFetch(acao,metodo,parametro,body){
   const partes=[LITORAL_BASE,acao,metodo];
   if(parametro!==undefined&&parametro!==null)partes.push(parametro);
@@ -47,7 +59,7 @@ async function litoralFetch(acao,metodo,parametro,body){
   // qualquer API REST comum faria) fazia a LitoralCar responder "Parametro
   // 'veiculos' invalido ou nao encontrado" - ela nunca olhava o body
   // (achado pela Aline, 16/09/2026, testando publicar de verdade).
-  if(body)headers.Content=JSON.stringify(body);
+  if(body)headers.Content=jsonAsciiSafe(body);
   const resp=await fetch(partes.join('/'),{method:tipo,headers,body:body?JSON.stringify(body):undefined});
   const texto=await resp.text();
   let json;try{json=JSON.parse(texto);}catch{json={raw:texto};}
