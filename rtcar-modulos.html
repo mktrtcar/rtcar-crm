@@ -1230,7 +1230,17 @@ function renderKanbanMk(cnt){
       body.appendChild(c);
     });
     const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Novo lead';add.onclick=()=>abrirModalLead(null,col.id);
-    div.appendChild(head);div.appendChild(desc);div.appendChild(body);div.appendChild(add);
+    div.appendChild(head);div.appendChild(desc);
+    // Botao de lote pra coluna I.A. - pedido da Aline, 20/09/2026, mesmo dia
+    // do BYPASS_EVA_TEMPORARIO: tinha 31 leads antigos parados (alguns com
+    // 300h+) sem a Eva ter abordado, um por um pelo botao individual seria
+    // muito lento. So aparece se tiver pelo menos 1 lead nao abordado.
+    if(col.id==='ia'&&leads.some(l=>!(l.eloaEnviadoEm&&l.eloaEnviadoEm!=='NUMERO_INVALIDO')&&!(l.conversaEloa&&l.conversaEloa.length))){
+      const btnLote=document.createElement('div');btnLote.style.cssText='padding:8px 10px';
+      btnLote.innerHTML='<button class="btn btn-outline btn-sm" style="width:100%;justify-content:center" onclick="encaminharTodosIA()"><i class="ti ti-forward"></i> Encaminhar todos não abordados</button>';
+      div.appendChild(btnLote);
+    }
+    div.appendChild(body);div.appendChild(add);
     wrap.appendChild(div);
   });
   cnt.appendChild(wrap);
@@ -3158,6 +3168,33 @@ async function encaminharParaAtendimentoMk(id){
   renderMarketing();
 }
 window.encaminharParaAtendimentoMk=encaminharParaAtendimentoMk;
+// Versao em lote do botao acima - mesma logica, so' que pra todos os leads
+// da I.A. que nunca tiveram conversa de verdade (nem eloaEnviadoEm valido,
+// nem conversaEloa) de uma vez, incluindo os marcados NUMERO_INVALIDO
+// (pedido da Aline, 20/09/2026: "quero ate os leads antigos, qualquer um
+// que nao foi abordado" - achou 31 parados, alguns ha 300h+).
+async function encaminharTodosIA(){
+  const alvos=G.mk.leads.filter(l=>l.st==='ia'&&!(l.eloaEnviadoEm&&l.eloaEnviadoEm!=='NUMERO_INVALIDO')&&!(l.conversaEloa&&l.conversaEloa.length));
+  if(!alvos.length){toast('Nenhum lead pendente na I.A.');return;}
+  if(!confirm(`Isso vai mover ${alvos.length} lead(s) da I.A. direto pra Atendimento, sorteando um vendedor (Janderson/Maicon/Victor) pra cada um. Confirma?`))return;
+  toast(`Encaminhando ${alvos.length} lead(s)...`,'gold',6000);
+  let ok=0;
+  for(const lead of alvos){
+    try{
+      let captador=lead.captador;
+      if(!captador||captador==='Aline')captador=await proximoVendedorRodizio();
+      const agora=new Date().toISOString();
+      const campos={st:'atendimento',captador,atendimento_at:lead.atendimento_at||agora};
+      lead.st='atendimento';lead.captador=captador;lead.atendimento_at=campos.atendimento_at;
+      await salvarCamposMk(lead.id,campos);
+      await regHistMk(lead,'➡️ Encaminhado manualmente pra Atendimento','Enviado em lote pro rodízio (Eva indisponível) — vendedor: '+captador,G.user?.n||'','purple');
+      ok++;
+    }catch(e){console.error(`Erro ao encaminhar ${lead.id}:`,e);}
+  }
+  toast(`${ok}/${alvos.length} lead(s) encaminhado(s)!`,'green',6000);
+  renderMarketing();
+}
+window.encaminharTodosIA=encaminharTodosIA;
 async function moverLead(id,novaCol){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   if(lead.st==='encantamento'&&['agendamento','negociacao'].includes(novaCol)){
