@@ -54,6 +54,15 @@ exports.diagnosticoLeadsIA=onRequest({region:'southamerica-east1',cors:true},asy
     }).map(l=>({id:l.id,nome:l.clienteNome,origem:l.origem,criadoEm:l._criadoEm,horasParado:Math.round((agora-new Date(l._criadoEm).getTime())/3600000*10)/10}))
       .sort((a,b)=>b.horasParado-a.horasParado);
 
+    // Achado 20/09/2026 (Aline, caso "Champion Exports"): lead com
+    // eloaEnviadoEm==='NUMERO_INVALIDO' fica de fora do "presos" acima (o
+    // filtro so pega quem NUNCA foi tentado - esse ja foi tentado e falhou
+    // na checagem do WhatsApp). Separado aqui pra nao ficar escondido -
+    // cada um desses e' um cliente real que a Eva desistiu de chamar.
+    const numeroInvalido=leads.filter(l=>l.eloaEnviadoEm==='NUMERO_INVALIDO')
+      .map(l=>({id:l.id,nome:l.clienteNome,tel:l.clienteTel,origem:l.origem,criadoEm:l._criadoEm}))
+      .sort((a,b)=>(b.criadoEm||'').localeCompare(a.criadoEm||''));
+
     res.json({
       periodoDias:dias,
       totalLeads:leads.length,
@@ -61,6 +70,8 @@ exports.diagnosticoLeadsIA=onRequest({region:'southamerica-east1',cors:true},asy
       porDiaAtendimento,
       totalPresosNaIA:presos.length,
       presosNaIA:presos.slice(0,30),
+      totalNumeroInvalido:numeroInvalido.length,
+      numeroInvalido:numeroInvalido.slice(0,50),
     });
   }catch(e){
     console.error(e);
