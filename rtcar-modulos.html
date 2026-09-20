@@ -1218,6 +1218,7 @@ function renderKanbanMk(cnt){
             ${COLS_PERMITE_TROCA.includes(col.id)?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="Informar/editar o veículo de troca"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||'Veículo de troca':'Veículo de troca'}</button>`:''}
             ${(COLS_PERMITE_TROCA.includes(col.id)&&l.veiculoTroca)?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`:''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
+            ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
             <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
             ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirReplicarLead('${l.id}',event)" title="Faz esse lead contar tambem pra outro vendedor, sem tirar do atual"><i class="ti ti-link"></i> Replicar</button>`:''}
@@ -3133,6 +3134,30 @@ async function confirmarOptOut(id){
   await regHistMk(lead,'🔕 Opt-out (LGPD)','Cliente solicitou não receber mais contato',G.user?.n||'','red');
   toast('Preferência registrada');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
+// Encaminhamento manual da I.A. pra Atendimento, sem depender da Eva -
+// pedido da Aline, 20/09/2026, no dia em que os creditos da Anthropic
+// zeraram e a Eva parou de conseguir gerar qualquer resposta (sem isso,
+// o time ficava sem jeito nenhum de tirar um lead da I.A. e mandar pro
+// rodizio). Faz exatamente o que o encaminharParaConsultor() da Eva faz
+// do lado do bot: muda pra 'atendimento', sorteia vendedor pelo rodizio
+// (se ainda nao tiver um) e grava atendimento_at - a notificacao por
+// WhatsApp pro vendedor continua sendo mandada pelo proprio bot (que so
+// depende da conexao com o WhatsApp, nao da IA), assim que ele rodar o
+// proximo ciclo.
+async function encaminharParaAtendimentoMk(id){
+  const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  if(!confirm(`Encaminhar ${lead.clienteNome||id} direto pro rodízio de vendedor, sem esperar a Eva?`))return;
+  let captador=lead.captador;
+  if(!captador||captador==='Aline')captador=await proximoVendedorRodizio();
+  const agora=new Date().toISOString();
+  const campos={st:'atendimento',captador,atendimento_at:lead.atendimento_at||agora};
+  lead.st='atendimento';lead.captador=captador;lead.atendimento_at=campos.atendimento_at;
+  await salvarCamposMk(id,campos);
+  await regHistMk(lead,'➡️ Encaminhado manualmente pra Atendimento',`Enviado direto pro rodízio (Eva indisponível) — vendedor: ${captador}`,G.user?.n||'','purple');
+  toast(`${lead.clienteNome||id} encaminhado pra ${captador}!`);
+  renderMarketing();
+}
+window.encaminharParaAtendimentoMk=encaminharParaAtendimentoMk;
 async function moverLead(id,novaCol){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   if(lead.st==='encantamento'&&['agendamento','negociacao'].includes(novaCol)){
