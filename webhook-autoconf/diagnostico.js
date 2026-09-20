@@ -78,3 +78,57 @@ exports.diagnosticoLeadsIA=onRequest({region:'southamerica-east1',cors:true},asy
     res.status(e.status||500).json({erro:e.message||String(e)});
   }
 });
+
+/* Avaliacao completa de TODOS os leads que estao HOJE na coluna I.A. do
+   funil (nao so os "presos" ha 2h+ do diagnosticoLeadsIA acima) - pedido
+   da Aline, 20/09/2026, depois do caso do "Champion Exports". Classifica
+   cada lead num dos 4 grupos, do mais urgente pro mais normal:
+   1. numeroInvalido - Eva ja tentou e o WhatsApp recusou as duas variacoes
+      do numero (com/sem o 9) - precisa contato manual (ou, apos o fix do
+      bot, pode ser um numero de verdade invalido mesmo).
+   2. semTentativaAntiga - nunca foi tentado e ja faz 2h+ desde a criacao -
+      bloqueio/atraso real, precisa checar o robo.
+   3. emAndamento - Eva ja mandou mensagem/esta conversando - normal, sem
+      acao necessaria.
+   4. aguardandoRecente - lead novo (menos de 2h), ainda dentro da janela
+      normal de espera - sem acao necessaria.
+*/
+exports.avaliacaoColunaIA=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+  try{
+    await exigirGestor(req);
+    const snap=await db.collection('leads').where('st','==','ia').get();
+    const leads=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const agora=Date.now();
+
+    function horasDesde(iso){
+      if(!iso)return null;
+      return Math.round((agora-new Date(iso).getTime())/3600000*10)/10;
+    }
+    function resumoLead(l){
+      return{id:l.id,nome:l.clienteNome||'(sem nome)',tel:l.clienteTel||'',origem:l.origem||'',veiculo:l.veiculo||'',criadoEm:l._criadoEm||'',horasDesdeCriacao:horasDesde(l._criadoEm)};
+    }
+
+    const numeroInvalido=[],semTentativaAntiga=[],emAndamento=[],aguardandoRecente=[];
+    leads.forEach(l=>{
+      const temConversa=l.eloaEnviadoEm&&l.eloaEnviadoEm!=='NUMERO_INVALIDO'||(l.conversaEloa&&l.conversaEloa.length);
+      if(l.eloaEnviadoEm==='NUMERO_INVALIDO'){numeroInvalido.push(resumoLead(l));return;}
+      if(temConversa){emAndamento.push(resumoLead(l));return;}
+      const h=horasDesde(l._criadoEm);
+      if(h!==null&&h>=2)semTentativaAntiga.push(resumoLead(l));
+      else aguardandoRecente.push(resumoLead(l));
+    });
+    [numeroInvalido,semTentativaAntiga,emAndamento,aguardandoRecente].forEach(lista=>lista.sort((a,b)=>(b.horasDesdeCriacao||0)-(a.horasDesdeCriacao||0)));
+
+    res.json({
+      totalNaColunaIA:leads.length,
+      resumo:{numeroInvalido:numeroInvalido.length,semTentativaAntiga:semTentativaAntiga.length,emAndamento:emAndamento.length,aguardandoRecente:aguardandoRecente.length},
+      numeroInvalido,
+      semTentativaAntiga,
+      emAndamento,
+      aguardandoRecente,
+    });
+  }catch(e){
+    console.error(e);
+    res.status(e.status||500).json({erro:e.message||String(e)});
+  }
+});
