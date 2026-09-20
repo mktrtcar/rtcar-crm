@@ -128,6 +128,19 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     const origem=intencaoCompra?'Compra':origemBruta;
     const vaiDiretoAtendimento=intencaoCompra||cadastroManual;
 
+    // ATIVADO 20/09/2026 a pedido da Aline: creditos da Anthropic zeraram e
+    // a Eva parou de conseguir gerar qualquer resposta (nem saudacao nem
+    // follow-up) - "ate segunda ordem", os leads normais (que iriam pra
+    // I.A. esperar a Eva) pulam direto pra Atendimento, ja com vendedor
+    // sorteado no rodizio, igual o encaminharParaConsultor() da Eva faria.
+    // Mesma lista/mesmo doc Firestore (leads_config/rodizio, campo idx +
+    // ativos) que o eloa-bot usa, pra ficar tudo sincronizado quando ela
+    // voltar. DESATIVAR (por=false) assim que a Aline avisar que repos o
+    // credito e quer migrar de volta pra Eva.
+    const BYPASS_EVA_TEMPORARIO=true;
+    const RODIZIO_TEMPORARIO=['Janderson','Maicon','Victor'];
+    const semEva=BYPASS_EVA_TEMPORARIO&&!vaiDiretoAtendimento;
+
     // 22/08/2026: a criacao do lead inteiro agora acontece DENTRO da mesma
     // transacao que reserva o numero de sequencia. Antes eram duas operacoes
     // separadas (reservar o numero, depois gravar o lead) - qualquer falha
@@ -140,10 +153,23 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     await db.runTransaction(async tx=>{
       const refSeq=db.collection('leads_config').doc('mk');
       const snapSeq=await tx.get(refSeq);
+      const refRodizio=db.collection('leads_config').doc('rodizio');
+      // Todo tx.get() precisa vir antes de qualquer tx.set() na mesma
+      // transacao - por isso le o doc do rodizio aqui mesmo sem uso ainda.
+      const snapRodizio=semEva?await tx.get(refRodizio):null;
 
       const seq=((snapSeq.exists&&snapSeq.data().leadSeq)||0)+1;
       const novoId=`LEAD-${pad3(seq)}`;
-      const captador=intencaoCompra?'Milena':'';
+      let captador=intencaoCompra?'Milena':'';
+      let idxRodizioUsado=null;
+      if(semEva){
+        const dadosRodizio=snapRodizio.exists?snapRodizio.data():{};
+        const ativos=RODIZIO_TEMPORARIO.filter(n=>dadosRodizio.ativos?.[n]!==false);
+        const lista=ativos.length?ativos:RODIZIO_TEMPORARIO;
+        idxRodizioUsado=dadosRodizio.idx||0;
+        captador=lista[idxRodizioUsado%lista.length];
+      }
+      const vaiParaAtendimento=vaiDiretoAtendimento||semEva;
 
       const lead={
         id:novoId,
@@ -155,7 +181,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
         // este campo, o cronometro da coluna I.A. no CRM para de funcionar
         // pra leads novos.
         _criadoEm:new Date().toISOString(),
-        st:vaiDiretoAtendimento?'atendimento':'ia',
+        st:vaiParaAtendimento?'atendimento':'ia',
         by:'',
         captador,
         uid:'',
@@ -170,16 +196,17 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
         convertido:false,
         dtVenda:'',
         motivoPerda:'',
-        historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`),by:'Autoconf'}],
+        historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:(semEva?`Via Autoconf (${origem}) — Eva em pausa (créditos), encaminhado direto pro rodízio — vendedor: ${captador}`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`)),by:'Autoconf'}],
         pendente_at:'',
         pendente_end:'',
-        atendimento_at:vaiDiretoAtendimento?new Date().toISOString():'',
+        atendimento_at:vaiParaAtendimento?new Date().toISOString():'',
         atendimento_end:'',
         notificacaoVendedorEm:'',
         autoconfLeadId:body.lead_id,
       };
 
       tx.set(refSeq,{leadSeq:seq},{merge:true});
+      if(semEva)tx.set(refRodizio,{idx:idxRodizioUsado+1},{merge:true});
       tx.set(db.collection('leads').doc(novoId),lead);
     });
 
