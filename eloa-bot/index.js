@@ -247,6 +247,49 @@ function paraJid(tel) {
   const comDDI = digitos.startsWith('55') ? digitos : `55${digitos}`;
   return `${comDDI}@s.whatsapp.net`;
 }
+/* Numero de celular brasileiro pode estar cadastrado no WhatsApp COM ou SEM
+   o "9" extra (o mesmo problema que ja motivou o chaveTel() acima usar só
+   os ultimos 8 digitos) — mas cumprimentarLead()/enviarFollowUp() so
+   testavam UMA variacao no sock.onWhatsApp(), e se o numero real estivesse
+   registrado na outra, a Eva concluia "nao existe no WhatsApp" e nunca
+   mais tentava (marcava NUMERO_INVALIDO pra sempre). Incidente real:
+   Aline confirmou por telefone que o numero da "Champion Exports" e' de
+   uma pessoa de verdade, interessada no carro (20/09/2026). Retorna os
+   candidatos de JID a testar, do mais provavel (o numero como veio) pro
+   alternativo (com/sem o 9).
+*/
+function candidatosJid(tel) {
+  const digitos = (tel || '').replace(/\D/g, '');
+  if (!digitos) return [];
+  const semDDI = digitos.startsWith('55') && digitos.length > 11 ? digitos.slice(2) : digitos;
+  const ddd = semDDI.slice(0, -8) || semDDI.slice(0, 2);
+  const numero = semDDI.length > 8 ? semDDI.slice(-9) : semDDI.slice(-8);
+  const candidatos = [];
+  if (numero.length === 9) {
+    candidatos.push(`55${ddd}${numero}`); // como veio, com o 9
+    candidatos.push(`55${ddd}${numero.slice(1)}`); // variacao sem o 9
+  } else if (numero.length === 8) {
+    candidatos.push(`55${ddd}${numero}`); // como veio, sem o 9
+    candidatos.push(`55${ddd}9${numero}`); // variacao com o 9
+  } else {
+    candidatos.push(`55${ddd}${numero}`);
+  }
+  return [...new Set(candidatos)].map((n) => `${n}@s.whatsapp.net`);
+}
+/* Testa cada candidato no WhatsApp de verdade (sock.onWhatsApp) e devolve o
+   primeiro JID que existir de fato, ou null se NENHUMA das variacoes existe
+   — so' nesse caso e' seguro concluir NUMERO_INVALIDO. */
+async function resolverJidValido(tel) {
+  for (const jid of candidatosJid(tel)) {
+    try {
+      const check = await sock.onWhatsApp(jid.split('@')[0]);
+      if (check?.[0]?.exists) return check[0].jid;
+    } catch (e) {
+      console.error(`Erro ao validar candidato ${jid}:`, e.message);
+    }
+  }
+  return null;
+}
 
 /* Checkpoint persistido em disco pra nunca mais varrer o backlog inteiro de
    leads antigos "I.A." — incidente real em 07/08/2026: sem isso, a Eloá
@@ -364,11 +407,10 @@ async function cumprimentarLead(lead) {
   if (!jidTentativa) return true; // telefone sem dígitos: não adianta tentar de novo
   let jid = jidTentativa;
   try {
-    const numero = jidTentativa.split('@')[0];
-    const check = await sock.onWhatsApp(numero);
-    if (check?.[0]?.exists) jid = check[0].jid;
+    const jidValido = await resolverJidValido(lead.clienteTel);
+    if (jidValido) jid = jidValido;
     else {
-      console.log(`⚠️ Número de ${lead.clienteNome} (${lead.clienteTel}) não encontrado no WhatsApp — pulando.`);
+      console.log(`⚠️ Número de ${lead.clienteNome} (${lead.clienteTel}) não encontrado no WhatsApp (testadas as variações com/sem o 9) — pulando.`);
       await fbUpdate('leads', lead.id, { eloaEnviadoEm: 'NUMERO_INVALIDO' });
       return true;
     }
@@ -920,8 +962,8 @@ async function enviarFollowUp(lead) {
   if (!jidTentativa) return;
   let jid = jidTentativa;
   try {
-    const check = await sock.onWhatsApp(jidTentativa.split('@')[0]);
-    if (check?.[0]?.exists) jid = check[0].jid;
+    const jidValido = await resolverJidValido(lead.clienteTel);
+    if (jidValido) jid = jidValido;
   } catch (e) {
     console.error(`Erro ao validar número pro follow-up de ${lead.clienteNome}, tentando mesmo assim:`, e.message);
   }
