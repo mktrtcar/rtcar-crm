@@ -3879,12 +3879,21 @@ async function moverClienteParaCol(c,novaColId){
   const oldCol=colAtualRel(c);if(oldCol.id===newCol.id)return;
   const campos={};
   if(newCol.baseId){
-    c.st=newCol.baseId;campos.st=newCol.baseId;
-    c[newCol.campo]=newCol.valorAtivo?'realizada':'';campos[newCol.campo]=c[newCol.campo];
-    c[newCol.campo+'Data']=newCol.valorAtivo?new Date().toISOString().split('T')[0]:'';campos[newCol.campo+'Data']=c[newCol.campo+'Data'];
+    campos.st=newCol.baseId;
+    campos[newCol.campo]=newCol.valorAtivo?'realizada':'';
+    campos[newCol.campo+'Data']=newCol.valorAtivo?new Date().toISOString().split('T')[0]:'';
   }
-  else{c.st=newCol.id;campos.st=newCol.id;}
-  await salvarCamposRel(c.id,campos);
+  else{campos.st=newCol.id;}
+  // So atualiza o estado local/registra historico/mostra sucesso se o
+  // salvamento realmente deu certo - antes, uma falha de rede no meio do
+  // caminho deixava o campo real errado no banco (st com valor antigo),
+  // mas o historico registrava "avancou com sucesso" do mesmo jeito,
+  // escondendo a falha (achado pela Aline, 21/09/2026 - cliente Gustavo/
+  // REL-195 ficou contando uma visita de 2 anos que na verdade tinha sido
+  // desfeita, porque o "voltar" nunca persistiu de verdade).
+  const ok=await salvarCamposRel(c.id,campos);
+  if(!ok)return;
+  Object.assign(c,campos);
   await regHistRel(c,`${newCol.emoji} Avançou para ${newCol.label}`,`Anterior: ${oldCol.label}`,G.user?.n||'',newCol.emoji);
   toast(`${c.clienteNome} → ${newCol.emoji} ${newCol.label}`);
 }
