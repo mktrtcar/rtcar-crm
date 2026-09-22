@@ -84,8 +84,13 @@ exports.buscarClienteCadastro=onRequest({region:'southamerica-east1',cors:true},
       }
     });
     const tFiltro=Date.now();
-    console.log(`[cadastro] tempos(ms) - auth:${tAuth-tInicio} carregarCadastro:${tCadastro-tAuth} filtro:${tFiltro-tCadastro} TOTAL:${tFiltro-tInicio}`);
-    res.json({resultados:resultados.slice(0,6)});
+    const tempos={auth:tAuth-tInicio,carregarCadastro:tCadastro-tAuth,filtro:tFiltro-tCadastro,total:tFiltro-tInicio,cacheUsado:!!_cacheCadastro&&(Date.now()-_cacheQuando)<CACHE_TTL_MS};
+    console.log(`[cadastro] tempos(ms) - auth:${tempos.auth} carregarCadastro:${tempos.carregarCadastro} filtro:${tempos.filtro} TOTAL:${tempos.total}`);
+    // _tempos aqui e' so' debug temporario (pedido do Claude do sistema
+    // principal, 22/09/2026, pra diagnosticar lentidao sem depender dos
+    // logs do Cloud Functions, que ja se mostraram pouco confiaveis nesse
+    // projeto) - tirar depois que a causa for confirmada.
+    res.json({resultados:resultados.slice(0,6),_tempos:tempos});
   }catch(e){
     console.error(e);
     res.status(e.status||500).json({erro:e.message||String(e)});
