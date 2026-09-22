@@ -32,16 +32,24 @@ function soDigitos(s){return String(s||'').replace(/\D/g,'');}
 const CACHE_TTL_MS=3*60*1000;
 let _cacheCadastro=null,_cacheQuando=0;
 async function carregarCadastro(){
-  if(_cacheCadastro&&(Date.now()-_cacheQuando)<CACHE_TTL_MS)return _cacheCadastro;
+  if(_cacheCadastro&&(Date.now()-_cacheQuando)<CACHE_TTL_MS){
+    console.log('[cadastro] cache HIT, sem leitura no Firestore');
+    return _cacheCadastro;
+  }
+  const t0=Date.now();
   const[pfSnap,pjSnap]=await Promise.all([
     db.collection('rtcar').doc('cadastroPF').get(),
     db.collection('rtcar').doc('cadastroPJ').get(),
   ]);
-  _cacheCadastro={
-    CADPF:(pfSnap.exists&&pfSnap.data().CADPF)||[],
-    CADPJ:(pjSnap.exists&&pjSnap.data().CADPJ)||[],
-  };
+  const t1=Date.now();
+  const pf=(pfSnap.exists&&pfSnap.data().CADPF)||[];
+  const pj=(pjSnap.exists&&pjSnap.data().CADPJ)||[];
+  _cacheCadastro={CADPF:pf,CADPJ:pj};
   _cacheQuando=Date.now();
+  // Instrumentacao pedida pelo Claude do sistema principal, 22/09/2026
+  // (Marcela relatou busca lenta) - pra saber se o tempo esta indo na
+  // leitura do Firestore (cache MISS, doc grande) ou em outro lugar.
+  console.log(`[cadastro] cache MISS - leitura Firestore levou ${t1-t0}ms - CADPF:${pf.length} registros - CADPJ:${pj.length} registros`);
   return _cacheCadastro;
 }
 
@@ -49,12 +57,15 @@ async function carregarCadastro(){
    razao por substring, cpf/cnpj/telefones por digitos - assim o resultado
    bate com o que ela mesma ve buscando por lá. */
 exports.buscarClienteCadastro=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+  const tInicio=Date.now();
   try{
     await exigirAutenticado(req);
+    const tAuth=Date.now();
     const q=String(req.query.q||'').trim().toUpperCase();
     const qd=soDigitos(q);
     if(q.length<3&&qd.length<6){res.json({resultados:[]});return;}
     const{CADPF,CADPJ}=await carregarCadastro();
+    const tCadastro=Date.now();
     const resultados=[];
     CADPF.forEach(c=>{
       const bateNome=q.length>=3&&(c.nome||'').toUpperCase().includes(q);
@@ -72,6 +83,8 @@ exports.buscarClienteCadastro=onRequest({region:'southamerica-east1',cors:true},
         resultados.push({id:c.id,tipo:'PJ',nome:c.razao||c.fantasia||'',tel:c.telCom||c.telCel||c.telRes||'',email:c.email||'',cidade:(c.end&&c.end.cid)||'',uf:(c.end&&c.end.uf)||''});
       }
     });
+    const tFiltro=Date.now();
+    console.log(`[cadastro] tempos(ms) - auth:${tAuth-tInicio} carregarCadastro:${tCadastro-tAuth} filtro:${tFiltro-tCadastro} TOTAL:${tFiltro-tInicio}`);
     res.json({resultados:resultados.slice(0,6)});
   }catch(e){
     console.error(e);
