@@ -193,6 +193,7 @@
       <div class="field"><label>Veículo negociado</label><input type="text" id="vend-veiculo" placeholder="Confirme o veículo..."></div>
       <div class="field"><label>Placa do veículo *</label><input type="text" id="vend-placa" placeholder="Ex: ABC1234" style="text-transform:uppercase"></div>
       <div class="field"><label>Observações</label><textarea id="vend-obs" placeholder="Detalhes do fechamento..."></textarea></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2);cursor:pointer;margin-top:4px"><input type="checkbox" id="vend-repasse" style="width:auto"> 🔁 Foi um repasse (venda pra outro lojista/atacado, não conta como venda final)</label>
     </div>
     <div class="mod-foot">
       <button class="btn btn-outline" onclick="fecharModal('ov-vendido')">Cancelar</button>
@@ -810,7 +811,8 @@ async function logout(){
   // Sem isso, o auto-refresh e o cronometro continuavam tentando rodar
   // depois do logout (sem sessao valida pro Firestore), gerando erro de
   // "permission-denied" sem parar sozinho.
-  if(G.mk._autoRefreshInterval){clearInterval(G.mk._autoRefreshInterval);G.mk._autoRefreshInterval=null;}
+  pararAutoRefreshMk();
+  pararTimerIA();
   if(G.mk._timerInterval){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;}
   G.user=null;G.mk.leads=[];G.rel.clientes=[];
   // Resetar visibilidade das tabs para o próximo login
@@ -1397,12 +1399,14 @@ function statsDoDiaMk(nomes,offset=0){
     visitasCompra:ls.filter(l=>l.agendamentoStatus==='compareceu'&&(l.agendamentoData===hojeISO||(l.agendamentoCompareceuEm&&l.agendamentoCompareceuEm.slice(0,10)===hojeISO))&&l.origem==='Compra').length,
     agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra').length,
     agendamentosCompra:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra').length,
-    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra').length,
+    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra'&&!l.repasse).length,
     // De quem foi a venda/compra do dia - pra mostrar junto do numero, nao
     // so' o total (pedido da Aline, 10/09/2026).
-    vendasPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra')),
+    vendasPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra'&&!l.repasse)),
     compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
     compraPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra')),
+    repasses:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.repasse).length,
+    repassePorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.repasse)),
   };
 }
 // Clique nos numeros do painel "Hoje" do CRM pra ver quais leads sao esses
@@ -1814,18 +1818,26 @@ function statsGeralIntervalo(iniISO,fimISO){
   const agendamento=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem!=='Compra').length;
   const agendamentoCompra=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem==='Compra').length;
 
-  const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasMktPorCanal[o]=n;});
-  const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o).length;if(n>0)vendasOutrosPorCanal[o]=n;});
+  const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o&&!l.repasse).length;if(n>0)vendasMktPorCanal[o]=n;});
+  const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o&&!l.repasse).length;if(n>0)vendasOutrosPorCanal[o]=n;});
   const vendasCompra=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').length;
   // Compra e' um tipo de negocio diferente de Venda (a pessoa que fecha a
   // Compra, hoje a Milena, nao esta "vendendo" um carro) - por isso fica de
   // fora do "por vendedor" de Vendas e ganha sua propria contagem por quem
   // fechou (pedido da Aline, 04/09/2026).
+  // Repasse (vendido pra outro lojista/atacado, nao pro consumidor final) e'
+  // outro tipo de negocio que NAO conta como Venda de verdade - mesma logica
+  // da Compra, so' que o campo "repasse" fica no proprio lead (marcado na
+  // hora de confirmar a venda), nao no "origem" (pedido da Aline,
+  // 21/09/2026, caso do Janderson com o HB20 repasse contando errado como
+  // venda final).
   // captadorReplicado: lead "replicado" conta 1 venda pra cada um dos 2
   // vendedores (pedido da Aline, 08/09/2026) - o total geral continua
   // contando o negocio uma vez so, so o detalhamento por vendedor credita os 2.
-  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra').forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;if(l.captadorReplicado)vendasPorVendedor[l.captadorReplicado]=(vendasPorVendedor[l.captadorReplicado]||0)+1;});
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra'&&!l.repasse).forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;if(l.captadorReplicado)vendasPorVendedor[l.captadorReplicado]=(vendasPorVendedor[l.captadorReplicado]||0)+1;});
   const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemComprou(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;if(l.captadorReplicado)comprasPorVendedor[l.captadorReplicado]=(comprasPorVendedor[l.captadorReplicado]||0)+1;});
+  const repassesPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.repasse).forEach(l=>{const v=quemVendeu(l);repassesPorVendedor[v]=(repassesPorVendedor[v]||0)+1;if(l.captadorReplicado)repassesPorVendedor[l.captadorReplicado]=(repassesPorVendedor[l.captadorReplicado]||0)+1;});
+  const totalRepasses=Object.values(repassesPorVendedor).reduce((a,b)=>a+b,0);
   const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasVendedor=Object.values(vendasPorVendedor).reduce((a,b)=>a+b,0);
@@ -1835,7 +1847,7 @@ function statsGeralIntervalo(iniISO,fimISO){
     leadsPorCanalMktChegada,totalLeadsMktChegada,leadsPassanteLojaEventoChegada,leadsMyBusinessOutraChegada,leadsCarteiraProspIndicChegada,totalLeadsOutrosChegada,leadsCompraChegada,
     leadsNaoMapeadosChegada,totalLeadsNaoMapeadosChegada,
     npsInd,visitas1ano,visitas2anos,visitasMkt,visitasOutras,agendamento,agendamentoCompra,
-    vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,comprasPorVendedor,totalVendasVendedor};
+    vendasMktPorCanal,totalVendasMkt,vendasOutrosPorCanal,totalVendasOutros,vendasCompra,vendasPorVendedor,comprasPorVendedor,totalVendasVendedor,repassesPorVendedor,totalRepasses};
 }
 function statsGeralDoDia(offset=0){
   const diaISO=hojeISOlocal(offset);
@@ -1901,17 +1913,17 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     colunas=['Cliente','Veículo','Origem (como veio)','Vendedor'];
   }else if(tipo==='vendasCanal'){
     titulo=`Vendas — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave&&!l.repasse)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Vendedor','Valor'];
   }else if(tipo==='vendasTotalMkt'){
     titulo='Vendas — Total Marketing';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing')
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing'&&!l.repasse)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasTotalOutros'){
     titulo='Vendas — Total Outros Canais';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros')
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros'&&!l.repasse)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasVendedor'){
@@ -1920,7 +1932,7 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     // (lead "replicado" conta pros 2 vendedores) - sem incluir aqui, o
     // numero do resumo nao batia com a lista (ex: mostrava 2 mas a lista
     // só trazia 1 - achado pela Aline, 18/09/2026, caso da Milena).
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&!l.repasse&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Valor'];
   }else if(tipo==='comprasVendedor'){
@@ -1928,9 +1940,19 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem==='Compra'&&(quemComprou(l)===chave||l.captadorReplicado===chave))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Valor'];
+  }else if(tipo==='repasseVendedor'){
+    titulo=`Repasses — ${chave}`;
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.repasse&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',fmtV(l)]);
+    colunas=['Cliente','Veículo','Valor'];
+  }else if(tipo==='repasseTotal'){
+    titulo='Repasses — Total do período';
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.repasse)
+      .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
+    colunas=['Cliente','Veículo','Vendedor','Valor'];
   }else if(tipo==='vendasTotal'){
     titulo='Vendas — Total do período';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra')
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&!l.repasse)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasCompra'){
@@ -2079,6 +2101,7 @@ function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO,porChegada){
         <div class="geral-vendas-grid">
           ${geralListaCanalCard('Vendas · Marketing','✅',st.vendasMktPorCanal,st.totalVendasMkt,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalMkt',null,${p})`,'total')}
           ${geralListaCanalCard('Vendas · Outros Canais','✅',st.vendasOutrosPorCanal,st.totalVendasOutros,'#1a6b3c',false,k=>`abrirDrill('vendasCanal','${k}',${p})`,`abrirDrill('vendasTotalOutros',null,${p})`,'total')}
+          ${geralListaCanalCard('Repasses','🔁',st.repassesPorVendedor,st.totalRepasses,'#6b3db8',false,k=>`abrirDrill('repasseVendedor','${k}',${p})`,`abrirDrill('repasseTotal',null,${p})`)}
         </div>
       </div>
     </div>
@@ -3073,7 +3096,7 @@ async function salvarObs(){
   await regHistMk(lead,tipo,obs,G.user?.n||'',icone);
   fecharModal('ov-obs');toast('Registrado!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
-function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('ov-vendido').classList.remove('hidden');}
+function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
@@ -3092,12 +3115,12 @@ async function vincularClienteRelacionamento(lead){
 }
 async function confirmarVendido(){
   const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
-  const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim();
-  if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();
-  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa};
+  const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim(),repasse=document.getElementById('vend-repasse').checked;
+  if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
+  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
   if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
   await salvarCamposMk(id,camposVenda);
-  await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',obs||'Negócio fechado!',G.user?.n||'','green');
+  await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',(repasse?'🔁 Repasse — ':'')+(obs||'Negócio fechado!'),G.user?.n||'','green');
   await vincularClienteRelacionamento(lead);
   fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
   // Fase 3 (16/09/2026, mesmo espirito da Fase 2/Avaliacao): ao confirmar a
@@ -4257,7 +4280,11 @@ async function moverCliente(id,novaCol){
   await moverClienteParaCol(c,novaCol);abrirDetailCliente(id);renderRelacionamento();
 }
 async function regHistRel(c,acao,obs,by,emoji='📝'){if(!c.historico)c.historico=[];c.historico.push({dt:hoje(),emoji,acao,obs,by});await salvarCamposRel(c.id,{historico:c.historico});}
-async function salvarCamposRel(id,campos){if(G.rel.modoDemo)return;try{await fbUpdate('clientes_rel',id,campos);}catch(e){console.error(e);toast('Erro ao salvar','red');}}
+async function salvarCamposRel(id,campos){
+  if(G.rel.modoDemo)return true;
+  try{await fbUpdate('clientes_rel',id,campos);return true;}
+  catch(e){console.error(e);toast('Erro ao salvar - tente novamente','red');return false;}
+}
 
 function abrirDetailCliente(id){
   G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
