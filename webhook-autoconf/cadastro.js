@@ -64,6 +64,13 @@ exports.buscarClienteCadastro=onRequest({region:'southamerica-east1',cors:true},
     const q=String(req.query.q||'').trim().toUpperCase();
     const qd=soDigitos(q);
     if(q.length<3&&qd.length<6){res.json({resultados:[]});return;}
+    // Precisa capturar ANTES de chamar carregarCadastro() - se calculado
+    // depois, um cache MISS ja deixa _cacheQuando fresquinho (acabou de ser
+    // setado), entao sempre ia aparecer "true" mesmo quando a leitura foi
+    // nova - bug achado no proprio diagnostico, 22/09/2026 (o Claude da
+    // Marcela reportou cacheUsado:true com carregarCadastro:2575ms, o que
+    // nao fazia sentido pra um cache de verdade).
+    const cacheEstavaValidoAntes=!!_cacheCadastro&&(Date.now()-_cacheQuando)<CACHE_TTL_MS;
     const{CADPF,CADPJ}=await carregarCadastro();
     const tCadastro=Date.now();
     const resultados=[];
@@ -84,7 +91,7 @@ exports.buscarClienteCadastro=onRequest({region:'southamerica-east1',cors:true},
       }
     });
     const tFiltro=Date.now();
-    const tempos={auth:tAuth-tInicio,carregarCadastro:tCadastro-tAuth,filtro:tFiltro-tCadastro,total:tFiltro-tInicio,cacheUsado:!!_cacheCadastro&&(Date.now()-_cacheQuando)<CACHE_TTL_MS};
+    const tempos={auth:tAuth-tInicio,carregarCadastro:tCadastro-tAuth,filtro:tFiltro-tCadastro,total:tFiltro-tInicio,cacheUsado:cacheEstavaValidoAntes};
     console.log(`[cadastro] tempos(ms) - auth:${tempos.auth} carregarCadastro:${tempos.carregarCadastro} filtro:${tempos.filtro} TOTAL:${tempos.total}`);
     // _tempos aqui e' so' debug temporario (pedido do Claude do sistema
     // principal, 22/09/2026, pra diagnosticar lentidao sem depender dos
