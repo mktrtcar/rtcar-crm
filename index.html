@@ -4503,6 +4503,7 @@ function renderWsKanban(cnt){
         <div class="ws-card-actions">
           <button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirModalObsWs('${c.id}')"><i class="ti ti-message-circle"></i> Obs</button>
           ${isManager()?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();editarConvidado('${c.id}')"><i class="ti ti-edit"></i> Editar</button>`:''}
+          ${isManager()?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="event.stopPropagation();excluirConvidado('${c.id}')"><i class="ti ti-trash"></i> Excluir</button>`:''}
         </div>`;
       if(wha){
         const copyBtn=card.querySelector('.ws-card-tel');
@@ -4521,6 +4522,16 @@ function renderWsKanban(cnt){
   cnt.appendChild(kb);
 }
 
+async function excluirConvidado(id){
+  const c=G.ws.convidados.find(x=>x.id===id);if(!c)return;
+  if(!confirm(`Excluir "${c.nome}" desse evento? Essa ação não pode ser desfeita.`))return;
+  try{
+    if(!G.ws.modoDemo)await db.collection('convidados_ws').doc(id).delete();
+    G.ws.convidados=G.ws.convidados.filter(x=>x.id!==id);
+    toast('Convidado excluído');
+    renderWorkshop();
+  }catch(e){console.error(e);toast('Erro ao excluir','red');}
+}
 async function dropConvidado(novaCol){
   if(!G.ws.dragId)return;
   const conv=G.ws.convidados.find(c=>c.id===G.ws.dragId);
@@ -4572,7 +4583,18 @@ async function salvarConvidado(){
   const nome=document.getElementById('wcv-nome').value.trim();
   if(!nome){alert('Informe o nome');return;}
   const editId=document.getElementById('wcv-id').value;
-  const data={nome,whatsapp:document.getElementById('wcv-whatsapp').value.trim(),obs:document.getElementById('wcv-obs').value.trim(),st:document.getElementById('wcv-st').value||'convidado',eventoId:G.ws.eventoAtualId};
+  const whatsapp=document.getElementById('wcv-whatsapp').value.trim();
+  // Bloqueio de telefone duplicado no mesmo evento - pedido da Aline,
+  // 23/09/2026, depois de reparar o "Fabiano Boing" cadastrado 2x com o
+  // mesmo numero (achado real, ver print) - sem isso, a pessoa recebe
+  // convite repetido. So compara dentro do MESMO evento (a mesma pessoa
+  // pode legitimamente ser convidada de novo em outro evento).
+  const whatsappDigitos=whatsapp.replace(/\D/g,'');
+  if(whatsappDigitos){
+    const duplicado=G.ws.convidados.find(c=>c.id!==editId&&c.eventoId===G.ws.eventoAtualId&&(c.whatsapp||'').replace(/\D/g,'')===whatsappDigitos);
+    if(duplicado){alert(`Esse telefone já está cadastrado nesse evento como "${duplicado.nome}". Não é possível cadastrar duplicado (evita convite repetido).`);return;}
+  }
+  const data={nome,whatsapp,obs:document.getElementById('wcv-obs').value.trim(),st:document.getElementById('wcv-st').value||'convidado',eventoId:G.ws.eventoAtualId};
   try{
     if(editId){
       Object.assign(G.ws.convidados.find(c=>c.id===editId),data);
@@ -5314,6 +5336,7 @@ window.confirmarVendedorPopup=confirmarVendedorPopup;
 window.confirmarVendido=confirmarVendido;
 window.copiarMsg=copiarMsg;
 window.editarConvidado=editarConvidado;
+window.excluirConvidado=excluirConvidado;
 window.excluirAn=excluirAn;
 window.excluirIndicacao=excluirIndicacao;
 window.excluirNps=excluirNps;
