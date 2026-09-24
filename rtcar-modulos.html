@@ -808,9 +808,12 @@ async function recuperarSenha(){
 }
 async function logout(){
   await fbAuth.signOut().catch(()=>{});
-  // Sem isso, o auto-refresh e o cronometro continuavam tentando rodar
-  // depois do logout (sem sessao valida pro Firestore), gerando erro de
-  // "permission-denied" sem parar sozinho.
+  // Sem isso, o auto-refresh (listener) e o cronometro continuavam tentando
+  // rodar depois do logout (sem sessao valida pro Firestore), gerando erro
+  // de "permission-denied" sem parar sozinho. Agora tambem cobre o listener
+  // da IA - o auto-refresh do Marketing/IA virou onSnapshot (18/09/2026),
+  // entao precisa desinscrever (pararAutoRefreshMk/pararTimerIA), nao so
+  // limpar um id de setInterval.
   pararAutoRefreshMk();
   pararTimerIA();
   if(G.mk._timerInterval){clearInterval(G.mk._timerInterval);G.mk._timerInterval=null;}
@@ -1002,25 +1005,30 @@ function renderPreservandoScroll(fn){
   restaurar();
   requestAnimationFrame(()=>requestAnimationFrame(restaurar));
 }
+let _mkLeadsUnsub=null;
 function iniciarAutoRefreshMk(){
   pararAutoRefreshMk();
   if(!fbOk()||G.mk.modoDemo)return;
-  G.mk._autoRefreshInterval=setInterval(async()=>{
+  // Trocado de polling (setInterval de 60s relendo a colecao "leads"
+  // inteira toda vez, mesmo sem nada ter mudado) pra listener em tempo
+  // real do Firestore (onSnapshot) - so cobra leitura de novo quando um
+  // documento muda de verdade, em vez de reler tudo a cada minuto pra
+  // cada aba aberta. Pedido do Claude do sistema principal via Marcela,
+  // 18/09/2026, apos auditoria de custo do Firebase (10x de R$150 pra
+  // R$1.200/mes, quase todo em Cloud Firestore). O guard de "aba oculta"
+  // que existia no polling nao faz falta aqui: um listener parado nao
+  // cobra nada enquanto nao houver mudanca de verdade, aba visivel ou nao.
+  _mkLeadsUnsub=db.collection('leads').onSnapshot(snap=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
-    // Aba em segundo plano (minimizada ou outra aba em foco) nao gastava
-    // leitura nenhuma a menos - achado pela Marcela numa auditoria de custo
-    // do Firebase (14/09/2026): com todo mundo deixando o CRM aberto o dia
-    // inteiro, isso sozinho ja multiplicava as leituras do Firestore por
-    // quantas abas ociosas existissem. Intervalo tambem subiu de 10s pra
-    // 1 minuto (a pedido da Aline, 15/09/2026, pra economizar ainda mais -
-    // ainda responsivo o suficiente pro trabalho do dia a dia).
-    if(document.hidden)return;
     if(algumaJanelaAberta())return;
-    try{G.mk.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.mk.leads);renderPreservandoScroll(renderMarketing);}catch(e){console.error('Erro no auto-refresh do CRM:',e);}
-  },60000);
+    G.mk.leads=snap.docs.map(d=>({...d.data(),_docName:d.ref.path}));
+    G.mk.leads.forEach(normalizarOrigemLead);
+    resgatarLeadsIaSemRespostaMk(G.mk.leads).catch(e=>console.error(e));
+    renderPreservandoScroll(renderMarketing);
+  },e=>console.error('Erro no listener de leads (Marketing):',e));
 }
 function pararAutoRefreshMk(){
-  if(G.mk._autoRefreshInterval){clearInterval(G.mk._autoRefreshInterval);G.mk._autoRefreshInterval=null;}
+  if(_mkLeadsUnsub){_mkLeadsUnsub();_mkLeadsUnsub=null;}
 }
 
 function renderMarketing(){
@@ -5141,18 +5149,22 @@ async function initIA(){
   renderIA(document.getElementById('cnt'));
   iniciarTimerIA();
 }
+let _iaLeadsUnsub=null;
 function iniciarTimerIA(){
-  if(G.ia._timerInterval)clearInterval(G.ia._timerInterval);
-  G.ia._timerInterval=setInterval(async()=>{
-    if(G.modulo!=='ia'){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;return;}
-    // Mesmo motivo do auto-refresh do Marketing (ver comentario la) - achado
-    // pela Marcela na auditoria de custo do Firebase, 14/09/2026.
-    if(document.hidden)return;
+  if(_iaLeadsUnsub){_iaLeadsUnsub();_iaLeadsUnsub=null;}
+  // Mesma troca de polling por onSnapshot do auto-refresh do Marketing (ver
+  // comentario la) - achado pela Marcela na auditoria de custo do Firebase,
+  // 14/09 e 18/09/2026.
+  _iaLeadsUnsub=db.collection('leads').onSnapshot(snap=>{
+    if(G.modulo!=='ia'){pararTimerIA();return;}
     if(document.activeElement&&document.activeElement.id==='ia-busca')return;
-    try{G.ia.leads=await fbListLeads();await resgatarLeadsIaSemRespostaMk(G.ia.leads);renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));}catch(e){console.error(e);}
-  },60000);
+    G.ia.leads=snap.docs.map(d=>({...d.data(),_docName:d.ref.path}));
+    G.ia.leads.forEach(normalizarOrigemLead);
+    resgatarLeadsIaSemRespostaMk(G.ia.leads).catch(e=>console.error(e));
+    renderPreservandoScroll(()=>renderIA(document.getElementById('cnt')));
+  },e=>console.error('Erro no listener de leads (IA):',e));
 }
-function pararTimerIA(){if(G.ia._timerInterval){clearInterval(G.ia._timerInterval);G.ia._timerInterval=null;}}
+function pararTimerIA(){if(_iaLeadsUnsub){_iaLeadsUnsub();_iaLeadsUnsub=null;}}
 function iaBadgeStatus(st){
   if(st==='ia')return '<span class="badge" style="background:var(--bluel);color:var(--blue)">NA IA</span>';
   if(st==='atendimento')return '<span class="badge" style="background:var(--goldl);color:var(--gold)">TRANSFERIDO</span>';
