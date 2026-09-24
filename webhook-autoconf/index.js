@@ -128,16 +128,15 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     const origem=intencaoCompra?'Compra':origemBruta;
     const vaiDiretoAtendimento=intencaoCompra||cadastroManual;
 
-    // ATIVADO 20/09/2026 a pedido da Aline: creditos da Anthropic zeraram e
-    // a Eva parou de conseguir gerar qualquer resposta (nem saudacao nem
-    // follow-up) - "ate segunda ordem", os leads normais (que iriam pra
-    // I.A. esperar a Eva) pulam direto pra Atendimento, ja com vendedor
-    // sorteado no rodizio, igual o encaminharParaConsultor() da Eva faria.
-    // Mesma lista/mesmo doc Firestore (leads_config/rodizio, campo idx +
-    // ativos) que o eloa-bot usa, pra ficar tudo sincronizado quando ela
-    // voltar. DESATIVAR (por=false) assim que a Aline avisar que repos o
-    // credito e quer migrar de volta pra Eva.
-    const BYPASS_EVA_TEMPORARIO=true;
+    // ATIVADO 20/09/2026, DESATIVADO 23/09/2026 a pedido da Aline (repos o
+    // credito da Anthropic - "pode tirar o desvio e deixa os 3 vendedores
+    // no rodizio"). Ficou ativo entre 20 e 23/09/2026, enquanto os
+    // creditos da Anthropic estavam zerados e a Eva nao conseguia gerar
+    // nenhuma resposta - nesse periodo, leads normais pulavam direto pra
+    // Atendimento (rodizio) em vez de esperar a Eva na I.A. Mesma lista/
+    // mesmo doc Firestore (leads_config/rodizio) que o eloa-bot usa,
+    // fica sincronizado se precisar reativar de novo no futuro.
+    const BYPASS_EVA_TEMPORARIO=false;
     const RODIZIO_TEMPORARIO=['Janderson','Maicon','Victor'];
     const semEva=BYPASS_EVA_TEMPORARIO&&!vaiDiretoAtendimento;
 
