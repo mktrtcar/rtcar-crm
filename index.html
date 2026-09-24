@@ -576,7 +576,7 @@ const COLS_PERMITE_TROCA=['atendimento','encantamento','negociacao','agendamento
 // _criadoEm (data real de criacao do lead - nao pode ser mexida por
 // interacoes, outros lugares do sistema dependem dela); as demais usam
 // campos proprios que sao resetados a cada interacao (ver regHistMk).
-const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','atendimento_end'],encantamento:['encantamento_at','encantamento_end'],negociacao:['negociacao_at','negociacao_end'],agendamento:['pendente_at','pendente_end']};
+const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','atendimento_end'],encantamento:['encantamento_at','encantamento_end'],negociacao:['negociacao_at','negociacao_end'],agendamento:['pendente_at','pendente_end'],visita:['visita_at','visita_end'],vendido:['vendido_at',null],perdido:['perdido_at',null],resgate:['resgate_at','resgate_end']};
 /* CATEGORIAS DE ORIGEM */
 const ORIGENS_MK={
   marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
@@ -3113,11 +3113,23 @@ async function vincularClienteRelacionamento(lead){
     await regHistRel(cliente,'📋 Cliente cadastrado',`Convertido automaticamente do lead ${lead.id} ao fechar venda`,data.responsavel,'📋');
   }catch(e){console.error('Erro ao vincular cliente em Relacionamento',e);}
 }
+// Fecha qualquer cronometro de etapa que tenha ficado aberto (_at sem
+// _end), na hora de chegar num estagio final (Vendido/Perdido) que nao
+// passa pelo moverLead() - pedido da Aline, 23/09/2026: temporizador em
+// todas as colunas, incluindo saber quanto tempo durou a etapa anterior.
+function fecharTimersAbertosMk(lead,extras){
+  ['atendimento','encantamento','negociacao','pendente','visita','resgate'].forEach(campo=>{
+    const campoAt=campo+'_at',campoEnd=campo+'_end';
+    if(lead[campoAt]&&!lead[campoEnd]){lead[campoEnd]=new Date().toISOString();extras[campoEnd]=lead[campoEnd];}
+  });
+}
 async function confirmarVendido(){
   const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim(),repasse=document.getElementById('vend-repasse').checked;
   if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
   const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
+  if(!lead.vendido_at){lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;}
+  fecharTimersAbertosMk(lead,camposVenda);
   if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
   await salvarCamposMk(id,camposVenda);
   await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',(repasse?'🔁 Repasse — ':'')+(obs||'Negócio fechado!'),G.user?.n||'','green');
@@ -3145,7 +3157,10 @@ async function confirmarPerda(){
   if(!motivo){toast('Selecione o motivo','red');return;}
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead.st='perdido';lead.motivoPerda=motivo;
-  await salvarCamposMk(id,{st:'perdido',motivoPerda:motivo});
+  const camposPerda={st:'perdido',motivoPerda:motivo};
+  if(!lead.perdido_at){lead.perdido_at=new Date().toISOString();camposPerda.perdido_at=lead.perdido_at;}
+  fecharTimersAbertosMk(lead,camposPerda);
+  await salvarCamposMk(id,camposPerda);
   await regHistMk(lead,'❌ Perdido',`Motivo: ${motivo}${obs?'. '+obs:''}`,G.user?.n||'','red');
   fecharModal('ov-perda');toast('Lead registrado como perdido');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
@@ -3155,7 +3170,13 @@ async function confirmarResgate(){
   if(!motivo){toast('Descreva a estratégia de resgate','red');return;}
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead.st='resgate';lead.resgatado=true;lead.resgateMotivo=motivo;lead.resgateData=data;
-  await salvarCamposMk(id,{st:'resgate',resgatado:true,resgateMotivo:motivo,resgateData:data});
+  const camposResgate={st:'resgate',resgatado:true,resgateMotivo:motivo,resgateData:data};
+  // Fecha os timers de outras etapas ANTES de abrir o do resgate (senao
+  // fecharTimersAbertosMk fecharia o resgate_at no mesmo instante em que
+  // acabou de abrir, ja que 'resgate' tambem esta na lista dela).
+  fecharTimersAbertosMk(lead,camposResgate);
+  if(!lead.resgate_at){lead.resgate_at=new Date().toISOString();camposResgate.resgate_at=lead.resgate_at;}
+  await salvarCamposMk(id,camposResgate);
   await regHistMk(lead,'🔄 Tentativa de resgate',motivo+(data?`. Contato previsto: ${isoParaBR(data)}`:''),G.user?.n||'','purple');
   fecharModal('ov-resgate');toast('Lead movido para Resgate');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
@@ -3239,8 +3260,11 @@ async function moverLead(id,novaCol){
     lead.atendimento_end=new Date().toISOString();extras.atendimento_end=lead.atendimento_end;
   }
   // Mesmo padrao do Atendimento, agora tambem pro cronometro de
-  // Encantamento e Negociacao (a pedido da Aline, 27/08/2026).
-  ['encantamento','negociacao'].forEach(colId=>{
+  // Encantamento e Negociacao (a pedido da Aline, 27/08/2026) - e depois
+  // Visita e Resgate tambem (pedido da Aline, 23/09/2026: "quero o
+  // temporizador em todas as colunas", pra aparecer na tela de detalhe/
+  // historico independente da etapa atual do lead).
+  ['encantamento','negociacao','visita','resgate'].forEach(colId=>{
     const campoAt=colId+'_at',campoEnd=colId+'_end';
     if(novaCol===colId&&!lead[campoAt]){
       lead[campoAt]=new Date().toISOString();extras[campoAt]=lead[campoAt];
@@ -3347,9 +3371,9 @@ function abrirDetailLead(id){
   const[campoStartEtapa,campoEndEtapa]=CAMPOS_TIMER_COL[col.id]||[null,null];
   const timerStartEtapa=campoStartEtapa?lead[campoStartEtapa]:null;
   const timerEndEtapa=campoEndEtapa?lead[campoEndEtapa]:null;
-  const timerEtapaHtml=col.timer&&timerStartEtapa&&!timerEndEtapa?
+  const timerEtapaHtml=timerStartEtapa&&!timerEndEtapa?
     `<span class="live-timer" data-start="${timerStartEtapa}" style="color:#e8431e;font-weight:700">calculando...</span>`:
-    (col.timer&&timerStartEtapa&&timerEndEtapa?`${calcElapsed(timerStartEtapa,timerEndEtapa)}`:null);
+    (timerStartEtapa&&timerEndEtapa?`${calcElapsed(timerStartEtapa,timerEndEtapa)}`:null);
   document.getElementById('detail-ov').classList.remove('hidden');
   const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
   const hist=(lead.historico||[]).slice().reverse();
