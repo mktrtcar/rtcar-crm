@@ -527,9 +527,11 @@ function iniciarAutoRefreshMk(){
   // documento muda de verdade, em vez de reler tudo a cada minuto pra
   // cada aba aberta. Pedido do Claude do sistema principal via Marcela,
   // 18/09/2026, apos auditoria de custo do Firebase (10x de R$150 pra
-  // R$1.200/mes, quase todo em Cloud Firestore). O guard de "aba oculta"
-  // que existia no polling nao faz falta aqui: um listener parado nao
-  // cobra nada enquanto nao houver mudanca de verdade, aba visivel ou nao.
+  // R$1.200/mes, quase todo em Cloud Firestore). CORRECAO (25/09/2026):
+  // esse listener continua cobrando 1 leitura por documento alterado
+  // enquanto a aba ficar aberta escutando, mesmo sem renderizar nada -
+  // "parado de mostrar" nao e' "parado de escutar". Pausa/retomada real
+  // por inatividade esta logo abaixo de pararTimerIA().
   _mkLeadsUnsub=db.collection('leads').onSnapshot(snap=>{
     if(G.modulo!=='marketing'){pararAutoRefreshMk();return;}
     if(algumaJanelaAberta())return;
@@ -4677,6 +4679,33 @@ function iniciarTimerIA(){
   },e=>console.error('Erro no listener de leads (IA):',e));
 }
 function pararTimerIA(){if(_iaLeadsUnsub){_iaLeadsUnsub();_iaLeadsUnsub=null;}}
+// Correcao de um raciocinio incompleto do comentario la em cima (linha do
+// iniciarAutoRefreshMk): um onSnapshot "parado de renderizar" NAO e' um
+// onSnapshot parado de cobrar - ele continua vivo e cobra 1 leitura por
+// documento alterado em "leads" o tempo todo que a aba ficar aberta,
+// esteja ela visivel, oculta ou simplesmente esquecida (Funil ou I.A.
+// abertos a madrugada inteira sem ninguem mexendo, por exemplo). Isso foi
+// apontado pelo Claude do sistema principal via Marcela, 25/09/2026,
+// depois de o onSnapshot ter reduzido mas nao zerado o excesso de
+// leituras. Aqui a gente pausa de verdade (desinscreve) apos alguns
+// minutos sem nenhuma interacao do usuario, e retoma (1 leitura cheia +
+// volta a escutar) assim que a pessoa mexer na tela de novo - zero
+// diferenca de comportamento enquanto a tela estiver em uso ativo.
+const IDLE_LIMITE_MS=15*60*1000;
+let _idleUltimaAtividade=Date.now();
+let _mkPausadoPorIdle=false,_iaPausadoPorIdle=false;
+['mousemove','keydown','click','scroll','touchstart'].forEach(ev=>{
+  document.addEventListener(ev,()=>{
+    _idleUltimaAtividade=Date.now();
+    if(_mkPausadoPorIdle&&G.modulo==='marketing'){_mkPausadoPorIdle=false;iniciarAutoRefreshMk();}
+    if(_iaPausadoPorIdle&&G.modulo==='ia'){_iaPausadoPorIdle=false;iniciarTimerIA();}
+  },{passive:true});
+});
+setInterval(()=>{
+  if(Date.now()-_idleUltimaAtividade<IDLE_LIMITE_MS)return;
+  if(_mkLeadsUnsub&&G.modulo==='marketing'){pararAutoRefreshMk();_mkPausadoPorIdle=true;}
+  if(_iaLeadsUnsub&&G.modulo==='ia'){pararTimerIA();_iaPausadoPorIdle=true;}
+},60*1000);
 function iaBadgeStatus(st){
   if(st==='ia')return '<span class="badge" style="background:var(--bluel);color:var(--blue)">NA IA</span>';
   if(st==='atendimento')return '<span class="badge" style="background:var(--goldl);color:var(--gold)">TRANSFERIDO</span>';
