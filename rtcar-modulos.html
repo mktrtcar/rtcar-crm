@@ -134,7 +134,7 @@
         <div class="mod-section-title"><i class="ti ti-car"></i> Interesse e Origem</div>
         <div class="field-row">
           <div class="field"><label>Origem *</label>
-            <select id="f-origem"><option value="">Selecione...</option><optgroup label="📢 Marketing"><option>Facebook</option><option>Instagram</option><option>Google + Site</option><option>Telefone</option><option>Mercado Livre</option><option>iCarros</option><option>Na Pista</option><option>Webmotors</option><option>Litoral Car</option><option>Mobiauto</option><option>OLX</option><option>Estética</option><option>Relacionamento</option><option>Compra</option></optgroup><optgroup label="🏪 Outros"><option>Passante</option><option>Loja</option><option>Evento Externo</option><option>My Business</option><option>Outra</option><option>Carteira</option><option>Prospecção</option><option>Indicação</option><option>BV</option></optgroup></select>
+            <select id="f-origem"><option value="">Selecione...</option><optgroup label="📢 Marketing"><option>Facebook</option><option>Instagram</option><option>Google + Site</option><option>Telefone</option><option>Mercado Livre</option><option>iCarros</option><option>Na Pista</option><option>Webmotors</option><option>Litoral Car</option><option>Mobiauto</option><option>OLX</option><option>Estética</option><option>Relacionamento</option><option>Compra</option></optgroup><optgroup label="🏪 Outros"><option>Passante</option><option>Loja</option><option>Evento Externo</option><option>My Business</option><option>Outra</option><option>Carteira</option><option>Prospecção</option><option>Indicação</option><option>BV</option><option>Repasse</option></optgroup></select>
           </div>
           <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Automático (rodízio)</option></select></div>
         </div>
@@ -581,10 +581,16 @@ const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','ate
 const ORIGENS_MK={
   marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
   compra:['Compra'],
-  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','BV']
+  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','BV','Repasse']
 };
 const TODAS_ORIGENS=[...ORIGENS_MK.marketing,...ORIGENS_MK.compra,...ORIGENS_MK.outros];
 function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(ORIGENS_MK.compra.includes(o))return'compra';return'outros';}
+// Repasse (vendido pra outro lojista/atacado, nao pro consumidor final) pode
+// ser marcado de duas formas: origem "Repasse" escolhida direto no lead (pedido
+// da Aline, 27/09/2026, caso do "beto repasse" cadastrado como Carteira), ou o
+// campo lead.repasse marcado na hora de confirmar a venda (forma mais antiga,
+// 21/09/2026). As duas contam pra tudo que e' Repasse - nao e' Venda nem Compra.
+function ehRepasse(l){return l.origem==='Repasse'||!!l.repasse;}
 
 // Normaliza a grafia de "origem": o Autoconf manda o nome do canal como
 // vier no cadastro de la (ex: "webmotors", "Webmotors", "WEBMOTORS "), mas
@@ -1409,14 +1415,14 @@ function statsDoDiaMk(nomes,offset=0){
     visitasCompra:ls.filter(l=>l.agendamentoStatus==='compareceu'&&(l.agendamentoData===hojeISO||(l.agendamentoCompareceuEm&&l.agendamentoCompareceuEm.slice(0,10)===hojeISO))&&l.origem==='Compra').length,
     agendamentos:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem!=='Compra').length,
     agendamentosCompra:ls.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)===hojeISO&&l.origem==='Compra').length,
-    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra'&&!l.repasse).length,
+    vendas:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra'&&!ehRepasse(l)).length,
     // De quem foi a venda/compra do dia - pra mostrar junto do numero, nao
     // so' o total (pedido da Aline, 10/09/2026).
-    vendasPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra'&&!l.repasse)),
+    vendasPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem!=='Compra'&&!ehRepasse(l))),
     compras:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra').length,
     compraPorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra')),
-    repasses:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.repasse).length,
-    repassePorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.repasse)),
+    repasses:ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&ehRepasse(l)).length,
+    repassePorVendedor:porVendedorDoDia(ls.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&ehRepasse(l))),
   };
 }
 // Clique nos numeros do painel "Hoje" do CRM pra ver quais leads sao esses
@@ -1460,6 +1466,9 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
   }else if(tipo==='compras'){
     titulo='Compra';
     leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&l.origem==='Compra');
+  }else if(tipo==='repasses'){
+    titulo='Repasse';
+    leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&ehRepasse(l));
   }else if(tipo==='chegaramIA'){
     titulo='Chegaram na I.A.';
     leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
@@ -1625,7 +1634,8 @@ function renderDashboardHoje(cnt){
       boxesFinais=`
         ${kpiCard(st.vendas,'Vendas do dia','var(--green)','var(--greenl)',`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
         ${kpiCard(vendasSemana,'Vendas da semana','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${semana.ini}','${semana.fim}')`)}
-        ${kpiCard(vendasMes,'Vendas do mês','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${mes.ini}','${mes.fim}')`)}`;
+        ${kpiCard(vendasMes,'Vendas do mês','var(--green)','var(--greenl)',`abrirDrillMkPeriodo(null,'${nm}','${mes.ini}','${mes.fim}')`)}
+        ${kpiCard(st.repasses,'Repasse do dia','var(--purple)','var(--purplel)',`abrirDrillMk('repasses',null,'${nm}',${offset})`)}`;
     }else{
       // Visita Compra e Visita Relacionamento ficam juntas da "Visita" comum
       // (mais abaixo, fora do boxesFinais) - pedido da Aline, 10/09/2026, pra
@@ -1633,7 +1643,8 @@ function renderDashboardHoje(cnt){
       boxesFinais=`
         ${kpiCard(st.agendamentosCompra,'Agendamento Compra','var(--gold)','var(--goldl)',`abrirDrillMk('agendamentosCompra',null,'${nm}',${offset})`)}
         ${boxComQuem(st.vendas,'Vendas','var(--green)','var(--greenl)',st.vendasPorVendedor,`abrirDrillMk('vendas',null,'${nm}',${offset})`)}
-        ${boxComQuem(st.compras,'Compra','var(--green)','var(--greenl)',st.compraPorVendedor,`abrirDrillMk('compras',null,'${nm}',${offset})`)}`;
+        ${boxComQuem(st.compras,'Compra','var(--green)','var(--greenl)',st.compraPorVendedor,`abrirDrillMk('compras',null,'${nm}',${offset})`)}
+        ${boxComQuem(st.repasses,'Repasse','var(--purple)','var(--purplel)',st.repassePorVendedor,`abrirDrillMk('repasses',null,'${nm}',${offset})`)}`;
     }
     return`<div class="d-section"><div class="d-section-title">${titulo}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;margin-top:5px">
@@ -1828,8 +1839,8 @@ function statsGeralIntervalo(iniISO,fimISO){
   const agendamento=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem!=='Compra').length;
   const agendamentoCompra=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem==='Compra').length;
 
-  const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o&&!l.repasse).length;if(n>0)vendasMktPorCanal[o]=n;});
-  const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o&&!l.repasse).length;if(n>0)vendasOutrosPorCanal[o]=n;});
+  const vendasMktPorCanal={};ORIGENS_MK.marketing.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o&&!ehRepasse(l)).length;if(n>0)vendasMktPorCanal[o]=n;});
+  const vendasOutrosPorCanal={};ORIGENS_MK.outros.forEach(o=>{const n=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem===o&&!ehRepasse(l)).length;if(n>0)vendasOutrosPorCanal[o]=n;});
   const vendasCompra=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').length;
   // Compra e' um tipo de negocio diferente de Venda (a pessoa que fecha a
   // Compra, hoje a Milena, nao esta "vendendo" um carro) - por isso fica de
@@ -1844,9 +1855,9 @@ function statsGeralIntervalo(iniISO,fimISO){
   // captadorReplicado: lead "replicado" conta 1 venda pra cada um dos 2
   // vendedores (pedido da Aline, 08/09/2026) - o total geral continua
   // contando o negocio uma vez so, so o detalhamento por vendedor credita os 2.
-  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra'&&!l.repasse).forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;if(l.captadorReplicado)vendasPorVendedor[l.captadorReplicado]=(vendasPorVendedor[l.captadorReplicado]||0)+1;});
+  const vendasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem!=='Compra'&&!ehRepasse(l)).forEach(l=>{const v=quemVendeu(l);vendasPorVendedor[v]=(vendasPorVendedor[v]||0)+1;if(l.captadorReplicado)vendasPorVendedor[l.captadorReplicado]=(vendasPorVendedor[l.captadorReplicado]||0)+1;});
   const comprasPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.origem==='Compra').forEach(l=>{const v=quemComprou(l);comprasPorVendedor[v]=(comprasPorVendedor[v]||0)+1;if(l.captadorReplicado)comprasPorVendedor[l.captadorReplicado]=(comprasPorVendedor[l.captadorReplicado]||0)+1;});
-  const repassesPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&l.repasse).forEach(l=>{const v=quemVendeu(l);repassesPorVendedor[v]=(repassesPorVendedor[v]||0)+1;if(l.captadorReplicado)repassesPorVendedor[l.captadorReplicado]=(repassesPorVendedor[l.captadorReplicado]||0)+1;});
+  const repassesPorVendedor={};G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodo(l)&&ehRepasse(l)).forEach(l=>{const v=quemVendeu(l);repassesPorVendedor[v]=(repassesPorVendedor[v]||0)+1;if(l.captadorReplicado)repassesPorVendedor[l.captadorReplicado]=(repassesPorVendedor[l.captadorReplicado]||0)+1;});
   const totalRepasses=Object.values(repassesPorVendedor).reduce((a,b)=>a+b,0);
   const totalVendasMkt=Object.values(vendasMktPorCanal).reduce((a,b)=>a+b,0);
   const totalVendasOutros=Object.values(vendasOutrosPorCanal).reduce((a,b)=>a+b,0);
@@ -1923,17 +1934,17 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     colunas=['Cliente','Veículo','Origem (como veio)','Vendedor'];
   }else if(tipo==='vendasCanal'){
     titulo=`Vendas — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave&&!l.repasse)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem===chave&&!ehRepasse(l))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Vendedor','Valor'];
   }else if(tipo==='vendasTotalMkt'){
     titulo='Vendas — Total Marketing';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing'&&!l.repasse)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing'&&!ehRepasse(l))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasTotalOutros'){
     titulo='Vendas — Total Outros Canais';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros'&&!l.repasse)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros'&&!ehRepasse(l))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasVendedor'){
@@ -1942,7 +1953,7 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     // (lead "replicado" conta pros 2 vendedores) - sem incluir aqui, o
     // numero do resumo nao batia com a lista (ex: mostrava 2 mas a lista
     // só trazia 1 - achado pela Aline, 18/09/2026, caso da Milena).
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&!l.repasse&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&!ehRepasse(l)&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Valor'];
   }else if(tipo==='comprasVendedor'){
@@ -1952,17 +1963,17 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
     colunas=['Cliente','Veículo','Valor'];
   }else if(tipo==='repasseVendedor'){
     titulo=`Repasses — ${chave}`;
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.repasse&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&ehRepasse(l)&&(quemVendeu(l)===chave||l.captadorReplicado===chave))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',fmtV(l)]);
     colunas=['Cliente','Veículo','Valor'];
   }else if(tipo==='repasseTotal'){
     titulo='Repasses — Total do período';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.repasse)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&ehRepasse(l))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Vendedor','Valor'];
   }else if(tipo==='vendasTotal'){
     titulo='Vendas — Total do período';
-    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&!l.repasse)
+    itens=G.mk.leads.filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,iniISO,fimISO)&&l.origem!=='Compra'&&!ehRepasse(l))
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',quemVendeu(l),fmtV(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor','Valor'];
   }else if(tipo==='vendasCompra'){
@@ -2078,6 +2089,8 @@ function geralBlocoResumoVendas(){
       ${bloco(`💰 Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.vendasPorVendedor,totalMes,mes.ini,mes.fim,'vendasVendedor','vendasTotal')}
       ${bloco(`🛒 Compras — Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.comprasPorVendedor,stSemana.vendasCompra,semana.ini,semana.fim,'comprasVendedor','vendasCompra',true)}
       ${bloco(`🛒 Compras — Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.comprasPorVendedor,stMes.vendasCompra,mes.ini,mes.fim,'comprasVendedor','vendasCompra')}
+      ${bloco(`🔁 Repasse — Semana atual (${isoParaBR(semana.ini)} a ${isoParaBR(semana.fim)})`,stSemana.repassesPorVendedor,stSemana.totalRepasses,semana.ini,semana.fim,'repasseVendedor','repasseTotal',true)}
+      ${bloco(`🔁 Repasse — Mês atual (${isoParaBR(mes.ini)} a ${isoParaBR(mes.fim)})`,stMes.repassesPorVendedor,stMes.totalRepasses,mes.ini,mes.fim,'repasseVendedor','repasseTotal')}
     </div>`;
 }
 function geralCorpoHtml(st,tituloIndicadores,iniISO,fimISO,porChegada){
