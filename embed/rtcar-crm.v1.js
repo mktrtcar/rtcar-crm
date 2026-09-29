@@ -65,6 +65,7 @@ const USUARIOS=[
   {id:'u14',n:'Jean',    e:'rtcargarantia@gmail.com',       r:'seller'},
   {id:'u15',n:'Victor',  e:'victor@rtcar.com.br',           r:'seller'},
   {id:'u16',n:'Guilmara',e:'rtcred@rtcar.com.br',           r:'rtcred'},
+  {id:'u17',n:'Ezequiel',e:'consultorezequiel@rtcar.com.br',r:'seller'},
 ];
 
 /* COLUNAS MARKETING */
@@ -294,14 +295,15 @@ async function fazerLogin(){
 // auto-login quando o sistema principal ja tem sessao no mesmo Firebase
 // Auth) - preenche a tela e entra no CRM.
 function entrarNaApp(u){
-  // Bloqueio pedido pela Aline, 29/09/2026: vendedores passam a usar
-  // exclusivamente o CRM embutido dentro do sistema principal - o acesso
-  // direto (fora do embed, neste site standalone) fica reservado a quem
-  // nao e' seller. So' vale fora do embed: dentro do sistema principal
-  // (RTCARCRM_EMBED=true) o acesso continua normal pra todo mundo.
-  // Fica aqui (nao so' em fazerLogin) porque tentarAutoLogin() tambem
-  // chega em entrarNaApp direto, sem passar pela tela de senha.
-  if(!window.RTCARCRM_EMBED&&u.r==='seller'){
+  // Bloqueio pedido pela Aline, 29/09/2026 (ampliado no mesmo dia: "a unica
+  // que ficara com acesso ao CRM sou eu Aline com o email contato, demais
+  // bloqueados"): todo mundo passa a usar exclusivamente o CRM embutido
+  // dentro do sistema principal, exceto esse e-mail especifico. So' vale
+  // fora do embed: dentro do sistema principal (RTCARCRM_EMBED=true) o
+  // acesso continua normal pra todo mundo. Fica aqui (nao so' em
+  // fazerLogin) porque tentarAutoLogin() tambem chega em entrarNaApp
+  // direto, sem passar pela tela de senha.
+  if(!window.RTCARCRM_EMBED&&u.e.toLowerCase()!=='contato@rtcar.com.br'){
     fbAuth.signOut().catch(()=>{});
     const erroEl=document.getElementById('login-error');
     if(erroEl){
@@ -1216,7 +1218,7 @@ function renderDashboardHoje(cnt){
       ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
     </div>`;
   if(G.user?.r==='master'){
-    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara'];
+    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara','Ezequiel'];
     const stTodos=statsDoDiaMk(TODOS_VENDEDORES,offset);
     const diaISO=hojeISOlocal(offset);
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
@@ -2059,7 +2061,7 @@ window.removerVeiculoTroca=removerVeiculoTroca;
    O contador é incrementado via fieldTransform atômico do Firestore (increment), em vez de
    ler-e-gravar em duas chamadas separadas — assim duas criações de lead ao mesmo tempo nunca
    leem o mesmo número e caem no mesmo vendedor. */
-const RODIZIO_VENDEDORES=['Janderson','Maicon','Victor'];
+const RODIZIO_VENDEDORES=['Janderson','Maicon','Victor','Ezequiel'];
 async function proximoVendedorRodizio(){
   if(!RODIZIO_VENDEDORES.length)return'';
   if(G.mk.modoDemo){
@@ -2596,7 +2598,7 @@ async function salvarLead(){
 // e o mes contou errado). Tirada da lista de quem pode ser escolhido como
 // vendedor/captador (dropdown, Transferir, Replicar) - ver tambem a trava
 // em salvarLead().
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara','Ezequiel'];
 // Popup de "Transferir/Replicar/Vendedor" abre pra baixo por padrao - no
 // ultimo card de cada coluna (perto do fim da tela) isso cortava a lista,
 // escondendo os ultimos nomes. Agora mede se cabe embaixo e, se nao couber,
