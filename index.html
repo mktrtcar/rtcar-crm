@@ -782,6 +782,23 @@ async function fazerLogin(){
 // auto-login quando o sistema principal ja tem sessao no mesmo Firebase
 // Auth) - preenche a tela e entra no CRM.
 function entrarNaApp(u){
+  // Bloqueio pedido pela Aline, 29/09/2026: vendedores passam a usar
+  // exclusivamente o CRM embutido dentro do sistema principal - o acesso
+  // direto (fora do embed, neste site standalone) fica reservado a quem
+  // nao e' seller. So' vale fora do embed: dentro do sistema principal
+  // (RTCARCRM_EMBED=true) o acesso continua normal pra todo mundo.
+  // Fica aqui (nao so' em fazerLogin) porque tentarAutoLogin() tambem
+  // chega em entrarNaApp direto, sem passar pela tela de senha.
+  if(!window.RTCARCRM_EMBED&&u.r==='seller'){
+    fbAuth.signOut().catch(()=>{});
+    const erroEl=document.getElementById('login-error');
+    if(erroEl){
+      erroEl.style.color='var(--red)';erroEl.style.background='var(--redl)';
+      erroEl.textContent='Esse acesso direto foi desativado. Use o CRM de dentro do sistema principal.';
+      erroEl.style.display='block';
+    }
+    return;
+  }
   G.user=u;
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
