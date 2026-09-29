@@ -553,6 +553,7 @@ const USUARIOS=[
   {id:'u14',n:'Jean',    e:'rtcargarantia@gmail.com',       r:'seller'},
   {id:'u15',n:'Victor',  e:'victor@rtcar.com.br',           r:'seller'},
   {id:'u16',n:'Guilmara',e:'rtcred@rtcar.com.br',           r:'rtcred'},
+  {id:'u17',n:'Ezequiel',e:'consultorezequiel@rtcar.com.br',r:'seller'},
 ];
 
 /* COLUNAS MARKETING */
@@ -1704,7 +1705,7 @@ function renderDashboardHoje(cnt){
       ${offset!==0?'<button class="btn btn-outline btn-sm" onclick="__G().mk.hojeOffset=0;renderMarketing()">Voltar pra hoje</button>':''}
     </div>`;
   if(G.user?.r==='master'){
-    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara'];
+    const TODOS_VENDEDORES=['Marcela','Rafael','Aline','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara','Ezequiel'];
     const stTodos=statsDoDiaMk(TODOS_VENDEDORES,offset);
     const diaISO=hojeISOlocal(offset);
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
@@ -3084,7 +3085,7 @@ async function salvarLead(){
 // e o mes contou errado). Tirada da lista de quem pode ser escolhido como
 // vendedor/captador (dropdown, Transferir, Replicar) - ver tambem a trava
 // em salvarLead().
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara','Ezequiel'];
 // Popup de "Transferir/Replicar/Vendedor" abre pra baixo por padrao - no
 // ultimo card de cada coluna (perto do fim da tela) isso cortava a lista,
 // escondendo os ultimos nomes. Agora mede se cabe embaixo e, se nao couber,
