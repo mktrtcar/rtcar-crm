@@ -2678,6 +2678,21 @@ async function confirmarVendido(){
   // janela); standalone abre o sistema principal em aba nova com os dados
   // na URL - os dois dependem de window.abrirTermoDoCRM existir do lado
   // dela; enquanto nao existir, isso e' um no-op no modo embutido.
+  // Correcao 29/09/2026 (pedido da Marcela/Rafael): lead de origem "Compra"
+  // (trabalho da Milena, captando vendedor de carro) e' um negocio
+  // diferente de Venda - antes disso, todo lead confirmado abria o mesmo
+  // Termo de Venda, mesmo sendo Compra. Agora chama abrirCompraDoCRM em vez
+  // de abrirTermoDoCRM quando a origem for Compra.
+  if(ORIGENS_MK.compra.includes(lead.origem)){
+    const dadosCompra={leadId:lead.id,cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
+    if(window.RTCARCRM_EMBED&&typeof window.abrirCompraDoCRM==='function'){
+      window.abrirCompraDoCRM(dadosCompra);
+    }else if(!window.RTCARCRM_EMBED){
+      const payloadCompra=btoa(unescape(encodeURIComponent(JSON.stringify(dadosCompra))));
+      window.open(`${URL_SISTEMA_PRINCIPAL}?crmCompra=${encodeURIComponent(payloadCompra)}`,'_blank');
+    }
+    return;
+  }
   const dadosTermo={leadId:lead.id,cliente:lead.clienteNome,telefone:lead.clienteTel,origem:lead.origem,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor}};
   if(window.RTCARCRM_EMBED&&typeof window.abrirTermoDoCRM==='function'){
     window.abrirTermoDoCRM(dadosTermo);
