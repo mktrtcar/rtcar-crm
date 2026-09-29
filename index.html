@@ -783,14 +783,15 @@ async function fazerLogin(){
 // auto-login quando o sistema principal ja tem sessao no mesmo Firebase
 // Auth) - preenche a tela e entra no CRM.
 function entrarNaApp(u){
-  // Bloqueio pedido pela Aline, 29/09/2026: vendedores passam a usar
-  // exclusivamente o CRM embutido dentro do sistema principal - o acesso
-  // direto (fora do embed, neste site standalone) fica reservado a quem
-  // nao e' seller. So' vale fora do embed: dentro do sistema principal
-  // (RTCARCRM_EMBED=true) o acesso continua normal pra todo mundo.
-  // Fica aqui (nao so' em fazerLogin) porque tentarAutoLogin() tambem
-  // chega em entrarNaApp direto, sem passar pela tela de senha.
-  if(!window.RTCARCRM_EMBED&&u.r==='seller'){
+  // Bloqueio pedido pela Aline, 29/09/2026 (ampliado no mesmo dia: "a unica
+  // que ficara com acesso ao CRM sou eu Aline com o email contato, demais
+  // bloqueados"): todo mundo passa a usar exclusivamente o CRM embutido
+  // dentro do sistema principal, exceto esse e-mail especifico. So' vale
+  // fora do embed: dentro do sistema principal (RTCARCRM_EMBED=true) o
+  // acesso continua normal pra todo mundo. Fica aqui (nao so' em
+  // fazerLogin) porque tentarAutoLogin() tambem chega em entrarNaApp
+  // direto, sem passar pela tela de senha.
+  if(!window.RTCARCRM_EMBED&&u.e.toLowerCase()!=='contato@rtcar.com.br'){
     fbAuth.signOut().catch(()=>{});
     const erroEl=document.getElementById('login-error');
     if(erroEl){
@@ -2548,7 +2549,7 @@ window.removerVeiculoTroca=removerVeiculoTroca;
    O contador é incrementado via fieldTransform atômico do Firestore (increment), em vez de
    ler-e-gravar em duas chamadas separadas — assim duas criações de lead ao mesmo tempo nunca
    leem o mesmo número e caem no mesmo vendedor. */
-const RODIZIO_VENDEDORES=['Janderson','Maicon','Victor'];
+const RODIZIO_VENDEDORES=['Janderson','Maicon','Victor','Ezequiel'];
 async function proximoVendedorRodizio(){
   if(!RODIZIO_VENDEDORES.length)return'';
   if(G.mk.modoDemo){
