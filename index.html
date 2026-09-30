@@ -270,7 +270,7 @@
 
 <div id="ov-veiculo-troca" class="ov hidden" onclick="if(event.target===this)fecharModal('ov-veiculo-troca')">
   <div class="mod" style="max-width:440px">
-    <div class="mod-head"><h3>🔄 Veículo de troca</h3><button class="mod-close" onclick="fecharModal('ov-veiculo-troca')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-head"><h3 id="vt-titulo">🔄 Veículo de troca</h3><button class="mod-close" onclick="fecharModal('ov-veiculo-troca')"><i class="ti ti-x"></i></button></div>
     <div class="mod-body">
       <p style="font-size:12px;color:var(--tx3);margin-bottom:14px">Carro do próprio cliente, oferecido na troca. Detalhes completos ficam pra avaliação — aqui é só uma marcação inicial.</p>
       <div class="field-row">
@@ -1256,7 +1256,11 @@ function renderKanbanMk(cnt){
         <div class="card-footer">
           <div class="card-actions" style="flex-wrap:wrap">
             <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
-            ${COLS_PERMITE_TROCA.includes(col.id)?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="Informar/editar o veículo de troca"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||'Veículo de troca':'Veículo de troca'}</button>`:''}
+            ${COLS_PERMITE_TROCA.includes(col.id)?(()=>{
+              const rotuloVazio=l.origem==='Compra'?'Veículo da compra':'Veículo de troca';
+              const tituloBtn=l.origem==='Compra'?'Informar/editar o veículo sendo comprado':'Informar/editar o veículo de troca';
+              return `<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="${tituloBtn}"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||rotuloVazio:rotuloVazio}</button>`;
+            })():''}
             ${(COLS_PERMITE_TROCA.includes(col.id)&&l.veiculoTroca)?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`:''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
@@ -2467,7 +2471,13 @@ function atualizarBotaoVeiculoTroca(){
 }
 function abrirVeiculoTroca(leadIdDireto){
   _veiculoTrocaLeadDireto=leadIdDireto||null;
-  const vt=leadIdDireto?(G.mk.leads.find(l=>l.id===leadIdDireto)?.veiculoTroca||{}):(_veiculoTrocaAtual||{});
+  const leadRef=leadIdDireto?G.mk.leads.find(l=>l.id===leadIdDireto):null;
+  const vt=leadRef?(leadRef.veiculoTroca||{}):(_veiculoTrocaAtual||{});
+  // Rotulo contextual (pedido da Marcela/Rafael, 30/09/2026): pra lead de
+  // Compra isso nao e' "troca", e' o proprio veiculo sendo comprado - achado
+  // real (Toyota Cross SDB-7C40, lead da Milena) fechado sem avaliacao
+  // porque ninguem associava esse botao a Compra.
+  document.getElementById('vt-titulo').textContent=leadRef?.origem==='Compra'?'🚗 Veículo da compra':'🔄 Veículo de troca';
   document.getElementById('vt-marca').value=vt.marca||'';
   document.getElementById('vt-modelo').value=vt.modelo||'';
   document.getElementById('vt-ano').value=vt.ano||'';
