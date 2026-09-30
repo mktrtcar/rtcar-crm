@@ -237,3 +237,5 @@ Object.assign(exports,require('./sync-venda'));
 Object.assign(exports,require('./diagnostico'));
 Object.assign(exports,require('./litoralcar-email'));
 Object.assign(exports,require('./admin-usuarios'));
+Object.assign(exports,require('./diag-estoque'));
+Object.assign(exports,require('./migrar-site'));
