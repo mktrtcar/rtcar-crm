@@ -31,7 +31,7 @@ function garantirRootDOM(){
 'use strict';
 
 /* ============================================================
-   RT CAR — MARKETING & RELACIONAMENTO v1.1.0
+   RT CAR — MARKETING & RELACIONAMENTO v1.2.0 (30/09/2026)
    Arquivo único — login único — navegação sem recarregar
    ============================================================ */
 
@@ -650,10 +650,12 @@ function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenador
    uso, mas so pra quem nao e vendedor (coordenadora/gestao cuidam disso). */
 function colunaOculta(colId){
   if(colId==='visita')return true;
-  // Resgate fica escondido do vendedor normalmente, mas o Victor e' excecao
-  // (a pedido da Aline, 01/09/2026): o trabalho dele e' justamente resgatar
-  // lead perdido, entao ele precisa ver e mover leads pra essa coluna.
-  if(colId==='resgate')return isSeller()&&G.user?.n!=='Victor';
+  // Resgate fica escondido do vendedor normalmente, mas alguns sao excecao
+  // - o trabalho deles e' justamente resgatar lead perdido, entao precisam
+  // ver e mover leads pra essa coluna. Victor (pedido da Aline, 01/09/2026),
+  // Ezequiel (pedido da Aline, 30/09/2026 - vieram varios leads de resgate
+  // transferidos pra ele).
+  if(colId==='resgate')return isSeller()&&!['Victor','Ezequiel'].includes(G.user?.n);
   return false;
 }
 function isManager(){return G.user?.r==='manager'||G.user?.r==='master'||G.user?.r==='coordenadora'||G.user?.r==='dev';}
