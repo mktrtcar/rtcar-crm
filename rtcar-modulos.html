@@ -138,14 +138,14 @@
           </div>
           <div class="field"><label>Vendedor</label><select id="f-captador"><option value="">Automático (rodízio)</option></select></div>
         </div>
-        <div class="field"><label>Veículo de interesse</label>
+        <div class="field"><label id="lbl-veiculo-interesse">Veículo de interesse</label>
           <div style="display:flex;gap:6px">
             <input type="text" id="f-veiculo" placeholder="Ex: Honda HR-V 2022" style="flex:1">
-            <button type="button" class="btn btn-outline btn-sm" onclick="abrirBuscaEstoque('lead')">🔍 Buscar no estoque</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-buscar-estoque" onclick="abrirBuscaEstoque('lead')">🔍 Buscar no estoque</button>
           </div>
-          <input type="hidden" id="f-veiculo-placa">
+          <input type="text" id="f-veiculo-placa" placeholder="Placa do veículo" style="margin-top:6px;display:none;text-transform:uppercase">
         </div>
-        <div class="field">
+        <div class="field" id="field-veiculo-troca">
           <button type="button" class="btn btn-outline btn-sm" id="btn-veiculo-troca" onclick="abrirVeiculoTroca()">🔄 Veículo de troca</button>
         </div>
         <div class="field-row">
@@ -870,7 +870,7 @@ function popularSelects(){
   if(selVendCli){selVendCli.innerHTML='<option value="">Selecione...</option>'+VENDEDORES_ATIVOS.map(v=>`<option value="${v}">${v}</option>`).join('');}
   // quando origem=Compra, auto-seleciona Milena
   const selOrigem=document.getElementById('f-origem');
-  if(selOrigem) selOrigem.onchange=function(){if(this.value==='Compra'&&selCap&&!selCap.value)selCap.value='Milena';};
+  if(selOrigem) selOrigem.onchange=function(){if(this.value==='Compra'&&selCap&&!selCap.value)selCap.value='Milena';atualizarCamposOrigemLead();};
 }
 
 /* ---- NAVEGAÇÃO ENTRE MÓDULOS ---- */
@@ -1261,7 +1261,7 @@ function renderKanbanMk(cnt){
               const tituloBtn=l.origem==='Compra'?'Informar/editar o veículo sendo comprado':'Informar/editar o veículo de troca';
               return `<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="${tituloBtn}"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||rotuloVazio:rotuloVazio}</button>`;
             })():''}
-            ${(COLS_PERMITE_TROCA.includes(col.id)&&l.veiculoTroca)?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`:''}
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||(l.origem==='Compra'&&l.veiculo&&l.veiculoPlaca)))?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`:''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
@@ -2449,7 +2449,23 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('lead-cliente-sug').style.display='none';
   _veiculoTrocaAtual=l?.veiculoTroca||null;
   atualizarBotaoVeiculoTroca();
+  atualizarCamposOrigemLead();
   document.getElementById('ov-lead').classList.remove('hidden');setTimeout(()=>document.getElementById('f-nome').focus(),50);
+}
+// Pra origem Compra, o "veiculo de interesse" e' o proprio carro que o
+// cliente esta trazendo pra vender - nao faz sentido "buscar no estoque"
+// (isso e' o estoque DA LOJA) nem "veiculo de troca" (nao e' troca, e' uma
+// compra). Em vez disso, mostra a placa direto ali, pra dar pra pedir
+// avaliacao assim que o lead for salvo, sem precisar do fluxo separado de
+// veiculo de troca (achado real: Toyota Cross SDB-7C40 fechado sem
+// avaliacao porque esse caminho nao existia - pedido da Aline, 30/09/2026).
+function atualizarCamposOrigemLead(){
+  const origem=document.getElementById('f-origem').value;
+  const ehCompra=origem==='Compra';
+  document.getElementById('lbl-veiculo-interesse').textContent=ehCompra?'Veículo do cliente (a ser comprado)':'Veículo de interesse';
+  document.getElementById('btn-buscar-estoque').style.display=ehCompra?'none':'';
+  document.getElementById('f-veiculo-placa').style.display=ehCompra?'':'none';
+  document.getElementById('field-veiculo-troca').style.display=ehCompra?'none':'';
 }
 // Veiculo de troca - carro do PROPRIO CLIENTE oferecido na troca, so uma
 // tag inicial (marca/modelo/ano/placa) pra sinalizar que existe; detalhe
@@ -2517,11 +2533,21 @@ async function salvarVeiculoTroca(){
 // Sistema principal da Marcela - usado tanto no gatilho embutido (mesma
 // janela) quanto no link direto (janelas/sites separados) abaixo.
 const URL_SISTEMA_PRINCIPAL='https://rtcaroficial.github.io/rtcar/dev.html';
+// Lead de Compra nao tem marca/modelo separados (so' o campo livre
+// "veiculo", tipo "Honda HR-V") - divide na primeira palavra (marca) e o
+// resto (modelo), melhor esforco. Quem faz a avaliacao no sistema
+// principal pode corrigir isso na hora se vier errado.
+function veiculoCompraParaAvaliacao(lead){
+  const partes=(lead.veiculo||'').trim().split(/\s+/);
+  return{marca:partes[0]||'',modelo:partes.slice(1).join(' ')||'',ano:'',cor:'',placa:lead.veiculoPlaca||''};
+}
 function solicitarAvaliacaoTroca(id,e){
   if(e)e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);
-  if(!lead||!lead.veiculoTroca){toast('Informe o veículo de troca primeiro','red');return;}
-  const dados={cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:lead.veiculoTroca};
+  if(!lead)return;
+  const veiculoParaAvaliacao=lead.veiculoTroca||(lead.origem==='Compra'&&lead.veiculo&&lead.veiculoPlaca?veiculoCompraParaAvaliacao(lead):null);
+  if(!veiculoParaAvaliacao){toast('Informe o veículo primeiro','red');return;}
+  const dados={cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:veiculoParaAvaliacao};
   if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
     window.abrirAvaliacaoDoCRM(dados);
     return;
