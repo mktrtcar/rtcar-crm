@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
@@ -171,6 +172,9 @@ nav a.navlink:hover{opacity:1;color:var(--red2)}
 .ficha-item{background:var(--bg3);border-radius:10px;padding:10px 13px}
 .ficha-item .lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
 .ficha-item .val{font-size:13.5px;font-weight:700;margin-top:2px}
+.ficha-item.admin-editavel{outline:1px dashed var(--acc,#e05a2b)}
+.ficha-item .val-input{width:100%;font-size:13.5px;font-weight:700;margin-top:2px;background:transparent;border:none;border-bottom:1px solid var(--acc,#e05a2b);color:inherit;font-family:inherit;padding:0}
+.ficha-item .val-input:focus{outline:none}
 
 .opcionais-lista{display:flex;flex-wrap:wrap;gap:8px}
 .opc-tag{background:var(--greenl);color:var(--green);font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px}
@@ -542,6 +546,68 @@ function renderSobre(){
     </div>`;
 }
 
+// Campo editavel direto na pagina do carro (so' com login - ver modoAdmin
+// mais abaixo) - salva no mesmo site_veiculos que o admin.html usa, com o
+// mesmo "trava esse campo" de sempre, pra uma sincronizacao futura nunca
+// sobrescrever o que foi editado aqui.
+function campoEditavelHtml(v, campo, label, valorExibido){
+  if(!modoAdmin) return `<div class="ficha-item"><div class="lbl">${label}</div><div class="val">${valorExibido}</div></div>`;
+  return `<div class="ficha-item admin-editavel">
+    <div class="lbl">${label}</div>
+    <input class="val-input" value="${(v[campo]||'').toString().replace(/"/g,'&quot;')}" onchange="salvarCampoDetalhe('${v.id}','${campo}',this.value)">
+  </div>`;
+}
+async function salvarCampoDetalhe(id, campo, valor){
+  const v = ESTOQUE.find(x=>x.id===id);
+  const bloqueados = new Set(v.camposBloqueados || []);
+  bloqueados.add(campo);
+  await db.collection('site_veiculos').doc(id).set({ [campo]: valor, camposBloqueados: [...bloqueados] }, { merge: true });
+  v[campo] = valor; v.camposBloqueados = [...bloqueados];
+}
+async function excluirFotoDetalhe(id, n){
+  if(!confirm('Excluir essa foto?')) return;
+  const v = ESTOQUE.find(x=>x.id===id);
+  v.fotos.splice(n-1, 1);
+  await db.collection('site_veiculos').doc(id).set({ fotos: v.fotos, fotosBloqueadas: true }, { merge: true });
+  renderDetalhe(id);
+}
+async function adicionarFotoDetalhe(id, input){
+  const arquivos = Array.from(input.files || []);
+  if(!arquivos.length) return;
+  const v = ESTOQUE.find(x=>x.id===id);
+  for(const arquivo of arquivos){
+    const caminho = `veiculos/${id}/${Date.now()}-${arquivo.name}`;
+    const ref = firebase.storage().ref(caminho);
+    await ref.put(arquivo);
+    const url = await ref.getDownloadURL();
+    v.fotos.push(url);
+  }
+  input.value = '';
+  await db.collection('site_veiculos').doc(id).set({ fotos: v.fotos, fotosBloqueadas: true }, { merge: true });
+  renderDetalhe(id);
+}
+async function adicionarOpcionalDetalhe(id){
+  const campo = document.getElementById(`novo-opc-${id}`);
+  const valor = (campo.value || '').trim();
+  if(!valor) return;
+  const v = ESTOQUE.find(x=>x.id===id);
+  v.opcionais = [...(v.opcionais||[]), valor];
+  const bloqueados = new Set(v.camposBloqueados || []);
+  bloqueados.add('opcionais');
+  v.camposBloqueados = [...bloqueados];
+  await db.collection('site_veiculos').doc(id).set({ opcionais: v.opcionais, camposBloqueados: v.camposBloqueados }, { merge: true });
+  renderDetalhe(id);
+}
+async function removerOpcionalDetalhe(id, indice){
+  const v = ESTOQUE.find(x=>x.id===id);
+  v.opcionais = (v.opcionais||[]).filter((_,i)=>i!==indice);
+  const bloqueados = new Set(v.camposBloqueados || []);
+  bloqueados.add('opcionais');
+  v.camposBloqueados = [...bloqueados];
+  await db.collection('site_veiculos').doc(id).set({ opcionais: v.opcionais, camposBloqueados: v.camposBloqueados }, { merge: true });
+  renderDetalhe(id);
+}
+
 function renderDetalhe(id){
   if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
   const v = ESTOQUE.find(x=>x.id===id);
@@ -554,32 +620,41 @@ function renderDetalhe(id){
     <a class="voltar" href="#/estoque">← Voltar para o estoque</a>
     <div class="detalhe-layout">
       <div>
-        <div class="galeria-principal" id="galeria-principal">
+        <div class="galeria-principal" id="galeria-principal" style="position:relative">
           ${fotos ? `<img src="${fotoUrl(v.id,1)}" id="foto-grande">` : `<div class="card-prep" style="aspect-ratio:4/3"><span class="ti">🚗</span><span>Em preparação</span></div>`}
         </div>
-        ${fotos && fotos.length>1 ? `<div class="galeria-thumbs">${fotos.map(n=>`<img src="${fotoUrl(v.id,n)}" class="${n===1?'on':''}" onclick="trocarFoto('${v.id}',${n},this)">`).join('')}</div>` : ''}
+        ${modoAdmin ? `<div class="galeria-thumbs" style="margin-top:6px">
+          ${fotos ? fotos.map(n=>`<div style="position:relative;display:inline-block">
+            <img src="${fotoUrl(v.id,n)}" class="${n===1?'on':''}" onclick="trocarFoto('${v.id}',${n},this)">
+            <button onclick="excluirFotoDetalhe('${v.id}',${n})" title="Excluir foto" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px;line-height:1">×</button>
+          </div>`).join('') : ''}
+          <label style="display:inline-flex;align-items:center;justify-content:center;width:70px;height:52px;border:2px dashed var(--bdr,#444);border-radius:8px;cursor:pointer;color:#8a8580;font-size:22px" title="Adicionar foto">+
+            <input type="file" accept="image/*" multiple class="hidden" onchange="adicionarFotoDetalhe('${v.id}',this)">
+          </label>
+        </div>` : (fotos && fotos.length>1 ? `<div class="galeria-thumbs">${fotos.map(n=>`<img src="${fotoUrl(v.id,n)}" class="${n===1?'on':''}" onclick="trocarFoto('${v.id}',${n},this)">`).join('')}</div>` : '')}
 
         <div class="det-card">
           <div class="det-sec-title">Ficha técnica</div>
           <div class="ficha-grid">
-            <div class="ficha-item"><div class="lbl">Ano</div><div class="val">${v.ano||'—'}</div></div>
-            <div class="ficha-item"><div class="lbl">KM</div><div class="val">${kmFmt}</div></div>
-            <div class="ficha-item"><div class="lbl">Cor</div><div class="val">${v.cor||'—'}</div></div>
-            <div class="ficha-item"><div class="lbl">Câmbio</div><div class="val">${v.cambio||'—'}</div></div>
-            <div class="ficha-item"><div class="lbl">Combustível</div><div class="val">${v.combustivel||'—'}</div></div>
-            <div class="ficha-item"><div class="lbl">Potência</div><div class="val">${v.potencia?v.potencia+' cv':'—'}</div></div>
-            <div class="ficha-item"><div class="lbl">Garantia</div><div class="val">${v.garantia||'—'}</div></div>
+            ${campoEditavelHtml(v,'ano','Ano',v.ano||'—')}
+            ${campoEditavelHtml(v,'km','KM',kmFmt)}
+            ${campoEditavelHtml(v,'cor','Cor',v.cor||'—')}
+            ${campoEditavelHtml(v,'cambio','Câmbio',v.cambio||'—')}
+            ${campoEditavelHtml(v,'combustivel','Combustível',v.combustivel||'—')}
+            ${campoEditavelHtml(v,'potencia','Potência',v.potencia?v.potencia+' cv':'—')}
+            ${campoEditavelHtml(v,'garantia','Garantia',v.garantia||'—')}
           </div>
         </div>
 
-        ${v.opcionais && v.opcionais.length ? `<div class="det-card">
+        ${(v.opcionais && v.opcionais.length) || modoAdmin ? `<div class="det-card">
           <div class="det-sec-title">Opcionais</div>
-          <div class="opcionais-lista">${v.opcionais.map(o=>`<span class="opc-tag">${o}</span>`).join('')}</div>
+          <div class="opcionais-lista" id="opcionais-lista">${(v.opcionais||[]).map((o,i)=>`<span class="opc-tag">${o}${modoAdmin?` <button onclick="removerOpcionalDetalhe('${v.id}',${i})" style="background:none;border:none;color:inherit;cursor:pointer;font-size:11px">×</button>`:''}</span>`).join('')}</div>
+          ${modoAdmin?`<div style="display:flex;gap:6px;margin-top:8px"><input id="novo-opc-${v.id}" placeholder="Ex: Teto solar" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid #444;background:transparent;color:inherit"><button onclick="adicionarOpcionalDetalhe('${v.id}')" style="padding:6px 12px;border-radius:6px;border:1px solid #444;background:transparent;color:inherit;cursor:pointer">+ Adicionar</button></div>`:''}
         </div>` : ''}
 
-        ${v.descricao ? `<div class="det-card">
+        ${v.descricao || modoAdmin ? `<div class="det-card">
           <div class="det-sec-title">Sobre este veículo</div>
-          <div class="det-descricao">${v.descricao}</div>
+          ${modoAdmin ? `<textarea onchange="salvarCampoDetalhe('${v.id}','descricao',this.value)" style="width:100%;min-height:100px;padding:8px;border-radius:6px;border:1px solid #444;background:transparent;color:inherit;font-family:inherit">${v.descricao||''}</textarea>` : `<div class="det-descricao">${v.descricao}</div>`}
         </div>` : ''}
       </div>
 
@@ -661,6 +736,19 @@ async function carregarConfig(){
     if(destSnap.exists && destSnap.data().ids) DESTAQUES.splice(0,DESTAQUES.length,...destSnap.data().ids);
   }catch(e){ console.error('config:', e); }
 }
+
+// Edicao direto na pagina do carro (pedido da Aline, 01/10/2026): os
+// botoes de editar/excluir foto/adicionar foto so aparecem com login (o
+// mesmo do CRM/admin.html - sessao do Firebase Auth e' compartilhada no
+// mesmo dominio, entao quem ja estiver logada no admin ja chega aqui
+// logada tambem, sem precisar logar de novo). Visitante comum nunca ve
+// esses controles - modoAdmin so vira true com um usuario autenticado de
+// verdade.
+let modoAdmin = false;
+firebase.auth().onAuthStateChanged(user => {
+  modoAdmin = !!user;
+  rotear();
+});
 
 window.addEventListener('hashchange', rotear);
 (async()=>{
