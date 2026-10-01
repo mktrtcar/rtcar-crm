@@ -2413,7 +2413,7 @@ function renderResultadosBuscaEstoque(){
   if(!filtrados.length){cont.innerHTML='<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum veículo encontrado.</div>';return;}
   const STATUS_LABEL={disponivel:'Disponível',em_preparacao:'Em preparação'};
   cont.innerHTML=filtrados.map(v=>`
-    <div class="card-btn-label" style="cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center;gap:10px" onclick="selecionarVeiculoEstoque('${v.placa}')">
+    <div class="card-btn-label" style="cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center;gap:10px" onclick="selecionarVeiculoEstoque('${v.evId}')">
       <div>
         <div style="font-weight:600;font-size:13px">${descricaoVeiculoEstoque(v)||'(sem descrição)'}</div>
         <div style="font-size:11px;color:var(--tx3)">Placa ${v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.km?v.km+' km':'—'} · ${STATUS_LABEL[v.status]||v.status}</div>
@@ -2421,8 +2421,12 @@ function renderResultadosBuscaEstoque(){
       <div style="font-size:13px;font-weight:700;color:var(--green);white-space:nowrap">${v.preco?'R$ '+Number(v.preco).toLocaleString('pt-BR'):''}</div>
     </div>`).join('');
 }
-function selecionarVeiculoEstoque(placa){
-  const v=(_estoquePublicoCache||[]).find(x=>x.placa===placa);
+// Selecao por evId (id interno do veiculo no Estoque, estavel) em vez de
+// placa - pedido da Marcela/Rafael, 01/10/2026: usar a placa como chave
+// criava ambiguidade quando 2+ veiculos apareciam sem placa ao mesmo tempo
+// (comparacao de string vazia podia selecionar o errado).
+function selecionarVeiculoEstoque(evId){
+  const v=(_estoquePublicoCache||[]).find(x=>x.evId===evId);
   if(!v)return;
   if(_buscaEstoqueDestino==='venda'){
     document.getElementById('vend-veiculo').value=descricaoVeiculoEstoque(v);
@@ -3232,6 +3236,11 @@ function fecharTimersAbertosMk(lead,extras){
 async function confirmarVendido(){
   const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim(),repasse=document.getElementById('vend-repasse').checked;
+  // Placa obrigatoria pra Compra (pedido da Marcela/Rafael, 01/10/2026): o
+  // carro de uma Compra ja existe e ja tem placa de verdade - sem isso o
+  // Termo de Compra nascia sem placa e o veiculo ficava invisivel na busca
+  // de estoque (achado real: BYD Song Plus, lead DVA).
+  if(lead.origem==='Compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
   if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
   const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
   if(!lead.vendido_at){lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;}
