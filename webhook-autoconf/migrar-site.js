@@ -53,7 +53,11 @@ exports.sincronizarVeiculosSitePublico=onRequest({region:'southamerica-east1',ti
 
       const dados={};
       CAMPOS_DA_FONTE.forEach(campo=>{
-        if(!camposBloqueados.includes(campo))dados[campo]=v[campo];
+        // Firestore recusa gravar "undefined" (campo que nao existe nesse
+        // veiculo especifico, tipo potencia/cor ausente) - so' grava se o
+        // campo realmente existir na fonte, senao pula (nao escreve nada,
+        // em vez de escrever undefined e dar erro 500 em todo o lote).
+        if(!camposBloqueados.includes(campo)&&v[campo]!==undefined)dados[campo]=v[campo];
       });
       dados.desapareceuDaFonte=false;
       dados.sincronizadoEm=new Date().toISOString();
