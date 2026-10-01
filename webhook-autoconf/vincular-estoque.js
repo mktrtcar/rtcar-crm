@@ -2,6 +2,7 @@ const {onDocumentWritten} = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 if(!admin.apps.length)admin.initializeApp();
 const db = admin.firestore();
+const bucket = admin.storage().bucket();
 
 /* Fase 2 da integracao site <-> estoque (01/10/2026, pedido da Aline): assim
    que um veiculo entra (ou muda) no estoque do sistema principal
@@ -25,13 +26,22 @@ const MAPA_CAMPOS={marca:'marca',modelo:'modelo',versao:'versao',preco:'preco'};
 exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-east1',document:'rtcar_estoque_publico/{placa}'},async(event)=>{
   const depois=event.data?.after?.exists?event.data.after.data():null;
   const placa=event.params.placa;
+  const ref=db.collection('site_veiculos').doc(placa);
   if(!depois||!STATUS_RELEVANTES.includes(depois.status)){
-    // Veiculo excluido, ou mudou pra um status que nao nos interessa (ex:
-    // vendido/repasse) - nao mexe no site (fica a cargo do admin decidir
-    // ocultar ou nao, nao apagamos nada automaticamente).
+    // Veiculo excluido no sistema principal, ou vendido/repasse - apaga de
+    // verdade do site (doc + fotos no Storage), pedido da Aline,
+    // 01/10/2026: carro vendido nao deve continuar aparecendo. So' apaga se
+    // o veiculo realmente veio dessa automacao (origemEstoquePrincipal) -
+    // nunca mexe num carro cadastrado manualmente no admin.
+    const snap=await ref.get();
+    if(snap.exists&&snap.data().origemEstoquePrincipal){
+      const prefixo=`https://storage.googleapis.com/${bucket.name}/`;
+      const fotos=snap.data().fotos||[];
+      await Promise.all(fotos.filter(url=>url.startsWith(prefixo)).map(url=>bucket.file(url.slice(prefixo.length)).delete().catch(()=>{})));
+      await ref.delete();
+    }
     return;
   }
-  const ref=db.collection('site_veiculos').doc(placa);
   const existenteSnap=await ref.get();
   const existente=existenteSnap.exists?existenteSnap.data():null;
   const camposBloqueados=existente?.camposBloqueados||[];
