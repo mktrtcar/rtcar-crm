@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#0c0b0a;--bg2:#1a1815;--bg3:#242220;
@@ -288,7 +289,11 @@ function fmtPreco(v){
   return `<span class="por">R$ ${v.precoPor}</span>`;
 }
 
-function fotoUrl(id, n){ return `${FOTOS_BASE}/${id}/${n}.jpg`; }
+// fotos agora vem do Firestore (site_veiculos) como URLs completas do
+// Storage, nao mais caminho local fixo - por isso busca o veiculo e pega a
+// URL direto pelo indice, em vez de montar o caminho (pedido da Aline,
+// 01/10/2026, junto com o admin de veiculos).
+function fotoUrl(id, n){ const v=ESTOQUE.find(x=>x.id===id); return (v&&v.fotos&&v.fotos[n-1])||''; }
 
 function cardFoto(v){
   const badge = v.precoDe ? `<div class="card-badge">OPORTUNIDADE</div>` : '';
@@ -364,16 +369,6 @@ function heroHtml(){
   return `<div class="hero">
     <div class="hero-slides" id="hero-slides">${slides}</div>
     ${setas}
-    <div class="hero-inner">
-      <div class="hero-tag">🚗 Seminovos selecionados em Brusque</div>
-      <h1>Encontre o carro <em>certo</em> pra sua próxima jornada</h1>
-      <p>Veículos revisados, com procedência garantida e atendimento próximo — do primeiro contato até a entrega das chaves.</p>
-      <div class="hero-stats">
-        <div class="hero-stat"><b>${ESTOQUE.length}</b><span>Veículos em estoque</span></div>
-        <div class="hero-stat"><b>${marcasDisponiveis().length}</b><span>Marcas disponíveis</span></div>
-        <div class="hero-stat"><b>3 meses</b><span>Garantia da loja</span></div>
-      </div>
-    </div>
   </div>`;
 }
 function heroIrPara(i){
@@ -388,24 +383,28 @@ function iniciarCarrossel(){
   if(BANNERS.length>1) heroTimer = setInterval(heroProx, 5000);
 }
 
+// Depoimentos, Informacoes (cards CTA) e Destaques agora sao configuraveis
+// pelo admin.html (site_config/*) - esses arrays comecam com o conteudo
+// padrao de sempre, e carregarConfig() substitui o conteudo se already
+// houver algo salvo (ver mais abaixo, perto do carregamento inicial).
 const DEPOIMENTOS = [
-  { texto: 'Minha experiência foi perfeita do início ao fim, atendimento desde o primeiro contato com o vendedor Rodrigo, depois na parte de documentação com a Jaqueline também com excelência e quando precisei do Pablo fui prontamente atendido com aval dos proprietários que deram ok para a minha solicitação, só tenho a agradecer aos envolvidos e com certeza na minha próxima aquisição irei procurá-los.', autor: 'Fabricio Rafael Hipolito' },
-  { texto: 'Passe aqui para agradecer pela experiência na compra do meu Nivus. Desde o começo foi tudo tranquilo, conversa clara, sem pressão e com cuidado em cada detalhe. Em nenhum momento me senti insegura! Obrigado por todo o atendimento e pela paciência.', autor: 'Ana Testoni' },
-  { texto: 'Experiência sendo incrível, o carro realmente é novo, estamos curtindo muito, sobre a loja sem palavras, desde o primeiro contato foram extremamente atenciosos, sempre tirando todas as dúvidas, principalmente o Maicon, que está de parabéns pelo atendimento, loja nota 10.', autor: 'Thiago Teixeira' },
+  { texto: 'Minha experiência foi perfeita do início ao fim, atendimento desde o primeiro contato com o vendedor Rodrigo, depois na parte de documentação com a Jaqueline também com excelência e quando precisei do Pablo fui prontamente atendido com aval dos proprietários que deram ok para a minha solicitação, só tenho a agradecer aos envolvidos e com certeza na minha próxima aquisição irei procurá-los.', autor: 'Fabricio Rafael Hipolito', estrelas: 5 },
+  { texto: 'Passe aqui para agradecer pela experiência na compra do meu Nivus. Desde o começo foi tudo tranquilo, conversa clara, sem pressão e com cuidado em cada detalhe. Em nenhum momento me senti insegura! Obrigado por todo o atendimento e pela paciência.', autor: 'Ana Testoni', estrelas: 5 },
+  { texto: 'Experiência sendo incrível, o carro realmente é novo, estamos curtindo muito, sobre a loja sem palavras, desde o primeiro contato foram extremamente atenciosos, sempre tirando todas as dúvidas, principalmente o Maicon, que está de parabéns pelo atendimento, loja nota 10.', autor: 'Thiago Teixeira', estrelas: 5 },
 ];
+const INFORMACOES = [
+  { titulo: 'Venda seu carro', texto: 'Solicite a avaliação do seu carro online, no conforto da sua casa.', botao: 'Avalie agora →', whatsapp: 'Olá! Quero avaliar meu carro para venda.', numero: '554799938679' },
+  { titulo: 'Financie seu sonho', texto: 'Trabalhamos com as principais financeiras, isso garante melhores taxas para você!', botao: 'Faça uma simulação →', whatsapp: 'Olá! Quero fazer uma simulação de financiamento.', numero: '554791238422' },
+];
+let DESTAQUES = [];
 
 function ctasHtml(){
   return `<div class="ctas">
-    <div class="cta-card">
-      <h3>Venda seu carro</h3>
-      <p>Solicite a avaliação do seu carro online, no conforto da sua casa.</p>
-      <a class="cta-btn" href="https://wa.me/554791238422?text=${encodeURIComponent('Olá! Quero avaliar meu carro para venda.')}" target="_blank">Avalie agora →</a>
-    </div>
-    <div class="cta-card">
-      <h3>Financie seu sonho</h3>
-      <p>Trabalhamos com as principais financeiras, isso garante melhores taxas para você!</p>
-      <a class="cta-btn" href="https://wa.me/554791238422?text=${encodeURIComponent('Olá! Quero fazer uma simulação de financiamento.')}" target="_blank">Faça uma simulação →</a>
-    </div>
+    ${INFORMACOES.map(c=>`<div class="cta-card">
+      <h3>${c.titulo}</h3>
+      <p>${c.texto}</p>
+      <a class="cta-btn" href="https://wa.me/${c.numero||'554791238422'}?text=${encodeURIComponent(c.whatsapp||'')}" target="_blank">${c.botao}</a>
+    </div>`).join('')}
   </div>`;
 }
 
@@ -414,7 +413,7 @@ function depoimentosHtml(){
     <div class="sec-title">O que nossos clientes dizem sobre nós</div>
     <div class="depo-grid">
       ${DEPOIMENTOS.map(d=>`<div class="depo-card">
-        <div class="estrelas">★★★★★</div>
+        <div class="estrelas">${'★'.repeat(d.estrelas||5)}${'☆'.repeat(5-(d.estrelas||5))}</div>
         <p>“${d.texto}”</p>
         <div class="autor">${d.autor}</div>
       </div>`).join('')}
@@ -624,22 +623,56 @@ firebase.initializeApp({ apiKey: FB.apiKey, authDomain: `${FB.projectId}.firebas
 async function carregarBanners(){
   try{
     const res = await firebase.storage().ref('banners').listAll();
-    const ordenados = res.items.sort((a,b)=>a.name.localeCompare(b.name));
+    const ordenados = res.items.sort((a,b)=>a.name.localeCompare(b.name)).slice(0,3);
     BANNERS = await Promise.all(ordenados.map(item=>item.getDownloadURL()));
   }catch(e){ console.error('banners:', e); BANNERS = []; }
 }
 
+const db = firebase.firestore();
+// Estoque agora vem do Firestore (site_veiculos), nao mais do arquivo fixo
+// dados/estoque.json - e' o mesmo banco que o admin.html edita, entao toda
+// alteracao manual (campo, foto, ocultar) aparece aqui na hora, sem precisar
+// publicar nada de novo (pedido da Aline, 01/10/2026).
+async function carregarEstoque(){
+  const snap = await db.collection('site_veiculos').get();
+  ESTOQUE = snap.docs.map(d=>({id:d.id,...d.data()})).filter(v=>!v.oculto);
+  if(DESTAQUES.length){
+    ESTOQUE.sort((a,b)=>{
+      const ia=DESTAQUES.indexOf(a.id), ib=DESTAQUES.indexOf(b.id);
+      if(ia===-1&&ib===-1)return 0;
+      if(ia===-1)return 1;
+      if(ib===-1)return -1;
+      return ia-ib;
+    });
+  }
+}
+// Depoimentos, cards de informacoes (CTAs) e destaques - configuraveis pelo
+// admin.html (site_config/*). Se ainda nao foram configurados, cai no
+// conteudo padrao que ja existia fixo no codigo.
+async function carregarConfig(){
+  try{
+    const [depoSnap,infoSnap,destSnap] = await Promise.all([
+      db.collection('site_config').doc('depoimentos').get(),
+      db.collection('site_config').doc('informacoes').get(),
+      db.collection('site_config').doc('destaques').get(),
+    ]);
+    if(depoSnap.exists && depoSnap.data().lista) DEPOIMENTOS.splice(0,DEPOIMENTOS.length,...depoSnap.data().lista);
+    if(infoSnap.exists && infoSnap.data().cards) INFORMACOES.splice(0,INFORMACOES.length,...infoSnap.data().cards);
+    if(destSnap.exists && destSnap.data().ids) DESTAQUES.splice(0,DESTAQUES.length,...destSnap.data().ids);
+  }catch(e){ console.error('config:', e); }
+}
+
 window.addEventListener('hashchange', rotear);
-Promise.all([
-  fetch(DADOS_URL).then(r=>r.json()),
-  carregarBanners(),
-]).then(([d])=>{
-  ESTOQUE = d.veiculos;
-  rotear();
-}).catch(e=>{
-  document.getElementById('app').innerHTML = '<div class="wrap"><div class="vazio">Erro ao carregar o estoque. Tente novamente em instantes.</div></div>';
-  console.error(e);
-});
+(async()=>{
+  try{
+    await carregarConfig();
+    await Promise.all([carregarEstoque(), carregarBanners()]);
+    rotear();
+  }catch(e){
+    document.getElementById('app').innerHTML = '<div class="wrap"><div class="vazio">Erro ao carregar o estoque. Tente novamente em instantes.</div></div>';
+    console.error(e);
+  }
+})();
 </script>
 </body>
 </html>

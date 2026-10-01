@@ -3,23 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RT Car — Admin do banner</title>
+<title>RT Car — Admin do site</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
-:root{--bg:#f6f5f3;--bg2:#fff;--tx:#1a1814;--tx2:#4a4a4a;--tx3:#8a8580;--red:#e8431e;--redl:#fff0ec;--bdr:#e6e3de;--r:10px;--r2:16px}
+:root{--bg:#f6f5f3;--bg2:#fff;--tx:#1a1814;--tx2:#4a4a4a;--tx3:#8a8580;--red:#e8431e;--redl:#fff0ec;--green:#1a6b3c;--greenl:#e9f7ef;--bdr:#e6e3de;--r:10px;--r2:16px}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:32px;width:100%;max-width:480px;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;min-height:100vh;padding:20px}
+.wrap{max-width:900px;margin:0 auto}
+.box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:32px;width:100%;max-width:480px;margin:40px auto;box-shadow:0 4px 24px rgba(0,0,0,.06)}
 h1{font-size:18px;margin-bottom:4px}
+h2{font-size:15px;margin-bottom:10px}
 .sub{font-size:12px;color:var(--tx3);margin-bottom:20px}
 .field{margin-bottom:12px}
-.field input{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:13px;font-family:inherit}
-.field input:focus{outline:none;border-color:var(--red)}
-.btn{background:var(--red);color:#fff;border:none;padding:10px 18px;border-radius:var(--r);font-weight:700;font-size:13px;cursor:pointer;width:100%}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:4px;letter-spacing:.3px}
+.field input,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:13px;font-family:inherit}
+.field textarea{min-height:90px;resize:vertical}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--red)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{background:var(--red);color:#fff;border:none;padding:10px 18px;border-radius:var(--r);font-weight:700;font-size:13px;cursor:pointer}
 .btn:hover{opacity:.9}
 .btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-outline{background:none;border:1.5px solid var(--bdr);color:var(--tx2)}
+.btn-outline:hover{border-color:var(--red);color:var(--red)}
+.btn-sm{padding:6px 10px;font-size:12px}
+.btn-full{width:100%}
 .erro{background:var(--redl);color:var(--red);padding:9px 12px;border-radius:var(--r);font-size:12px;margin-bottom:12px;display:none}
 .hidden{display:none!important}
 .upload-area{border:2px dashed var(--bdr);border-radius:var(--r);padding:24px;text-align:center;color:var(--tx3);font-size:13px;cursor:pointer;margin-bottom:18px}
@@ -28,33 +38,142 @@ h1{font-size:18px;margin-bottom:4px}
 .banner-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:8px;background:var(--bg)}
 .banner-item img{width:90px;height:56px;object-fit:cover;border-radius:6px;flex-shrink:0}
 .banner-item .nome{flex:1;font-size:11px;color:var(--tx3);word-break:break-all}
-.banner-item button{background:none;border:1.5px solid var(--bdr);color:var(--tx2);padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer}
-.banner-item button:hover{border-color:var(--red);color:var(--red)}
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .sair{font-size:12px;color:var(--tx3);cursor:pointer}
 .sair:hover{color:var(--red)}
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1.5px solid var(--bdr)}
+.tab{padding:10px 16px;font-size:13px;font-weight:700;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px}
+.tab.on{color:var(--red);border-color:var(--red)}
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;margin-bottom:16px}
+.lista-veiculos{display:flex;flex-direction:column;gap:8px}
+.veiculo-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bdr);border-radius:var(--r);padding:10px;cursor:pointer;background:var(--bg2)}
+.veiculo-item:hover{border-color:var(--red)}
+.veiculo-item img{width:70px;height:52px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bg)}
+.veiculo-item .info{flex:1}
+.veiculo-item .titulo{font-weight:700;font-size:13px}
+.veiculo-item .preco{font-size:12px;color:var(--tx3)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase}
+.badge-oculto{background:var(--redl);color:var(--red)}
+.badge-ok{background:var(--greenl);color:var(--green)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{background:var(--bg);border:1px solid var(--bdr);border-radius:14px;padding:4px 10px;font-size:11px;display:flex;align-items:center;gap:6px}
+.tag button{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;line-height:1;padding:0}
+.tag button:hover{color:var(--red)}
+.fotos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:8px}
+.foto-item{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:4/3;background:var(--bg)}
+.foto-item img{width:100%;height:100%;object-fit:cover}
+.foto-item button{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:12px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--bdr);margin-top:12px}
+.switch{position:relative;width:40px;height:22px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch .sl{position:absolute;inset:0;background:var(--bdr);border-radius:22px;cursor:pointer;transition:.2s}
+.switch .sl::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.sl{background:var(--red)}
+.switch input:checked+.sl::before{transform:translateX(18px)}
+.ok-msg{background:var(--greenl);color:var(--green);padding:8px 12px;border-radius:var(--r);font-size:12px;margin-bottom:12px;display:none}
 </style>
 </head>
 <body>
-<div class="box">
-  <div id="login-view">
+
+<div class="box" id="login-view">
+  <h1>Admin do site</h1>
+  <div class="sub">Entre com o mesmo login do CRM.</div>
+  <div class="erro" id="erro-login"></div>
+  <div class="field"><input type="email" id="f-email" placeholder="E-mail"></div>
+  <div class="field"><input type="password" id="f-senha" placeholder="Senha"></div>
+  <button class="btn btn-full" id="btn-login">Entrar</button>
+</div>
+
+<div class="wrap hidden" id="app-view">
+  <div class="top">
     <h1>Admin do site</h1>
-    <div class="sub">Entre com o mesmo login do CRM pra gerenciar o banner.</div>
-    <div class="erro" id="erro-login"></div>
-    <div class="field"><input type="email" id="f-email" placeholder="E-mail"></div>
-    <div class="field"><input type="password" id="f-senha" placeholder="Senha"></div>
-    <button class="btn" id="btn-login">Entrar</button>
+    <span class="sair" id="btn-sair">Sair</span>
+  </div>
+  <div class="tabs">
+    <div class="tab on" id="tab-veiculos" onclick="trocarTab('veiculos')">Veículos</div>
+    <div class="tab" id="tab-banner" onclick="trocarTab('banner')">Banner</div>
+    <div class="tab" id="tab-depoimentos" onclick="trocarTab('depoimentos')">Depoimentos</div>
+    <div class="tab" id="tab-destaques" onclick="trocarTab('destaques')">Destaques</div>
+    <div class="tab" id="tab-informacoes" onclick="trocarTab('informacoes')">Informações</div>
   </div>
 
-  <div id="app-view" class="hidden">
-    <div class="top">
-      <h1>Banner do site</h1>
-      <span class="sair" id="btn-sair">Sair</span>
-    </div>
-    <div class="sub">As fotos aqui aparecem passando no topo do site público, na ordem de envio.</div>
+  <div id="view-banner" class="hidden">
+    <div class="sub">Até 3 fotos, aparecem passando no topo do site público, na ordem de envio.</div>
     <input type="file" id="f-arquivo" accept="image/*" multiple class="hidden">
-    <div class="upload-area" id="upload-area">📷 Clique ou arraste fotos aqui pra adicionar ao banner</div>
+    <div class="upload-area" id="upload-area">📷 Clique ou arraste fotos aqui pra adicionar ao banner (máx. 3)</div>
     <div class="lista-banner" id="lista-banner"></div>
+  </div>
+
+  <div id="view-depoimentos" class="hidden">
+    <div class="sub">Até 3 depoimentos, aparecem na seção "O que nossos clientes dizem sobre nós".</div>
+    <div id="lista-depoimentos"></div>
+    <button class="btn btn-outline btn-sm" id="btn-add-depoimento" onclick="adicionarDepoimento()" style="margin-top:8px">+ Adicionar depoimento</button>
+  </div>
+
+  <div id="view-destaques" class="hidden">
+    <div class="sub">Marque até os veículos que devem aparecer primeiro na listagem do site (na ordem marcada).</div>
+    <div class="lista-veiculos" id="lista-destaques"></div>
+  </div>
+
+  <div id="view-informacoes" class="hidden">
+    <div class="sub">Os dois cartões que aparecem acima dos depoimentos ("Venda seu carro" / "Financie seu sonho").</div>
+    <div id="lista-informacoes"></div>
+  </div>
+
+  <div id="view-veiculos-lista">
+    <div class="sub">Clique num veículo pra editar os dados, fotos ou ocultar do site.</div>
+    <div class="lista-veiculos" id="lista-veiculos"></div>
+  </div>
+
+  <div id="view-veiculo-editar" class="hidden">
+    <button class="btn-outline btn-sm" onclick="voltarLista()" style="margin-bottom:14px">← Voltar pra lista</button>
+    <div class="ok-msg" id="ok-msg">Salvo!</div>
+    <div class="card">
+      <h2>Dados do veículo</h2>
+      <div class="field-row">
+        <div class="field"><label>Marca</label><input id="ed-marca" onchange="salvarCampo('marca',this.value)"></div>
+        <div class="field"><label>Modelo</label><input id="ed-modelo" onchange="salvarCampo('modelo',this.value)"></div>
+      </div>
+      <div class="field"><label>Versão</label><input id="ed-versao" onchange="salvarCampo('versao',this.value)"></div>
+      <div class="field-row">
+        <div class="field"><label>Preço (R$)</label><input id="ed-preco" onchange="salvarCampo('preco',this.value)"></div>
+        <div class="field"><label>Ano</label><input id="ed-ano" placeholder="2022/2022" onchange="salvarCampo('ano',this.value)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>KM</label><input id="ed-km" onchange="salvarCampo('km',this.value)"></div>
+        <div class="field"><label>Cor</label><input id="ed-cor" onchange="salvarCampo('cor',this.value)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Câmbio</label><input id="ed-cambio" onchange="salvarCampo('cambio',this.value)"></div>
+        <div class="field"><label>Potência (cv)</label><input id="ed-potencia" onchange="salvarCampo('potencia',this.value)"></div>
+      </div>
+      <div class="field"><label>Garantia</label><input id="ed-garantia" placeholder="Ex: Garantia da Loja (3 meses)" onchange="salvarCampo('garantia',this.value)"></div>
+      <div class="field"><label>Descrição</label><textarea id="ed-descricao" onchange="salvarCampo('descricao',this.value)"></textarea></div>
+
+      <div class="field">
+        <label>Opcionais</label>
+        <div class="tags" id="tags-opcionais"></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="novo-opcional" placeholder="Ex: Teto solar" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarOpcional();}">
+          <button class="btn btn-outline btn-sm" onclick="adicionarOpcional()">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:700;font-size:13px">Ocultar do site</div>
+          <div style="font-size:11px;color:var(--tx3)">Veículo some do site público, sem apagar nada.</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="ed-oculto" onchange="salvarOculto(this.checked)"><span class="sl"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Fotos</h2>
+      <input type="file" id="f-foto-veiculo" accept="image/*" multiple class="hidden">
+      <div class="upload-area" id="upload-area-veiculo" style="margin-bottom:0">📷 Clique pra anexar fotos</div>
+      <div class="fotos-grid" id="fotos-veiculo"></div>
+    </div>
   </div>
 </div>
 
@@ -63,6 +182,7 @@ const FB = { projectId: 'rtcarprograma', apiKey: 'AIzaSyAHswK1g0CnOJYiN3smElfDL1
 firebase.initializeApp({ apiKey: FB.apiKey, authDomain: `${FB.projectId}.firebaseapp.com`, projectId: FB.projectId, storageBucket: `${FB.projectId}.firebasestorage.app` });
 const auth = firebase.auth();
 const storage = firebase.storage();
+const db = firebase.firestore();
 const bannersRef = storage.ref('banners');
 
 function mostrarErro(msg){ const el=document.getElementById('erro-login'); el.textContent=msg; el.style.display='block'; }
@@ -71,17 +191,39 @@ document.getElementById('btn-login').onclick = async () => {
   const email = document.getElementById('f-email').value.trim();
   const senha = document.getElementById('f-senha').value;
   document.getElementById('erro-login').style.display = 'none';
-  try {
-    await auth.signInWithEmailAndPassword(email, senha);
-  } catch (e) {
-    mostrarErro('Login ou senha incorretos.');
-  }
+  try { await auth.signInWithEmailAndPassword(email, senha); }
+  catch (e) { mostrarErro('Login ou senha incorretos.'); }
 };
 document.getElementById('btn-sair').onclick = () => auth.signOut();
 
+/* ---- Tabs ---- */
+const TODAS_TABS = ['veiculos','banner','depoimentos','destaques','informacoes'];
+function trocarTab(nome){
+  TODAS_TABS.forEach(t => document.getElementById('tab-'+t).classList.toggle('on', t===nome));
+  document.getElementById('view-banner').classList.toggle('hidden', nome!=='banner');
+  document.getElementById('view-depoimentos').classList.toggle('hidden', nome!=='depoimentos');
+  document.getElementById('view-destaques').classList.toggle('hidden', nome!=='destaques');
+  document.getElementById('view-informacoes').classList.toggle('hidden', nome!=='informacoes');
+  const mostrarVeiculos = nome==='veiculos';
+  document.getElementById('view-veiculos-lista').classList.toggle('hidden', !mostrarVeiculos || editandoId);
+  document.getElementById('view-veiculo-editar').classList.toggle('hidden', !mostrarVeiculos || !editandoId);
+  if(nome==='banner') carregarBanners();
+  if(nome==='veiculos' && !editandoId) carregarVeiculos();
+  if(nome==='depoimentos') carregarDepoimentos();
+  if(nome==='destaques') carregarDestaques();
+  if(nome==='informacoes') carregarInformacoes();
+}
+
+/* ---- Banner (max 3) ---- */
+const BANNER_MAX = 3;
 document.getElementById('upload-area').onclick = () => document.getElementById('f-arquivo').click();
 document.getElementById('f-arquivo').onchange = async (e) => {
   const arquivos = Array.from(e.target.files);
+  const atuais = (await bannersRef.listAll()).items.length;
+  if (atuais + arquivos.length > BANNER_MAX) {
+    alert(`Máximo de ${BANNER_MAX} fotos no banner. Hoje tem ${atuais}, exclua alguma antes de adicionar mais.`);
+    e.target.value = ''; return;
+  }
   for (const arquivo of arquivos) {
     const nome = `${Date.now()}-${arquivo.name}`;
     await bannersRef.child(nome).put(arquivo);
@@ -89,18 +231,18 @@ document.getElementById('f-arquivo').onchange = async (e) => {
   e.target.value = '';
   carregarBanners();
 };
-
 async function carregarBanners(){
   const lista = document.getElementById('lista-banner');
   lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Carregando...</div>';
   const res = await bannersRef.listAll();
   const itens = await Promise.all(res.items.map(async (item) => ({ item, url: await item.getDownloadURL() })));
+  document.getElementById('upload-area').style.display = itens.length >= BANNER_MAX ? 'none' : '';
   if (!itens.length) { lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Nenhuma foto no banner ainda.</div>'; return; }
   lista.innerHTML = itens.map(({ item, url }) => `
     <div class="banner-item">
       <img src="${url}">
       <div class="nome">${item.name}</div>
-      <button onclick="excluirBanner('${item.fullPath}')">Excluir</button>
+      <button class="btn-outline btn-sm" onclick="excluirBanner('${item.fullPath}')">Excluir</button>
     </div>`).join('');
 }
 async function excluirBanner(caminho){
@@ -109,10 +251,242 @@ async function excluirBanner(caminho){
   carregarBanners();
 }
 
+/* ---- Veiculos ---- */
+let veiculosCache = [];
+let editandoId = null;
+let veiculoAtual = null;
+
+async function carregarVeiculos(){
+  const lista = document.getElementById('lista-veiculos');
+  lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Carregando...</div>';
+  const snap = await db.collection('site_veiculos').get();
+  veiculosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  veiculosCache.sort((a,b) => (a.marca+a.modelo).localeCompare(b.marca+b.modelo));
+  if (!veiculosCache.length) { lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Nenhum veículo encontrado.</div>'; return; }
+  lista.innerHTML = veiculosCache.map(v => `
+    <div class="veiculo-item" onclick="abrirVeiculo('${v.id}')">
+      <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
+      <div class="info">
+        <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
+        <div class="preco">${v.preco?'R$ '+Number(v.preco).toLocaleString('pt-BR'):'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
+      </div>
+      <span class="badge ${v.oculto?'badge-oculto':'badge-ok'}">${v.oculto?'Oculto':'Visível'}</span>
+    </div>`).join('');
+}
+
+function voltarLista(){
+  editandoId = null; veiculoAtual = null;
+  document.getElementById('view-veiculo-editar').classList.add('hidden');
+  document.getElementById('view-veiculos-lista').classList.remove('hidden');
+  carregarVeiculos();
+}
+
+function abrirVeiculo(id){
+  editandoId = id;
+  veiculoAtual = veiculosCache.find(v => v.id === id);
+  if (!veiculoAtual) return;
+  document.getElementById('view-veiculos-lista').classList.add('hidden');
+  document.getElementById('view-veiculo-editar').classList.remove('hidden');
+  ['marca','modelo','versao','preco','ano','km','cor','cambio','potencia','garantia','descricao'].forEach(campo => {
+    document.getElementById('ed-'+campo).value = veiculoAtual[campo] || '';
+  });
+  document.getElementById('ed-oculto').checked = !!veiculoAtual.oculto;
+  renderOpcionais();
+  renderFotosVeiculo();
+}
+
+function mostrarOk(){
+  const el = document.getElementById('ok-msg');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 1800);
+}
+
+// Salva um campo e marca ele como "editado manualmente" - uma sincronizacao
+// futura com o Autoconf (sincronizarVeiculosSitePublico) nunca mais
+// sobrescreve esse campo especifico (ver webhook-autoconf/migrar-site.js).
+async function salvarCampo(campo, valor){
+  if (!editandoId) return;
+  const bloqueados = new Set(veiculoAtual.camposBloqueados || []);
+  bloqueados.add(campo);
+  const dados = { [campo]: valor, camposBloqueados: [...bloqueados] };
+  await db.collection('site_veiculos').doc(editandoId).set(dados, { merge: true });
+  veiculoAtual[campo] = valor;
+  veiculoAtual.camposBloqueados = [...bloqueados];
+  mostrarOk();
+}
+
+async function salvarOculto(valor){
+  if (!editandoId) return;
+  await db.collection('site_veiculos').doc(editandoId).set({ oculto: valor }, { merge: true });
+  veiculoAtual.oculto = valor;
+  mostrarOk();
+}
+
+function renderOpcionais(){
+  const lista = veiculoAtual.opcionais || [];
+  document.getElementById('tags-opcionais').innerHTML = lista.length
+    ? lista.map((o,i) => `<span class="tag">${o}<button onclick="removerOpcional(${i})">×</button></span>`).join('')
+    : '<span style="font-size:11px;color:var(--tx3)">Nenhum opcional ainda.</span>';
+}
+async function salvarOpcionais(){
+  const bloqueados = new Set(veiculoAtual.camposBloqueados || []);
+  bloqueados.add('opcionais');
+  await db.collection('site_veiculos').doc(editandoId).set({ opcionais: veiculoAtual.opcionais, camposBloqueados: [...bloqueados] }, { merge: true });
+  veiculoAtual.camposBloqueados = [...bloqueados];
+  mostrarOk();
+}
+function adicionarOpcional(){
+  const input = document.getElementById('novo-opcional');
+  const valor = input.value.trim();
+  if (!valor) return;
+  veiculoAtual.opcionais = [...(veiculoAtual.opcionais || []), valor];
+  input.value = '';
+  renderOpcionais();
+  salvarOpcionais();
+}
+function removerOpcional(i){
+  veiculoAtual.opcionais.splice(i, 1);
+  renderOpcionais();
+  salvarOpcionais();
+}
+
+function renderFotosVeiculo(){
+  const fotos = veiculoAtual.fotos || [];
+  document.getElementById('fotos-veiculo').innerHTML = fotos.map((url,i) => `
+    <div class="foto-item"><img src="${url}"><button onclick="excluirFotoVeiculo(${i})">×</button></div>`).join('');
+}
+document.getElementById('upload-area-veiculo').onclick = () => document.getElementById('f-foto-veiculo').click();
+document.getElementById('f-foto-veiculo').onchange = async (e) => {
+  const arquivos = Array.from(e.target.files);
+  if (!arquivos.length || !editandoId) return;
+  for (const arquivo of arquivos) {
+    const caminho = `veiculos/${editandoId}/${Date.now()}-${arquivo.name}`;
+    const ref = storage.ref(caminho);
+    await ref.put(arquivo);
+    const url = await ref.getDownloadURL();
+    veiculoAtual.fotos = [...(veiculoAtual.fotos || []), url];
+  }
+  e.target.value = '';
+  renderFotosVeiculo();
+  await salvarFotos();
+};
+async function excluirFotoVeiculo(i){
+  if (!confirm('Excluir essa foto?')) return;
+  veiculoAtual.fotos.splice(i, 1);
+  renderFotosVeiculo();
+  await salvarFotos();
+}
+// Fotos mexidas manualmente (anexar ou excluir) travam o conjunto inteiro -
+// a proxima sincronizacao com o Autoconf nao mexe mais nas fotos desse
+// veiculo, pra nao apagar o que foi ajustado a mao.
+async function salvarFotos(){
+  await db.collection('site_veiculos').doc(editandoId).set({ fotos: veiculoAtual.fotos, fotosBloqueadas: true }, { merge: true });
+  mostrarOk();
+}
+
+/* ---- Depoimentos (ate 3) ---- */
+const DEPOIMENTOS_MAX = 3;
+let depoimentosCache = [];
+async function carregarDepoimentos(){
+  const snap = await db.collection('site_config').doc('depoimentos').get();
+  depoimentosCache = (snap.exists && snap.data().lista) || [];
+  renderDepoimentos();
+}
+function renderDepoimentos(){
+  const el = document.getElementById('lista-depoimentos');
+  document.getElementById('btn-add-depoimento').style.display = depoimentosCache.length >= DEPOIMENTOS_MAX ? 'none' : '';
+  el.innerHTML = depoimentosCache.map((d,i) => `
+    <div class="card">
+      <div class="field-row">
+        <div class="field"><label>Nome do cliente</label><input value="${d.autor||''}" onchange="editarDepoimento(${i},'autor',this.value)"></div>
+        <div class="field"><label>Estrelas (1-5)</label><input type="number" min="1" max="5" value="${d.estrelas||5}" onchange="editarDepoimento(${i},'estrelas',Number(this.value))"></div>
+      </div>
+      <div class="field"><label>Texto</label><textarea onchange="editarDepoimento(${i},'texto',this.value)">${d.texto||''}</textarea></div>
+      <button class="btn-outline btn-sm" onclick="removerDepoimento(${i})">Excluir depoimento</button>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--tx3)">Nenhum depoimento ainda.</div>';
+}
+function adicionarDepoimento(){
+  if (depoimentosCache.length >= DEPOIMENTOS_MAX) return;
+  depoimentosCache.push({ autor:'', texto:'', estrelas:5 });
+  renderDepoimentos();
+  salvarDepoimentos();
+}
+function editarDepoimento(i, campo, valor){ depoimentosCache[i][campo] = valor; salvarDepoimentos(); }
+function removerDepoimento(i){ depoimentosCache.splice(i,1); renderDepoimentos(); salvarDepoimentos(); }
+async function salvarDepoimentos(){
+  await db.collection('site_config').doc('depoimentos').set({ lista: depoimentosCache });
+  mostrarOk();
+}
+
+/* ---- Informacoes (os 2 cards fixos "Venda seu carro" / "Financie seu sonho") ---- */
+let informacoesCache = [];
+async function carregarInformacoes(){
+  const snap = await db.collection('site_config').doc('informacoes').get();
+  informacoesCache = (snap.exists && snap.data().cards) || [
+    { titulo:'Venda seu carro', texto:'Solicite a avaliação do seu carro online, no conforto da sua casa.', botao:'Avalie agora →', whatsapp:'Olá! Quero avaliar meu carro para venda.', numero:'554799938679' },
+    { titulo:'Financie seu sonho', texto:'Trabalhamos com as principais financeiras, isso garante melhores taxas para você!', botao:'Faça uma simulação →', whatsapp:'Olá! Quero fazer uma simulação de financiamento.', numero:'554791238422' },
+  ];
+  renderInformacoes();
+}
+function renderInformacoes(){
+  document.getElementById('lista-informacoes').innerHTML = informacoesCache.map((c,i) => `
+    <div class="card">
+      <div class="field"><label>Título</label><input value="${c.titulo||''}" onchange="editarInformacao(${i},'titulo',this.value)"></div>
+      <div class="field"><label>Texto</label><input value="${c.texto||''}" onchange="editarInformacao(${i},'texto',this.value)"></div>
+      <div class="field-row">
+        <div class="field"><label>Texto do botão</label><input value="${c.botao||''}" onchange="editarInformacao(${i},'botao',this.value)"></div>
+        <div class="field"><label>Mensagem do WhatsApp</label><input value="${c.whatsapp||''}" onchange="editarInformacao(${i},'whatsapp',this.value)"></div>
+      </div>
+      <div class="field"><label>Número do WhatsApp (DDI+DDD+número, só dígitos)</label><input value="${c.numero||''}" placeholder="Ex: 554799938679" onchange="editarInformacao(${i},'numero',this.value)"></div>
+    </div>`).join('');
+}
+function editarInformacao(i, campo, valor){ informacoesCache[i][campo] = valor; salvarInformacoes(); }
+async function salvarInformacoes(){
+  await db.collection('site_config').doc('informacoes').set({ cards: informacoesCache });
+  mostrarOk();
+}
+
+/* ---- Destaques (veiculos fixados no topo da listagem, na ordem marcada) ---- */
+let destaquesCache = [];
+async function carregarDestaques(){
+  const [vSnap, dSnap] = await Promise.all([
+    db.collection('site_veiculos').get(),
+    db.collection('site_config').doc('destaques').get(),
+  ]);
+  if (!veiculosCache.length) veiculosCache = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  destaquesCache = (dSnap.exists && dSnap.data().ids) || [];
+  renderDestaques();
+}
+function renderDestaques(){
+  const ordenados = [...veiculosCache].sort((a,b) => (a.marca+a.modelo).localeCompare(b.marca+b.modelo));
+  document.getElementById('lista-destaques').innerHTML = ordenados.map(v => {
+    const pos = destaquesCache.indexOf(v.id);
+    return `<div class="veiculo-item" style="cursor:default">
+      <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
+      <div class="info">
+        <div class="titulo">${v.marca||''} ${v.modelo||''}</div>
+        <div class="preco">${v.preco?'R$ '+Number(v.preco).toLocaleString('pt-BR'):''}</div>
+      </div>
+      ${pos>-1?`<span class="badge badge-ok">#${pos+1}</span>`:''}
+      <label class="switch"><input type="checkbox" ${pos>-1?'checked':''} onchange="toggleDestaque('${v.id}',this.checked)"><span class="sl"></span></label>
+    </div>`;
+  }).join('');
+}
+function toggleDestaque(id, marcado){
+  if (marcado) { if(!destaquesCache.includes(id)) destaquesCache.push(id); }
+  else { destaquesCache = destaquesCache.filter(x => x !== id); }
+  renderDestaques();
+  salvarDestaques();
+}
+async function salvarDestaques(){
+  await db.collection('site_config').doc('destaques').set({ ids: destaquesCache });
+  mostrarOk();
+}
+
 auth.onAuthStateChanged((user) => {
   document.getElementById('login-view').classList.toggle('hidden', !!user);
   document.getElementById('app-view').classList.toggle('hidden', !user);
-  if (user) carregarBanners();
+  if (user) trocarTab('veiculos');
 });
 </script>
 </body>
