@@ -122,6 +122,7 @@ h2{font-size:15px;margin-bottom:10px}
 
   <div id="view-veiculos-lista">
     <div class="sub">Clique num veículo pra editar os dados, fotos ou ocultar do site.</div>
+    <button class="btn btn-sm" onclick="novoVeiculo()" style="margin-bottom:12px">+ Adicionar carro</button>
     <div class="lista-veiculos" id="lista-veiculos"></div>
   </div>
 
@@ -264,14 +265,29 @@ async function carregarVeiculos(){
   veiculosCache.sort((a,b) => (a.marca+a.modelo).localeCompare(b.marca+b.modelo));
   if (!veiculosCache.length) { lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Nenhum veículo encontrado.</div>'; return; }
   lista.innerHTML = veiculosCache.map(v => `
-    <div class="veiculo-item" onclick="abrirVeiculo('${v.id}')">
+    <div class="veiculo-item">
       <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
       <div class="info">
         <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
         <div class="preco">${v.preco?'R$ '+Number(v.preco).toLocaleString('pt-BR'):'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
       </div>
       <span class="badge ${v.oculto?'badge-oculto':'badge-ok'}">${v.oculto?'Oculto':'Visível'}</span>
+      <button class="btn-outline btn-sm" onclick="event.stopPropagation();abrirVeiculo('${v.id}')">Editar</button>
+      <button class="btn-outline btn-sm" onclick="event.stopPropagation();excluirVeiculo('${v.id}')">Excluir</button>
     </div>`).join('');
+}
+// Exclusao de verdade (pedido da Aline, 01/10/2026) - diferente de "ocultar"
+// (que so' esconde do site, reversivel): isso apaga o documento e as fotos
+// do Storage, pra quando o carro nao existe mais no estoque de verdade.
+async function excluirVeiculo(id){
+  const v = veiculosCache.find(x => x.id === id);
+  if (!v) return;
+  if (!confirm(`Excluir de vez "${v.marca} ${v.modelo}"? Isso remove os dados e as fotos - não dá pra desfazer. Se for só pra sumir do site, use "Ocultar" em vez disso.`)) return;
+  await Promise.all((v.fotos||[]).map(url => {
+    try { return storage.refFromURL(url).delete(); } catch(e) { return Promise.resolve(); }
+  }));
+  await db.collection('site_veiculos').doc(id).delete();
+  carregarVeiculos();
 }
 
 function voltarLista(){
@@ -279,6 +295,20 @@ function voltarLista(){
   document.getElementById('view-veiculo-editar').classList.add('hidden');
   document.getElementById('view-veiculos-lista').classList.remove('hidden');
   carregarVeiculos();
+}
+
+// Carro cadastrado manualmente (nao veio do Autoconf) - marca manual:true e
+// ja trava TODOS os campos desde a criacao, pra sincronizarVeiculosSitePublico
+// nunca mexer nele (nem apagar/ocultar por "sumiu da fonte", ja que ele
+// nunca esteve na fonte pra comecar - ver webhook-autoconf/migrar-site.js).
+const CAMPOS_VEICULO = ['marca','modelo','versao','preco','ano','km','cor','cambio','potencia','garantia','descricao'];
+async function novoVeiculo(){
+  const id = 'manual-' + Date.now();
+  const dados = { manual:true, oculto:false, fotos:[], opcionais:[], fotosBloqueadas:true, camposBloqueados:[...CAMPOS_VEICULO,'opcionais'] };
+  CAMPOS_VEICULO.forEach(c => dados[c] = '');
+  await db.collection('site_veiculos').doc(id).set(dados);
+  veiculosCache.push({ id, ...dados });
+  abrirVeiculo(id);
 }
 
 function abrirVeiculo(id){

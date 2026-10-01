@@ -92,6 +92,10 @@ exports.sincronizarVeiculosSitePublico=onRequest({region:'southamerica-east1',ti
     const todosSnap=await db.collection('site_veiculos').get();
     const desaparecidos=[];
     for(const doc of todosSnap.docs){
+      // Carro cadastrado manualmente (manual:true) nunca esteve na fonte -
+      // nao se aplica essa regra de "sumiu", senao ele seria ocultado
+      // sozinho na primeira sincronizacao depois de criado.
+      if(doc.data().manual)continue;
       if(!idsNaFonte.has(doc.id)&&!doc.data().desapareceuDaFonte){
         await doc.ref.set({desapareceuDaFonte:true,oculto:true},{merge:true});
         desaparecidos.push(doc.id);
