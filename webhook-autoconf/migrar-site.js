@@ -33,7 +33,11 @@ async function baixar(url){
   if(!r.ok)return null;
   return Buffer.from(await r.arrayBuffer());
 }
-const CAMPOS_DA_FONTE=['url','marca','modelo','versao','precoDe','precoPor','ano','km','potencia','cambio','cor','opcionais','garantia','descricao','categoria','combustivel','portas'];
+// Lista atualizada 01/10/2026 pro formato real que o scraper atual gera
+// (site-publico/dados/estoque.json) - os nomes antigos (precoDe/precoPor/
+// categoria/combustivel/portas) eram da extracao de 07/09 e nao existem
+// mais nesse arquivo, causavam "undefined" nesses campos.
+const CAMPOS_DA_FONTE=['url','marca','modelo','versao','preco','ano','km','potencia','cambio','cor','opcionais','garantia','descricao'];
 
 exports.sincronizarVeiculosSitePublico=onRequest({region:'southamerica-east1',timeoutSeconds:540,memory:'512MiB',cors:true},async(req,res)=>{
   try{
