@@ -909,12 +909,21 @@ function dtISOdoLead(l){
   const m=String(l.dt||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);
   return m?`${m[3]}-${m[2]}-${m[1]}`:'';
 }
-function statusRespostaCliente(l){
+// "Teve resposta" = o cliente esta em conversa: respondeu a Eva, ou o lead ja
+// avancou no funil (so' avanca quando o cliente interage com o vendedor).
+// Retorna {sim, motivo} - o motivo aparece na planilha pra ela conferir.
+const ETAPAS_COM_CONVERSA=['encantamento','negociacao','agendamento','visita','vendido','em_conversa'];
+function clienteEmConversa(l){
   const conv=l.conversaEloa||[];
-  if(conv.some(m=>m.role==='user'))return'Sim';
-  if(l.eloaEnviadoEm==='NUMERO_INVALIDO')return'Número inválido';
-  if(conv.length||l.eloaEnviadoEm)return'Não respondeu';
-  return'Sem contato da I.A.';
+  if(conv.some(m=>m.role==='user'))return{sim:true,motivo:'Respondeu à Eva'};
+  if(ETAPAS_COM_CONVERSA.includes(l.st)){
+    const col=COLS_MK.find(c=>c.id===l.st);
+    return{sim:true,motivo:`Avançou no funil (${col?col.label:'Em conversa'})`};
+  }
+  if(l.eloaEnviadoEm==='NUMERO_INVALIDO')return{sim:false,motivo:'Número inválido'};
+  if(conv.length||l.eloaEnviadoEm)return{sim:false,motivo:'Não respondeu à I.A.'};
+  if(l.st==='atendimento')return{sim:false,motivo:'Em atendimento, sem resposta registrada'};
+  return{sim:false,motivo:'Sem contato da I.A.'};
 }
 function abrirRelatorioCanal(){
   let ov=document.getElementById('ov-rel-canal');
@@ -960,21 +969,20 @@ function gerarRelatorioCanal(){
   const canais={};
   ls.forEach(l=>{
     const c=l.origem||'(sem origem)';
-    const k=canais[c]=canais[c]||{total:0,sim:0,nao:0,semIA:0,invalido:0,atendido:0};
+    const k=canais[c]=canais[c]||{total:0,sim:0,nao:0,atendido:0};
     k.total++;
-    const r=statusRespostaCliente(l);
-    if(r==='Sim')k.sim++;else if(r==='Não respondeu')k.nao++;else if(r==='Número inválido')k.invalido++;else k.semIA++;
+    if(clienteEmConversa(l).sim)k.sim++;else k.nao++;
     if(primeiraRespostaVendedorISO(l))k.atendido++;
   });
   const fmtBR=iso=>iso.split('-').reverse().join('/');
   const pct=(a,b)=>b?Math.round(a*100/b)+'%':'-';
   const T=Object.values(canais).reduce((s,k)=>{Object.keys(k).forEach(x=>s[x]=(s[x]||0)+k[x]);return s;},{});
   let xml=gerarLinhaXLS([`Relatório de leads por canal — ${fmtBR(de)} a ${fmtBR(ate)}`],[],true)+gerarLinhaXLS([`Canais: ${canaisSel.length===TODAS_ORIGENS.length+1?'todos':canaisSel.join(', ')}`],[],false)+gerarLinhaXLS([],[],false);
-  xml+=gerarLinhaXLS(['Canal','Leads','Cliente respondeu','Não respondeu','Sem contato da I.A.','Número inválido','Vendedor atendeu','% cliente respondeu','% vendedor atendeu'],[],true);
+  xml+=gerarLinhaXLS(['Canal','Leads','Cliente em conversa','Sem conversa','% em conversa','Vendedor atendeu','% vendedor atendeu'],[],true);
   Object.entries(canais).sort((a,b)=>b[1].total-a[1].total).forEach(([c,k])=>{
-    xml+=gerarLinhaXLS([c,k.total,k.sim,k.nao,k.semIA,k.invalido,k.atendido,pct(k.sim,k.total),pct(k.atendido,k.total)],[1,2,3,4,5,6],false);
+    xml+=gerarLinhaXLS([c,k.total,k.sim,k.nao,pct(k.sim,k.total),k.atendido,pct(k.atendido,k.total)],[1,2,3,5],false);
   });
-  xml+=gerarLinhaXLS(['TOTAL',T.total,T.sim,T.nao,T.semIA,T.invalido,T.atendido,pct(T.sim,T.total),pct(T.atendido,T.total)],[1,2,3,4,5,6],true);
+  xml+=gerarLinhaXLS(['TOTAL',T.total,T.sim,T.nao,pct(T.sim,T.total),T.atendido,pct(T.atendido,T.total)],[1,2,3,5],true);
   // Por veiculo de interesse (texto livre do lead, agrupado ignorando maiusculas)
   const veics={};
   ls.forEach(l=>{
@@ -982,22 +990,23 @@ function gerarRelatorioCanal(){
     const chave=nome?nome.toUpperCase():'(veículo não informado)';
     const v=veics[chave]=veics[chave]||{nome:nome||'(veículo não informado)',total:0,sim:0,atendido:0,canais:{}};
     v.total++;
-    if(statusRespostaCliente(l)==='Sim')v.sim++;
+    if(clienteEmConversa(l).sim)v.sim++;
     if(primeiraRespostaVendedorISO(l))v.atendido++;
     const c=l.origem||'(sem origem)';v.canais[c]=(v.canais[c]||0)+1;
   });
   xml+=gerarLinhaXLS([],[],false)+gerarLinhaXLS(['Por veículo de interesse'],[],true);
-  xml+=gerarLinhaXLS(['Veículo','Leads','Cliente respondeu','Vendedor atendeu','Canais de origem'],[],true);
+  xml+=gerarLinhaXLS(['Veículo','Leads','Cliente em conversa','Vendedor atendeu','Canais de origem'],[],true);
   Object.values(veics).sort((a,b)=>b.total-a.total).forEach(v=>{
     const canaisTxt=Object.entries(v.canais).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c} ${n}`).join(' · ');
     xml+=gerarLinhaXLS([v.nome,v.total,v.sim,v.atendido,canaisTxt],[1,2,3],false);
   });
   xml+=gerarLinhaXLS([],[],false)+gerarLinhaXLS(['Lista de leads'],[],true);
-  xml+=gerarLinhaXLS(['ID','Data','Cliente','Telefone','Veículo','Canal','Vendedor','Cliente respondeu?','Vendedor atendeu?','Etapa atual','Motivo/Resultado'],[],true);
+  xml+=gerarLinhaXLS(['ID','Data','Cliente','Telefone','Veículo','Canal','Vendedor','Cliente em conversa?','Situação da conversa','Vendedor atendeu?','Etapa atual','Motivo/Resultado'],[],true);
   ls.forEach(l=>{
     const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
     const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
-    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'(sem origem)',l.captador||l.by||'',statusRespostaCliente(l),primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,resultado],[],false);
+    const conv=clienteEmConversa(l);
+    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'(sem origem)',l.captador||l.by||'',conv.sim?'Sim':'Não',conv.motivo,primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,resultado],[],false);
   });
   baixarXMLWorkbook(`relatorio_leads_${de}_a_${ate}.xls`,'Relatório',xml);
   fecharModal('ov-rel-canal');
