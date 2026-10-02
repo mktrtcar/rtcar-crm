@@ -233,19 +233,25 @@ async function fotosAoVivoAutoconf(v){
 
 async function fotosParaVeiculo(v){
   const catalogo=await catalogoSite();
+  // 1) Vinculo feito pela Aline no admin do site (placaReal do carro do sistema)
+  const placaAlvo=limparPlaca(v.placa);
+  const vinculado=catalogo.find(c=>c.placaReal&&limparPlaca(c.placaReal)===placaAlvo&&(c.fotos||[]).length);
+  if(vinculado)return vinculado.fotos;
+  // 2) Aproximacao marca+modelo - so' aceita se o km bate de perto (ate 6.000
+  // km de diferenca), pra nunca pegar foto de OUTRO carro do mesmo modelo.
   const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
   if(!marcaAlvo||!modeloAlvo)return[];
+  const kmAlvo=parseKm(v.km);
   const candidatos=catalogo.filter(c=>{
+    if(!(c.fotos||[]).length)return false;
     const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
-    return marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
+    if(!(marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC))))return false;
+    const kmC=parseKm(c.km);
+    return !kmAlvo||!kmC||Math.abs(kmC-kmAlvo)<=6000;
   });
   if(!candidatos.length)return fotosAoVivoAutoconf(v);
-  const kmAlvo=parseKm(v.km);
   candidatos.sort((a,b)=>Math.abs(parseKm(a.km)-kmAlvo)-Math.abs(parseKm(b.km)-kmAlvo));
-  const escolhido=candidatos[0];
-  const qtdFotos=(escolhido.fotos||[]).length;
-  if(!qtdFotos)return fotosAoVivoAutoconf(v);
-  return escolhido.fotos;
+  return candidatos[0].fotos;
 }
 
 /* método marcas/modelos usa um "slug" de categoria diferente do valor

@@ -529,11 +529,12 @@ async function vincularLinha(id, placa){
     d.oculto = false; delete d.ocultoPorVinculo;
   }
   if (!placa) {
-    await db.collection('site_veiculos').doc(id).set({ placaSistema: H.delete() }, { merge: true });
-    delete v.placaSistema;
+    await db.collection('site_veiculos').doc(id).set({ placaSistema: H.delete(), placaReal: H.delete() }, { merge: true });
+    delete v.placaSistema; delete v.placaReal;
   } else {
-    await db.collection('site_veiculos').doc(id).set({ placaSistema: placa }, { merge: true });
-    v.placaSistema = placa;
+    const real = (estoqueSistema.find(e => e.placa === placa) || {}).placaReal || '';
+    await db.collection('site_veiculos').doc(id).set({ placaSistema: placa, placaReal: real }, { merge: true });
+    v.placaSistema = placa; v.placaReal = real;
     const dup = veiculosCache.find(x => x.id === placa && x.id !== id && x.origemEstoquePrincipal && !(x.fotos||[]).length);
     if (dup) {
       await db.collection('site_veiculos').doc(dup.id).set({ oculto: true, ocultoPorVinculo: id }, { merge: true });
