@@ -21,7 +21,16 @@ const bucket = admin.storage().bucket();
    So considera disponivel/em_preparacao (mesmo filtro que o CRM ja usa pra
    "veiculo de interesse") - repasse/vendido nao precisam aparecer aqui. */
 const STATUS_RELEVANTES=['disponivel','em_preparacao'];
-const MAPA_CAMPOS={marca:'marca',modelo:'modelo',versao:'versao',preco:'preco'};
+// Preco NAO e' copiado sozinho (02/10/2026, pedido da Aline): preco so' aparece
+// no site quando ela puxa/aplica pelo admin (aba "Preco e KM").
+const MAPA_CAMPOS={marca:'marca',modelo:'modelo',versao:'versao'};
+
+async function apagarDocSite(docSnap){
+  const prefixo=`https://storage.googleapis.com/${bucket.name}/`;
+  const fotos=docSnap.data().fotos||[];
+  await Promise.all(fotos.filter(url=>url.startsWith(prefixo)).map(url=>bucket.file(url.slice(prefixo.length)).delete().catch(()=>{})));
+  await docSnap.ref.delete();
+}
 
 exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-east1',document:'rtcar_estoque_publico/{placa}'},async(event)=>{
   const depois=event.data?.after?.exists?event.data.after.data():null;
@@ -31,15 +40,13 @@ exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-e
     // Veiculo excluido no sistema principal, ou vendido/repasse - apaga de
     // verdade do site (doc + fotos no Storage), pedido da Aline,
     // 01/10/2026: carro vendido nao deve continuar aparecendo. So' apaga se
-    // o veiculo realmente veio dessa automacao (origemEstoquePrincipal) -
-    // nunca mexe num carro cadastrado manualmente no admin.
+    // o veiculo realmente veio dessa automacao (origemEstoquePrincipal) ou foi
+    // vinculado a esse carro do sistema (placaSistema, vinculo feito pela Aline
+    // no admin) - nunca mexe num carro cadastrado manualmente sem vinculo.
     const snap=await ref.get();
-    if(snap.exists&&snap.data().origemEstoquePrincipal){
-      const prefixo=`https://storage.googleapis.com/${bucket.name}/`;
-      const fotos=snap.data().fotos||[];
-      await Promise.all(fotos.filter(url=>url.startsWith(prefixo)).map(url=>bucket.file(url.slice(prefixo.length)).delete().catch(()=>{})));
-      await ref.delete();
-    }
+    if(snap.exists&&snap.data().origemEstoquePrincipal)await apagarDocSite(snap);
+    const vinculados=await db.collection('site_veiculos').where('placaSistema','==',placa).get();
+    for(const d of vinculados.docs)await apagarDocSite(d);
     return;
   }
   const existenteSnap=await ref.get();

@@ -287,10 +287,31 @@ const ORDENACOES = [
   {key:'menorKm', label:'Menor KM'},
 ];
 
+// Preco pode vir como numero (sistema principal / admin: 124900), texto BR
+// ("124.900" ou "124.900,00") ou nos campos antigos precoPor/precoDe.
+function parsePreco(x){
+  if(typeof x === 'number') return x;
+  let s = String(x||'').replace(/[^\d.,]/g,'');
+  if(!s) return 0;
+  if(s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');
+  return parseFloat(s)||0;
+}
+// So' mostra o preco que a Aline definiu de proposito no admin (digitou,
+// puxou do sistema ou aplicou promocao) - esses casos ficam em
+// camposBloqueados. Preco que veio sozinho da ligacao com o sistema fica
+// guardado mas escondido ate ela decidir.
+function precoDefinido(v){
+  if(parsePreco(v.precoPor)) return parsePreco(v.precoPor);
+  return (v.camposBloqueados||[]).includes('preco') ? parsePreco(v.preco) : 0;
+}
 function fmtPreco(v){
-  if(!v.precoPor) return '<span class="consulte">Consulte o preço</span>';
-  if(v.precoDe) return `<span class="de">de R$ ${v.precoDe}</span><span class="por">por R$ ${v.precoPor}</span>`;
-  return `<span class="por">R$ ${v.precoPor}</span>`;
+  const por = precoDefinido(v);
+  if(!por) return '<span class="consulte">Consulte o preço</span>';
+  const de = parsePreco(v.precoDe);
+  const fmt = n => n.toLocaleString('pt-BR');
+  if(de > por) return `<span class="de">de R$ ${fmt(de)}</span><span class="por">por R$ ${fmt(por)}</span>`;
+  return `<span class="por">R$ ${fmt(por)}</span>`;
 }
 
 // fotos agora vem do Firestore (site_veiculos) como URLs completas do
@@ -329,7 +350,7 @@ function marcasDisponiveis(){
 // Busca ampla: qualquer palavra do veiculo (marca, modelo, versao, cor,
 // cambio, categoria) - e "moto"/"motos" acha as motos mesmo sem a palavra
 // aparecer no nome do veiculo (pedido da Aline, 07/09/2026).
-function precoNum(v){ return +((v.precoPor||v.precoDe||'0').replace(/\./g,''))||0; }
+function precoNum(v){ return precoDefinido(v); }
 
 function veiculosFiltrados(){
   let lista = ESTOQUE.filter(v=>{

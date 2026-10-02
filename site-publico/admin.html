@@ -91,10 +91,25 @@ h2{font-size:15px;margin-bottom:10px}
   </div>
   <div class="tabs">
     <div class="tab on" id="tab-veiculos" onclick="trocarTab('veiculos')">Veículos</div>
+    <div class="tab" id="tab-precokm" onclick="trocarTab('precokm')">Preço e KM</div>
     <div class="tab" id="tab-banner" onclick="trocarTab('banner')">Banner</div>
     <div class="tab" id="tab-depoimentos" onclick="trocarTab('depoimentos')">Depoimentos</div>
     <div class="tab" id="tab-destaques" onclick="trocarTab('destaques')">Destaques</div>
     <div class="tab" id="tab-informacoes" onclick="trocarTab('informacoes')">Informações</div>
+  </div>
+
+  <div id="view-precokm" class="hidden">
+    <div class="sub">Ligue cada carro do site ao carro do sistema principal. Depois é só puxar o preço e o km de lá (de um carro ou de todos) e apagar o que não quiser mostrar. Os botões de "todos" só usam carros com vínculo já confirmado.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-sm" onclick="confirmarSugeridos()">Confirmar vínculos sugeridos</button>
+      <button class="btn btn-sm" onclick="puxarTodos('preco')">Puxar preço de todos</button>
+      <button class="btn btn-sm" onclick="puxarTodos('km')">Puxar km de todos</button>
+      <button class="btn-outline btn-sm" onclick="limparTodos('preco')">Limpar todos os preços</button>
+      <button class="btn-outline btn-sm" onclick="limparTodos('km')">Limpar todos os km</button>
+      <button class="btn btn-sm" style="background:#b8860b" onclick="aplicarPromocao()">Aplicar preços da promoção (arte de 02/10)</button>
+    </div>
+    <div id="resumo-precokm" style="font-size:12px;color:var(--tx3);margin-bottom:10px"></div>
+    <div class="lista-veiculos" id="lista-precokm"></div>
   </div>
 
   <div id="view-banner" class="hidden">
@@ -138,8 +153,9 @@ h2{font-size:15px;margin-bottom:10px}
       <div class="field"><label>Versão</label><input id="ed-versao" onchange="salvarCampo('versao',this.value)"></div>
       <div class="field-row">
         <div class="field"><label>Preço (R$)</label><input id="ed-preco" onchange="salvarCampo('preco',this.value)"></div>
-        <div class="field"><label>Ano</label><input id="ed-ano" placeholder="2022/2022" onchange="salvarCampo('ano',this.value)"></div>
+        <div class="field"><label>Preço anterior "de" (opcional)</label><input id="ed-precoDe" placeholder="Aparece riscado" onchange="salvarCampo('precoDe',this.value)"></div>
       </div>
+      <div class="field"><label>Ano</label><input id="ed-ano" placeholder="2022/2022" onchange="salvarCampo('ano',this.value)"></div>
       <div class="field-row">
         <div class="field"><label>KM</label><input id="ed-km" onchange="salvarCampo('km',this.value)"></div>
         <div class="field"><label>Cor</label><input id="ed-cor" onchange="salvarCampo('cor',this.value)"></div>
@@ -198,9 +214,11 @@ document.getElementById('btn-login').onclick = async () => {
 document.getElementById('btn-sair').onclick = () => auth.signOut();
 
 /* ---- Tabs ---- */
-const TODAS_TABS = ['veiculos','banner','depoimentos','destaques','informacoes'];
+const TODAS_TABS = ['veiculos','precokm','banner','depoimentos','destaques','informacoes'];
 function trocarTab(nome){
   TODAS_TABS.forEach(t => document.getElementById('tab-'+t).classList.toggle('on', t===nome));
+  document.getElementById('view-precokm').classList.toggle('hidden', nome!=='precokm');
+  if(nome==='precokm') carregarPrecoKm();
   document.getElementById('view-banner').classList.toggle('hidden', nome!=='banner');
   document.getElementById('view-depoimentos').classList.toggle('hidden', nome!=='depoimentos');
   document.getElementById('view-destaques').classList.toggle('hidden', nome!=='destaques');
@@ -269,7 +287,7 @@ async function carregarVeiculos(){
       <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
       <div class="info">
         <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
-        <div class="preco">${v.preco?'R$ '+Number(v.preco).toLocaleString('pt-BR'):'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
+        <div class="preco">${fmtBRL(v.preco)||'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
       </div>
       <span class="badge ${v.oculto?'badge-oculto':'badge-ok'}">${v.oculto?'Oculto':'Visível'}</span>
       <button class="btn-outline btn-sm" onclick="event.stopPropagation();abrirVeiculo('${v.id}')">Editar</button>
@@ -290,6 +308,247 @@ async function excluirVeiculo(id){
   carregarVeiculos();
 }
 
+/* ---- Preço e KM: vínculo com o estoque do sistema principal ---- */
+// Preco do sistema vem como numero; no site pode estar como texto BR.
+function parsePreco(x){
+  if (typeof x === 'number') return x;
+  let s = String(x||'').replace(/[^\d.,]/g,'');
+  if (!s) return 0;
+  if (s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');
+  return parseFloat(s)||0;
+}
+function fmtBRL(x){ const n = parsePreco(x); return n>0 ? 'R$ '+n.toLocaleString('pt-BR') : ''; }
+const digitos = s => parseInt(String(s||'').replace(/\D/g,''),10)||0;
+const normTxt = s => String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const tokensTxt = s => normTxt(s).split(' ').filter(t => t.length > 1);
+const ALIAS_MARCA = { 'VW':'VOLKSWAGEN','VW VOLKSWAGEN':'VOLKSWAGEN','GM':'CHEVROLET','GM CHEVROLET':'CHEVROLET','KIA MOTORS':'KIA' };
+const marcaNorm = m => { const n = normTxt(m); return ALIAS_MARCA[n] || n; };
+
+let estoqueSistema = [];
+let linhasPrecoKm = [];
+
+// Pontua quao provavel e' o carro do site "s" ser o carro do sistema "e":
+// mesma marca + algum nome de modelo em comum sao obrigatorios; versao, ano
+// e km parecido somam pontos. -1 = nao e' candidato.
+function pontuar(s, e){
+  if (marcaNorm(s.marca) !== marcaNorm(e.marca)) return -1;
+  const ts = new Set(tokensTxt((s.modelo||'')+' '+(s.versao||'')));
+  if (!tokensTxt(e.modelo).some(t => ts.has(t))) return -1;
+  let sc = tokensTxt((e.modelo||'')+' '+(e.versao||'')).filter(t => ts.has(t)).length * 2;
+  const anos = String(s.ano||'').match(/\d{4}/g) || [];
+  if (anos.includes(String(e.anoModelo)) || anos.includes(String(e.anoFabricacao))) sc += 4;
+  const d = Math.abs(digitos(s.km) - digitos(e.km));
+  sc += d === 0 ? 6 : d < 3000 ? 3 : d < 10000 ? 1 : 0;
+  return sc;
+}
+function vinculoConfirmado(v){
+  if (v.placaSistema && estoqueSistema.some(e => e.placa === v.placaSistema)) return v.placaSistema;
+  if (v.origemEstoquePrincipal && estoqueSistema.some(e => e.placa === v.id)) return v.id;
+  return '';
+}
+function melhorSugestao(v){
+  const c = estoqueSistema.map(e => ({ e, sc: pontuar(v, e) })).filter(x => x.sc >= 0).sort((a,b) => b.sc - a.sc);
+  return c[0] || null;
+}
+function rotuloEstoque(e){
+  const km = digitos(e.km);
+  return `${e.placaReal} · ${e.marca} ${e.modelo||''} ${e.versao||''} · ${e.anoModelo||''} · ${km?km.toLocaleString('pt-BR')+' km':'sem km'} · ${fmtBRL(e.preco)||'sem preço'}`.replace(/\s+/g,' ');
+}
+
+async function carregarPrecoKm(){
+  document.getElementById('lista-precokm').innerHTML = '<div style="font-size:12px;color:#8a8580">Carregando...</div>';
+  const [siteSnap, estSnap] = await Promise.all([
+    db.collection('site_veiculos').get(),
+    db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao','repasse']).get(),
+  ]);
+  // "placa" aqui e' sempre o ID do documento (e' a chave que a ligacao automatica
+  // usa); a placa real do carro fica em placaReal, so' pra mostrar na tela.
+  estoqueSistema = estSnap.docs.map(d => ({ ...d.data(), placa: d.id, placaReal: d.data().placa || d.id }));
+  estoqueSistema.sort((a,b) => (a.marca+a.modelo).localeCompare(b.marca+b.modelo));
+  veiculosCache = siteSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderPrecoKm();
+}
+
+function renderPrecoKm(){
+  const el = document.getElementById('lista-precokm');
+  const visiveis = veiculosCache.filter(v => !v.ocultoPorVinculo);
+  visiveis.sort((a,b) => ((a.marca||'')+(a.modelo||'')).localeCompare((b.marca||'')+(b.modelo||'')));
+  // sugestao so' pra quem ainda nao tem vinculo confirmado; conflito = o mesmo
+  // carro do sistema sugerido pra mais de uma linha.
+  linhasPrecoKm = visiveis.map(v => {
+    const conf = vinculoConfirmado(v);
+    const sug = conf ? null : melhorSugestao(v);
+    return { v, conf, sug };
+  });
+  const usos = {};
+  linhasPrecoKm.forEach(l => { const p = l.conf || (l.sug && l.sug.e.placa); if (p) usos[p] = (usos[p]||0) + 1; });
+  linhasPrecoKm.forEach(l => {
+    l.conflito = !l.conf && l.sug && usos[l.sug.e.placa] > 1;
+    const diffKm = l.sug ? Math.abs(digitos(l.v.km) - digitos(l.sug.e.km)) : 0;
+    l.seguro = !!(l.sug && !l.conflito && (!digitos(l.v.km) || !digitos(l.sug.e.km) || diffKm <= 5000));
+  });
+  const nConf = linhasPrecoKm.filter(l => l.conf).length;
+  const nSeg = linhasPrecoKm.filter(l => l.seguro).length;
+  const nAtencao = linhasPrecoKm.filter(l => !l.conf && !l.seguro).length;
+  document.getElementById('resumo-precokm').textContent =
+    `${linhasPrecoKm.length} carros no site · ${nConf} com vínculo confirmado · ${nSeg} sugeridos com segurança · ${nAtencao} pedem sua atenção (conflito, km muito diferente ou sem par no sistema).`;
+  el.innerHTML = linhasPrecoKm.map(({ v, conf, sug, conflito, seguro }) => {
+    const selecionado = conf || (sug ? sug.e.placa : '');
+    const opcoes = ['<option value="">— sem vínculo —</option>'].concat(estoqueSistema.map(e =>
+      `<option value="${e.placa}" ${e.placa===selecionado?'selected':''}>${rotuloEstoque(e)}</option>`)).join('');
+    const aviso = conf ? '<span class="badge badge-ok">vinculado</span>'
+      : conflito ? '<span class="badge badge-oculto">conflito: escolha manualmente</span>'
+      : seguro ? '<span class="badge" style="background:#3a2e12;color:#e8b64a">sugerido</span>'
+      : sug ? '<span class="badge badge-oculto">confira o km</span>'
+      : '<span class="badge badge-oculto">sem par no sistema</span>';
+    return `<div class="veiculo-item" style="flex-wrap:wrap;gap:8px">
+      <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
+      <div class="info" style="min-width:200px;flex:1 1 200px">
+        <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
+        <div class="preco">${v.ano||'—'} · km ${digitos(v.km)?digitos(v.km).toLocaleString('pt-BR'):'—'} · ${fmtBRL(v.preco)||'sem preço'}</div>
+      </div>
+      ${aviso}
+      <select style="flex:1 1 280px;max-width:420px" onchange="vincularLinha('${v.id}',this.value)">${opcoes}</select>
+      <input style="width:110px" placeholder="Preço" value="${v.preco||''}" onchange="digitarCampo('${v.id}','preco',this.value)">
+      <input style="width:90px" placeholder="KM" value="${v.km||''}" onchange="digitarCampo('${v.id}','km',this.value)">
+      <button class="btn-outline btn-sm" onclick="puxarCampo('${v.id}','preco')">Puxar preço</button>
+      <button class="btn-outline btn-sm" onclick="puxarCampo('${v.id}','km')">Puxar km</button>
+      <button class="btn-outline btn-sm" onclick="limparCampo('${v.id}','preco')">Limpar preço</button>
+      <button class="btn-outline btn-sm" onclick="limparCampo('${v.id}','km')">Limpar km</button>
+    </div>`;
+  }).join('') || '<div style="font-size:12px;color:#8a8580">Nenhum veículo.</div>';
+}
+
+// Grava um campo. travar=true marca como "definido pela Aline" (a automacao nunca
+// mais sobrescreve e, no caso do preco, o site so' mostra preco assim).
+async function gravarCampoDoc(id, campo, valor, travar){
+  const v = veiculosCache.find(x => x.id === id);
+  const bloqueados = new Set(v.camposBloqueados || []);
+  if (travar) bloqueados.add(campo); else bloqueados.delete(campo);
+  await db.collection('site_veiculos').doc(id).set({ [campo]: valor, camposBloqueados: [...bloqueados] }, { merge: true });
+  v[campo] = valor; v.camposBloqueados = [...bloqueados];
+}
+async function digitarCampo(id, campo, texto){
+  const valor = campo === 'preco' ? (parsePreco(texto) || '') : (digitos(texto) ? String(digitos(texto)) : '');
+  await gravarCampoDoc(id, campo, valor, true);
+  renderPrecoKm();
+}
+function valorDoSistema(v, campo){
+  const placa = vinculoConfirmado(v);
+  const e = estoqueSistema.find(x => x.placa === placa);
+  if (!e) return { erro: 'sem vínculo' };
+  if (campo === 'preco') { const n = parsePreco(e.preco); return n > 0 ? { valor: n } : { erro: 'sem preço no sistema' }; }
+  const k = digitos(e.km); return k > 0 ? { valor: String(k) } : { erro: 'sem km no sistema' };
+}
+async function puxarCampo(id, campo){
+  const v = veiculosCache.find(x => x.id === id);
+  const r = valorDoSistema(v, campo);
+  if (r.erro) { alert(r.erro === 'sem vínculo' ? 'Escolha e confirme o carro do sistema primeiro (a lista ao lado).' : `Esse carro está ${r.erro}.`); return; }
+  await gravarCampoDoc(id, campo, r.valor, true);
+  renderPrecoKm();
+}
+async function limparCampo(id, campo){
+  await gravarCampoDoc(id, campo, '', true);
+  renderPrecoKm();
+}
+async function puxarTodos(campo){
+  const alvo = linhasPrecoKm.filter(l => l.conf);
+  if (!alvo.length) { alert('Nenhum carro com vínculo confirmado ainda. Use "Confirmar vínculos sugeridos" ou escolha o carro do sistema em cada linha.'); return; }
+  if (!confirm(`Puxar ${campo === 'preco' ? 'o preço' : 'o km'} do sistema para ${alvo.length} carro(s) com vínculo confirmado? Isso substitui o valor atual desses carros.`)) return;
+  let ok = 0; const pulados = [];
+  for (const l of alvo) {
+    const r = valorDoSistema(l.v, campo);
+    if (r.erro) { pulados.push(`${l.v.marca} ${l.v.modelo} (${r.erro})`); continue; }
+    await gravarCampoDoc(l.v.id, campo, r.valor, true); ok++;
+  }
+  renderPrecoKm();
+  alert(`${ok} carro(s) atualizado(s).` + (pulados.length ? `\n\nNão puxei de ${pulados.length}:\n` + pulados.slice(0,15).join('\n') : ''));
+}
+async function limparTodos(campo){
+  const alvo = linhasPrecoKm.map(l => l.v).filter(v => v[campo]);
+  if (!alvo.length) { alert('Nenhum carro com esse valor.'); return; }
+  if (!confirm(`Limpar ${campo === 'preco' ? 'o preço' : 'o km'} de ${alvo.length} carro(s)? Depois você puxa de novo só dos que quiser.`)) return;
+  for (const v of alvo) await gravarCampoDoc(v.id, campo, '', true);
+  renderPrecoKm();
+}
+
+// Promocao da arte de 02/10/2026 (pedido da Aline: "esse quero o preço"):
+// "de" vem da arte, "por" confere com o preco do sistema principal. Chave =
+// id do carro no site; placa = id do carro no sistema (pra vincular).
+// Nao entraram: Volvo EX30 (nao existe no site ainda) e o quadro em branco
+// da arte (sem carro identificado).
+const PROMOCAO = {
+  '312536':  { de:168900, por:159900, placa:'BZA2425', nome:'Volvo XC40 R-Design' },
+  '573923':  { de:184900, por:167900, placa:'QRN1990', nome:'BMW X3 xDrive 30i' },
+  '956634':  { de:207900, por:189900, placa:'',        nome:'BMW X1 sDrive 20i' },
+  '854168':  { de:127900, por:119900, placa:'QQZ9113', nome:'VW Tiguan Allspace' },
+  '855915':  { de:127900, por:118900, placa:'QGP3302', nome:'Toyota RAV4' },
+  '942052':  { de:136900, por:135900, placa:'PCB8123', nome:'VW Golf GTi' },
+  '972213':  { de:116900, por:109900, placa:'RRS0424', nome:'Hyundai Creta Comfort' },
+  '968116':  { de:99900,  por:96900,  placa:'RNS0591', nome:'Chevrolet Cruze LT' },
+  '866559':  { de:103900, por:95900,  placa:'QIP4167', nome:'Hyundai Tucson GLS' },
+  '971170':  { de:162900, por:158900, placa:'SXQ3698', nome:'VW Nivus GTS' },
+  '980632':  { de:149900, por:144900, placa:'TPM7463', nome:'Honda HR-V EX' },
+  '1053460': { de:254900, por:239900, placa:'JCF9233', nome:'Volvo XC60 T8 Plus' },
+  '1031734': { de:178900, por:169900, placa:'RXR5108', nome:'Volvo XC40 Inscription' },
+};
+async function aplicarPromocao(){
+  const ids = Object.keys(PROMOCAO);
+  const faltando = ids.filter(id => !veiculosCache.some(v => v.id === id));
+  const aTirar = veiculosCache.filter(v => !PROMOCAO[v.id] && (v.preco || v.precoDe));
+  if (!confirm(`Mostrar preço (de/por) só nos ${ids.length - faltando.length} carros da promoção e tirar o preço de ${aTirar.length} outro(s) carro(s)?\n\nVocê pode puxar o preço de qualquer carro de novo depois.`)) return;
+  for (const v of aTirar) {
+    const b = new Set(v.camposBloqueados || []); b.add('preco'); b.add('precoDe');
+    await db.collection('site_veiculos').doc(v.id).set({ preco:'', precoDe:'', camposBloqueados:[...b] }, { merge:true });
+    v.preco = ''; v.precoDe = ''; v.camposBloqueados = [...b];
+  }
+  const feitos = [];
+  for (const id of ids) {
+    const v = veiculosCache.find(x => x.id === id);
+    if (!v) continue;
+    const p = PROMOCAO[id];
+    const b = new Set(v.camposBloqueados || []); b.add('preco'); b.add('precoDe');
+    await db.collection('site_veiculos').doc(id).set({ preco:p.por, precoDe:p.de, camposBloqueados:[...b] }, { merge:true });
+    v.preco = p.por; v.precoDe = p.de; v.camposBloqueados = [...b];
+    if (p.placa && estoqueSistema.some(e => e.placa === p.placa)) await vincularLinha(id, p.placa);
+    feitos.push(p.nome);
+  }
+  renderPrecoKm();
+  alert(`Promoção aplicada em ${feitos.length} carro(s).` + (faltando.length ? `\n\nNão encontrei no site: ${faltando.join(', ')}` : '') + `\n\nFicaram de fora: Volvo EX30 (ainda não está no site) e o quadro em branco da arte.`);
+}
+
+// Vincula o carro do site ao carro do sistema. Se o sistema ja' tinha criado
+// sozinho um carro "duplicado" (sem foto) com essa placa, esconde o duplicado
+// (reversivel: se desvincular, ele volta a aparecer).
+async function vincularLinha(id, placa){
+  const v = veiculosCache.find(x => x.id === id);
+  const H = firebase.firestore.FieldValue;
+  for (const d of veiculosCache.filter(x => x.ocultoPorVinculo === id)) {
+    await db.collection('site_veiculos').doc(d.id).set({ oculto: false, ocultoPorVinculo: H.delete() }, { merge: true });
+    d.oculto = false; delete d.ocultoPorVinculo;
+  }
+  if (!placa) {
+    await db.collection('site_veiculos').doc(id).set({ placaSistema: H.delete() }, { merge: true });
+    delete v.placaSistema;
+  } else {
+    await db.collection('site_veiculos').doc(id).set({ placaSistema: placa }, { merge: true });
+    v.placaSistema = placa;
+    const dup = veiculosCache.find(x => x.id === placa && x.id !== id && x.origemEstoquePrincipal && !(x.fotos||[]).length);
+    if (dup) {
+      await db.collection('site_veiculos').doc(dup.id).set({ oculto: true, ocultoPorVinculo: id }, { merge: true });
+      dup.oculto = true; dup.ocultoPorVinculo = id;
+    }
+  }
+  renderPrecoKm();
+}
+async function confirmarSugeridos(){
+  const alvo = linhasPrecoKm.filter(l => l.seguro);
+  if (!alvo.length) { alert('Nenhum vínculo sugerido com segurança. Escolha o carro do sistema manualmente em cada linha.'); return; }
+  if (!confirm(`Confirmar ${alvo.length} vínculo(s) sugerido(s)? São os que combinam marca, modelo, versão/ano e km (diferença de até 5.000 km), sem conflito. Os demais ficam pra você escolher na mão.`)) return;
+  for (const l of alvo) await vincularLinha(l.v.id, l.sug.e.placa);
+}
+
 function voltarLista(){
   editandoId = null; veiculoAtual = null;
   document.getElementById('view-veiculo-editar').classList.add('hidden');
@@ -301,7 +560,7 @@ function voltarLista(){
 // ja trava TODOS os campos desde a criacao, pra sincronizarVeiculosSitePublico
 // nunca mexer nele (nem apagar/ocultar por "sumiu da fonte", ja que ele
 // nunca esteve na fonte pra comecar - ver webhook-autoconf/migrar-site.js).
-const CAMPOS_VEICULO = ['marca','modelo','versao','preco','ano','km','cor','cambio','potencia','garantia','descricao'];
+const CAMPOS_VEICULO = ['marca','modelo','versao','preco','precoDe','ano','km','cor','cambio','potencia','garantia','descricao'];
 async function novoVeiculo(){
   const id = 'manual-' + Date.now();
   const dados = { manual:true, oculto:false, fotos:[], opcionais:[], fotosBloqueadas:true, camposBloqueados:[...CAMPOS_VEICULO,'opcionais'] };
@@ -317,7 +576,7 @@ function abrirVeiculo(id){
   if (!veiculoAtual) return;
   document.getElementById('view-veiculos-lista').classList.add('hidden');
   document.getElementById('view-veiculo-editar').classList.remove('hidden');
-  ['marca','modelo','versao','preco','ano','km','cor','cambio','potencia','garantia','descricao'].forEach(campo => {
+  ['marca','modelo','versao','preco','precoDe','ano','km','cor','cambio','potencia','garantia','descricao'].forEach(campo => {
     document.getElementById('ed-'+campo).value = veiculoAtual[campo] || '';
   });
   document.getElementById('ed-oculto').checked = !!veiculoAtual.oculto;
