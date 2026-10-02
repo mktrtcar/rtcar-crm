@@ -1105,6 +1105,7 @@ function renderMarketing(){
       ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().mk.filtroCaptador=\'\';__G().mk.filtroDataInicio=\'\';__G().mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
     </div>
     <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="mk-busca" placeholder="Buscar lead..." value="${G.mk.busca}" oninput="__G().mk.busca=this.value;renderMarketing()"></div>
+    ${(G.user?.r==='master'||G.user?.r==='manager')?'<button class="btn btn-outline btn-sm" onclick="abrirRelatorioCanal()" title="Baixar relatório por período e canal"><i class="ti ti-file-spreadsheet"></i> Relatório</button>':''}
     <button class="btn btn-red btn-sm" onclick="abrirModalLead()"><i class="ti ti-plus"></i> Novo Lead</button>
   `;
   if(buscaFocada){
@@ -1385,6 +1386,98 @@ function exportarLeadsCSV(){
   baixarXLS(`leads_${hoje().replace(/\//g,'-')}.xls`,'Leads',['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Motivo/Resultado'],linhas);
   toast(`${leads.length} lead(s) exportado(s)!`);
 }
+
+/* Relatorio por canal (02/10/2026, urgente, pedido da Aline): periodo livre,
+   resumo por canal + lista de cada lead, com "o cliente respondeu?" (respondeu
+   a mensagem da I.A./Eva) e "o vendedor atendeu?" (dono do lead registrou a
+   primeira acao no historico). Todo o resto da tela fica de fora de proposito:
+   so' o periodo escolhido aqui vale, nao os filtros do Funil. */
+function dtISOdoLead(l){
+  if(l.dtISO)return String(l.dtISO).slice(0,10);
+  const m=String(l.dt||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  return m?`${m[3]}-${m[2]}-${m[1]}`:'';
+}
+function statusRespostaCliente(l){
+  const conv=l.conversaEloa||[];
+  if(conv.some(m=>m.role==='user'))return'Sim';
+  if(l.eloaEnviadoEm==='NUMERO_INVALIDO')return'Número inválido';
+  if(conv.length||l.eloaEnviadoEm)return'Não respondeu';
+  return'Sem contato da I.A.';
+}
+function abrirRelatorioCanal(){
+  let ov=document.getElementById('ov-rel-canal');
+  if(!ov){
+    ov=document.createElement('div');ov.id='ov-rel-canal';ov.className='ov hidden';
+    ov.onclick=e=>{if(e.target===ov)fecharModal('ov-rel-canal');};
+    ov.innerHTML=`<div class="mod" style="max-width:440px">
+      <div class="mod-head"><h3><i class="ti ti-file-spreadsheet"></i> Relatório de leads por canal</h3><button class="mod-close" onclick="fecharModal('ov-rel-canal')"><i class="ti ti-x"></i></button></div>
+      <div class="mod-body">
+        <p style="font-size:12px;color:var(--tx3);margin-bottom:12px">Escolha o período (pela data em que o lead chegou). A planilha traz o resumo por canal, o resumo por veículo de interesse e a lista de cada lead, com "cliente respondeu?" e "vendedor atendeu?".</p>
+        <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>De</label><input type="date" id="rc-de"></div><div class="field" style="flex:1"><label>Até</label><input type="date" id="rc-ate"></div></div>
+      </div>
+      <div class="mod-foot"><button class="btn btn-outline" onclick="fecharModal('ov-rel-canal')">Fechar</button><button class="btn btn-red" onclick="gerarRelatorioCanal()"><i class="ti ti-download"></i> Baixar planilha</button></div>
+    </div>`;
+    (document.getElementById('ov-an')||{}).parentNode?.appendChild(ov)||document.body.appendChild(ov);
+    if(!ov.parentNode)document.body.appendChild(ov);
+  }
+  document.getElementById('rc-de').value=G.mk.filtroDataInicio||hojeISOlocal(-6);
+  document.getElementById('rc-ate').value=G.mk.filtroDataFim||hojeISOlocal(0);
+  ov.classList.remove('hidden');
+}
+function gerarRelatorioCanal(){
+  const de=document.getElementById('rc-de').value,ate=document.getElementById('rc-ate').value;
+  if(!de||!ate){toast('Escolha as duas datas','gold');return;}
+  if(de>ate){toast('A data inicial é depois da final','red');return;}
+  const ls=(G.mk.leads||[]).filter(l=>{const d=dtISOdoLead(l);return d&&d>=de&&d<=ate;}).sort((a,b)=>dtISOdoLead(a).localeCompare(dtISOdoLead(b))||(a.id||'').localeCompare(b.id||''));
+  if(!ls.length){toast('Nenhum lead nesse período','gold');return;}
+  const canais={};
+  ls.forEach(l=>{
+    const c=l.origem||'(sem origem)';
+    const k=canais[c]=canais[c]||{total:0,sim:0,nao:0,semIA:0,invalido:0,atendido:0};
+    k.total++;
+    const r=statusRespostaCliente(l);
+    if(r==='Sim')k.sim++;else if(r==='Não respondeu')k.nao++;else if(r==='Número inválido')k.invalido++;else k.semIA++;
+    if(primeiraRespostaVendedorISO(l))k.atendido++;
+  });
+  const fmtBR=iso=>iso.split('-').reverse().join('/');
+  const pct=(a,b)=>b?Math.round(a*100/b)+'%':'-';
+  const T=Object.values(canais).reduce((s,k)=>{Object.keys(k).forEach(x=>s[x]=(s[x]||0)+k[x]);return s;},{});
+  let xml=gerarLinhaXLS([`Relatório de leads por canal — ${fmtBR(de)} a ${fmtBR(ate)}`],[],true)+gerarLinhaXLS([],[],false);
+  xml+=gerarLinhaXLS(['Canal','Leads','Cliente respondeu','Não respondeu','Sem contato da I.A.','Número inválido','Vendedor atendeu','% cliente respondeu','% vendedor atendeu'],[],true);
+  Object.entries(canais).sort((a,b)=>b[1].total-a[1].total).forEach(([c,k])=>{
+    xml+=gerarLinhaXLS([c,k.total,k.sim,k.nao,k.semIA,k.invalido,k.atendido,pct(k.sim,k.total),pct(k.atendido,k.total)],[1,2,3,4,5,6],false);
+  });
+  xml+=gerarLinhaXLS(['TOTAL',T.total,T.sim,T.nao,T.semIA,T.invalido,T.atendido,pct(T.sim,T.total),pct(T.atendido,T.total)],[1,2,3,4,5,6],true);
+  // Por veiculo de interesse (texto livre do lead, agrupado ignorando maiusculas)
+  const veics={};
+  ls.forEach(l=>{
+    const nome=String(l.veiculo||'').replace(/\s+/g,' ').trim();
+    const chave=nome?nome.toUpperCase():'(veículo não informado)';
+    const v=veics[chave]=veics[chave]||{nome:nome||'(veículo não informado)',total:0,sim:0,atendido:0,canais:{}};
+    v.total++;
+    if(statusRespostaCliente(l)==='Sim')v.sim++;
+    if(primeiraRespostaVendedorISO(l))v.atendido++;
+    const c=l.origem||'(sem origem)';v.canais[c]=(v.canais[c]||0)+1;
+  });
+  xml+=gerarLinhaXLS([],[],false)+gerarLinhaXLS(['Por veículo de interesse'],[],true);
+  xml+=gerarLinhaXLS(['Veículo','Leads','Cliente respondeu','Vendedor atendeu','Canais de origem'],[],true);
+  Object.values(veics).sort((a,b)=>b.total-a.total).forEach(v=>{
+    const canaisTxt=Object.entries(v.canais).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c} ${n}`).join(' · ');
+    xml+=gerarLinhaXLS([v.nome,v.total,v.sim,v.atendido,canaisTxt],[1,2,3],false);
+  });
+  xml+=gerarLinhaXLS([],[],false)+gerarLinhaXLS(['Lista de leads'],[],true);
+  xml+=gerarLinhaXLS(['ID','Data','Cliente','Telefone','Veículo','Canal','Vendedor','Cliente respondeu?','Vendedor atendeu?','Etapa atual','Motivo/Resultado'],[],true);
+  ls.forEach(l=>{
+    const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
+    const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
+    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'(sem origem)',l.captador||l.by||'',statusRespostaCliente(l),primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,resultado],[],false);
+  });
+  baixarXMLWorkbook(`relatorio_leads_${de}_a_${ate}.xls`,'Relatório',xml);
+  fecharModal('ov-rel-canal');
+  toast(`Relatório com ${ls.length} lead(s) baixado!`);
+}
+window.abrirRelatorioCanal=abrirRelatorioCanal;
+window.gerarRelatorioCanal=gerarRelatorioCanal;
 
 /* 26/08/2026, a pedido da Aline: painel "Hoje" com numeros do dia, ja que
    o filtro de data do Funil/Relatorios confundia (misturava lead recebido
@@ -2262,7 +2355,7 @@ function renderRelatoriosMk(cnt){
   const vendasRecuperadas=all.filter(l=>l.vendaRecuperada).length;
   wrap.innerHTML=`
   <div class="rel-reporte">
-    <div class="rp-header"><i class="ti ti-clipboard-data"></i> Reporte de Leads <span class="rp-period">${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}</span><button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="exportarRelatorioCSV()"><i class="ti ti-download"></i> Exportar</button></div>
+    <div class="rp-header"><i class="ti ti-clipboard-data"></i> Reporte de Leads <span class="rp-period">${G.mk.filtroDataInicio||'—'} até ${G.mk.filtroDataFim||'hoje'}</span><button class="btn btn-red btn-sm" style="margin-left:auto" onclick="abrirRelatorioCanal()" title="Escolha o período e baixe por canal, veículo e resposta"><i class="ti ti-file-spreadsheet"></i> Relatório por período</button><button class="btn btn-outline btn-sm" style="margin-left:8px" onclick="exportarRelatorioCSV()"><i class="ti ti-download"></i> Exportar</button></div>
     <div class="rp-grid">
       <div class="rp-section">
         <div class="rp-sec-title">📢 Leads Canal de Marketing</div>
