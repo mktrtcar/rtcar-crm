@@ -2385,7 +2385,7 @@ let _estoquePublicoCache=null;
 async function carregarEstoquePublico(){
   if(_estoquePublicoCache)return _estoquePublicoCache;
   try{
-    const snap=await db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao']).get();
+    const snap=await db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao','repasse']).get();
     _estoquePublicoCache=snap.docs.map(d=>({placa:d.id,...d.data()}));
   }catch(e){console.error('Erro ao carregar estoque:',e);_estoquePublicoCache=[];toast('Erro ao carregar o estoque','red');}
   return _estoquePublicoCache;
@@ -2411,7 +2411,7 @@ function renderResultadosBuscaEstoque(){
   const filtrados=termo?lista.filter(v=>descricaoVeiculoEstoque(v).toLowerCase().includes(termo)||(v.placa||'').toLowerCase().includes(termo)):lista;
   const cont=document.getElementById('be-resultados');
   if(!filtrados.length){cont.innerHTML='<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum veículo encontrado.</div>';return;}
-  const STATUS_LABEL={disponivel:'Disponível',em_preparacao:'Em preparação'};
+  const STATUS_LABEL={disponivel:'Disponível',em_preparacao:'Em preparação',repasse:'Repasse'};
   cont.innerHTML=filtrados.map(v=>`
     <div class="card-btn-label" style="cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center;gap:10px" onclick="selecionarVeiculoEstoque('${v.evId}')">
       <div>
