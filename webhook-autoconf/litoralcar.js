@@ -245,7 +245,8 @@ async function fotosParaVeiculo(v){
   const candidatos=catalogo.filter(c=>{
     if(!(c.fotos||[]).length)return false;
     const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
-    if(!(marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC))))return false;
+    // Marca pela 1a palavra: "Kia" x "Kia Motors", "Mercedes" x "Mercedes Benz".
+    if(!(marcaC.split(' ')[0]===marcaAlvo.split(' ')[0]&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC))))return false;
     const kmC=parseKm(c.km);
     return !kmAlvo||!kmC||Math.abs(kmC-kmAlvo)<=6000;
   });
