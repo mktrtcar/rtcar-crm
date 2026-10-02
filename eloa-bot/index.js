@@ -448,7 +448,7 @@ async function cumprimentarLead(lead) {
 
     const respostaCompleta = mensagens.join(' ');
     const conversaEloa = [{ role: 'model', texto: respostaCompleta }];
-    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: '🤖 Primeiro contato (Eloá)', obs: respostaCompleta, by: 'Eloá' }];
+    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: '🤖 Primeiro contato (Eva)', obs: respostaCompleta, by: 'Eva' }];
     const agoraISO = new Date().toISOString();
     await fbUpdate('leads', lead.id, { eloaEnviadoEm: agoraISO, ultimaMensagemEm: agoraISO, followUpStep: 0, conversaEloa, historico });
     console.log(`✅ Eloá cumprimentou ${lead.clienteNome} (${lead.id}).`);
@@ -473,7 +473,7 @@ async function cumprimentarLead(lead) {
    sentido tratar como um encaminhamento novo pro vendedor, nem gerar
    notificação de "lead novo" pra um caso já encerrado. */
 async function marcarComoPerdido(lead, motivoPerda) {
-  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'red', acao: '❌ Perdido (Eloá)', obs: motivoPerda, by: 'Eloá' }];
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'red', acao: '❌ Perdido (Eva)', obs: motivoPerda, by: 'Eva' }];
   await fbUpdate('leads', lead.id, { st: 'perdido', motivoPerda, historico });
   console.log(`❌ Lead ${lead.id} movido de "I.A." para "Perdido" — ${motivoPerda}`);
 }
@@ -495,7 +495,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
     // momento) — sorteia agora, na hora do encaminhamento de verdade.
     lead = { ...lead, captador: await atribuirVendedorRodizio() };
   }
-  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'green', acao: '✅ Encaminhado para esteira (Eloá)', obs: motivoResumo, by: 'Eloá' }];
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'green', acao: '✅ Encaminhado para esteira (Eva)', obs: motivoResumo, by: 'Eva' }];
   await fbUpdate('leads', lead.id, { st: 'atendimento', atendimento_at: new Date().toISOString(), historico, captador: lead.captador });
   console.log(`✅ Lead ${lead.id} movido de "I.A." para "Atendimento" — vendedor ${lead.captador} — ${motivoResumo}`);
 
@@ -523,7 +523,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
   const destino = vendedorJid || NOTIFICACAO_PESSOAL;
   const texto = (vendedorJid
     ? `🔔 Novo atendimento pra você! A Eva encaminhou ${lead.clienteNome || lead.id} pra você assumir.\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}\nTelefone do cliente: ${lead.clienteTel || '-'}`
-    : `🔔 A Eloá encaminhou ${lead.clienteNome || lead.id} pra atendimento humano (vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele).\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}`
+    : `🔔 A Eva encaminhou ${lead.clienteNome || lead.id} pra atendimento humano (vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele).\nOrigem: ${lead.origem || '-'}\nMotivo: ${motivoResumo}\nVeículo: ${lead.veiculo || '-'}`
   ) + formatarConversaResumo(lead.conversaEloa);
 
   try {
@@ -538,7 +538,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
         icone: 'purple',
         acao: vendedorJid ? `📲 Notificação enviada a ${lead.captador}` : '📲 Notificação enviada (fallback pro Rubens)',
         obs: vendedorJid ? '' : `Vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele.`,
-        by: 'Eloá',
+        by: 'Eva',
       },
     ];
     await fbUpdate('leads', lead.id, { historico: historicoNotif, notificacaoVendedorEm: new Date().toISOString() });
@@ -643,7 +643,7 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
 
     const respostaCompleta = mensagens.join(' ');
     const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
-    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
+    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eva', obs: `Cliente: "${mensagemCliente}" · Eva: "${respostaCompleta}"`, by: 'Eva' }];
 
     // 25/08/2026, a pedido do Rubens: se o cliente disse qual veículo quer
     // (nome ou link reconhecido) e o lead ainda não tinha isso registrado,
@@ -670,7 +670,7 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
     resultado = await gerarResposta({ ...lead, _dadosVeiculo: dadosVeiculo }, conversa, mensagemCliente);
   } catch (e) {
     console.error(`Erro ao gerar resposta da IA para ${leadId}:`, e.message);
-    if (aindaValido()) await encaminharParaConsultor(lead, `A Eloá não conseguiu responder por IA (${e.message}) — encaminhado direto pra não deixar o cliente sem retorno.`);
+    if (aindaValido()) await encaminharParaConsultor(lead, `A Eva não conseguiu responder por IA (${e.message}) — encaminhado direto pra não deixar o cliente sem retorno.`);
     return;
   }
 
@@ -696,7 +696,7 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
 
   const respostaCompleta = mensagens.join(' ');
   const novaConversa = [...conversa, { role: 'user', texto: mensagemCliente }, { role: 'model', texto: respostaCompleta }];
-  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eloá', obs: `Cliente: "${mensagemCliente}" · Eloá: "${respostaCompleta}"`, by: 'Eloá' }];
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'blue', acao: '💬 Conversa Eva', obs: `Cliente: "${mensagemCliente}" · Eva: "${respostaCompleta}"`, by: 'Eva' }];
   // Cliente respondeu de verdade agora — reseta o relógio do follow-up (zera o
   // step, senão ele retomaria do meio da escada da próxima vez que ficar quieto).
   await fbUpdate('leads', leadId, { conversaEloa: novaConversa, historico, ultimaMensagemEm: new Date().toISOString(), followUpStep: 0 });
@@ -758,7 +758,7 @@ async function notificarVendedorAtribuido(lead) {
         icone: 'purple',
         acao: vendedorJid ? `📲 Notificação enviada a ${lead.captador}` : '📲 Notificação enviada (fallback pro Rubens)',
         obs: vendedorJid ? '' : `Vendedor "${lead.captador || 'não definido'}" sem WhatsApp válido cadastrado — confira o número dele.`,
-        by: 'Eloá',
+        by: 'Eva',
       },
     ];
     await fbUpdate('leads', lead.id, { notificacaoVendedorEm: new Date().toISOString(), historico });
@@ -801,8 +801,8 @@ async function notificarCadastroManual(lead) {
     await sock.sendMessage(destino, { text: texto });
     const historico = [
       ...(lead.historico || []),
-      { dt: agoraDt(), icone: 'green', acao: `✅ Vendedor sorteado (${captador})`, obs: `Cadastro manual via Autoconf (${lead.origem || '-'}) — sorteado pelo rodízio, mesma lógica do encaminhamento da Eva.`, by: 'Eloá' },
-      { dt: agoraDt(), icone: 'purple', acao: vendedorJid ? `📲 Notificação enviada a ${captador}` : '📲 Notificação enviada (fallback pro Rubens)', obs: vendedorJid ? '' : `Vendedor "${captador}" sem WhatsApp válido cadastrado — confira o número dele.`, by: 'Eloá' },
+      { dt: agoraDt(), icone: 'green', acao: `✅ Vendedor sorteado (${captador})`, obs: `Cadastro manual via Autoconf (${lead.origem || '-'}) — sorteado pelo rodízio, mesma lógica do encaminhamento da Eva.`, by: 'Eva' },
+      { dt: agoraDt(), icone: 'purple', acao: vendedorJid ? `📲 Notificação enviada a ${captador}` : '📲 Notificação enviada (fallback pro Rubens)', obs: vendedorJid ? '' : `Vendedor "${captador}" sem WhatsApp válido cadastrado — confira o número dele.`, by: 'Eva' },
     ];
     await fbUpdate('leads', lead.id, { captador, notificacaoVendedorEm: new Date().toISOString(), historico });
     console.log(`✅ Notificação de cadastro manual enviada pra ${captador} (${lead.id}).`);
@@ -986,7 +986,7 @@ async function enviarFollowUp(lead) {
     if (!completou) return;
     const respostaCompleta = mensagens.join(' ');
     const novaConversa = [...conversa, { role: 'model', texto: respostaCompleta }];
-    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: `🔁 Follow-up automático (step ${step + 1}/${FOLLOWUP_STEPS.length})`, obs: respostaCompleta, by: 'Eloá' }];
+    const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: `🔁 Follow-up automático (step ${step + 1}/${FOLLOWUP_STEPS.length})`, obs: respostaCompleta, by: 'Eva' }];
     await fbUpdate('leads', lead.id, { conversaEloa: novaConversa, historico, followUpStep: step + 1, ultimaMensagemEm: new Date().toISOString() });
     console.log(`✅ Follow-up (step ${step + 1}/${FOLLOWUP_STEPS.length}) enviado pra ${lead.clienteNome} (${lead.id}).`);
     if (resultado.encaminharConsultor) {

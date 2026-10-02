@@ -3525,8 +3525,11 @@ function abrirDetailLead(id){
   document.getElementById('detail-ov').classList.remove('hidden');
   const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
   const hist=(lead.historico||[]).slice().reverse();
+  // A assistente se chamava Eloá e hoje é Eva; entradas antigas ficaram
+  // gravadas com o nome velho, então troca só na exibição.
+  const nomeEva=s=>typeof s==='string'?s.replace(/Eloá|Eloa/g,'Eva'):s;
   const histHtml=hist.length?hist.map(h=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
-    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`;
+    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${nomeEva(h.acao)}</div>${h.obs?`<div class="hist-obs">${nomeEva(h.obs)}</div>`:''}<div class="hist-meta">${h.dt} · ${nomeEva(h.by)||'Sistema'}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
   const SEQ_MK=['ia','atendimento','encantamento','negociacao','agendamento','visita','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
