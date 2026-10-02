@@ -104,15 +104,16 @@ function limparPlaca(p){
    (ja fica assim desde já, sem depender do Autoconf ao vivo). Quando o
    site tiver populacao automatica de verdade (Fase 2 do site-publico),
    so trocar SITE_ESTOQUE_URL. */
-const SITE_ESTOQUE_URL='https://rtcar-site.web.app/dados/estoque.json';
-const SITE_FOTOS_BASE='https://rtcar-site.web.app/fotos';
-let _catalogoSiteCache=null;
+/* 02/10/2026: o catalogo agora vem direto do Firestore (site_veiculos), ou
+   seja, as fotos/edicoes que a Aline faz no admin do site valem aqui tambem.
+   Cache de 30s so' pra um lote de publicacao nao reler tudo a cada carro. */
+let _catalogoSiteCache=null,_catalogoSiteEm=0;
 async function catalogoSite(){
-  if(_catalogoSiteCache)return _catalogoSiteCache;
+  if(_catalogoSiteCache&&Date.now()-_catalogoSiteEm<30000)return _catalogoSiteCache;
   try{
-    const resp=await fetch(SITE_ESTOQUE_URL);
-    const json=await resp.json();
-    _catalogoSiteCache=json.veiculos||[];
+    const snap=await db.collection('site_veiculos').get();
+    _catalogoSiteCache=snap.docs.map(d=>({id:d.id,...d.data()})).filter(v=>!v.oculto);
+    _catalogoSiteEm=Date.now();
   }catch(e){
     console.error('Erro ao buscar catalogo do site para fotos:',e);
     _catalogoSiteCache=[];
@@ -244,7 +245,7 @@ async function fotosParaVeiculo(v){
   const escolhido=candidatos[0];
   const qtdFotos=(escolhido.fotos||[]).length;
   if(!qtdFotos)return fotosAoVivoAutoconf(v);
-  return Array.from({length:qtdFotos},(_,i)=>`${SITE_FOTOS_BASE}/${escolhido.id}/${i+1}.jpg`);
+  return escolhido.fotos;
 }
 
 /* método marcas/modelos usa um "slug" de categoria diferente do valor
@@ -323,6 +324,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
     const novos=[];
     const alterados=[];
     const porPlaca={};
+    const escolhidosPorPlaca={};
 
     for(const v of veiculos){
       const placa=limparPlaca(v.placa);
@@ -342,6 +344,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       };
       if(fotos.length)payload.fotos=fotos;
       porPlaca[placa]=v.placa;
+      escolhidosPorPlaca[placa]={categoria:v.categoria,marca:v.marca,modelo:v.modelo,versao:v.versao||'',combustivel:v.combustivel};
 
       const mapRef=db.collection('litoralcar_veiculos').doc(placa);
       const mapSnap=await mapRef.get();
@@ -383,6 +386,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
             codImportacao:Number(vlt.cod_importacao),
             codVeiculo:Number(vlt.cod_veiculo),
             ultimoEnvio:new Date().toISOString(),
+            ...(escolhidosPorPlaca[placa]||{}),
           },{merge:true});
         }
       }
