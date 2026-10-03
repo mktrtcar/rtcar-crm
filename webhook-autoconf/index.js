@@ -10,7 +10,12 @@ function hojeISO(){return new Date().toISOString().slice(0,10);}
 // Igual a hojeBR(), mas com horario - usado so no "dt" do evento de historico
 // (21/08/2026, a pedido do Rubens, pra dar pra ver o horario exato de cada
 // etapa no painel de acompanhamento, nao so o dia).
-function agoraBR(){const d=new Date();return `${hojeBR()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+// Cloud Functions roda em UTC - sem fixar o fuso, o horario saia 3h adiantado
+// em relacao a Brasilia (02/10/2026, achado ao medir tempo de resposta).
+function agoraBR(){
+  const p=Object.fromEntries(new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()).map(x=>[x.type,x.value]));
+  return `${p.day}/${p.month}/${p.year} ${p.hour==='24'?'00':p.hour}:${p.minute}`;
+}
 
 // 25/08/2026: contato feito pelo botao de WhatsApp direto na pagina de um
 // carro especifico nao vem com "interested_in_vehicle" preenchido - o unico

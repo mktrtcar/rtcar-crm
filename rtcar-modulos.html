@@ -3609,7 +3609,12 @@ async function toggleEncantamentoMk(id,campo,e){
 }
 async function regHistMk(lead,acao,obs,by,icone='blue'){
   if(!lead.historico)lead.historico=[];
-  lead.historico.push({dt:hoje(),icone,acao,obs,by});
+  // Data + hora (pedido da Aline, 02/10/2026): o horario de cada atualizacao do
+  // vendedor e' o que permite medir quanto ele demorou entre uma resposta e
+  // outra. "dd/mm/aaaa HH:MM" - quem le so' a data usa slice(0,10).
+  const agora=new Date();
+  const dtComHora=`${hoje()} ${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}`;
+  lead.historico.push({dt:dtComHora,icone,acao,obs,by});
   const campos={historico:lead.historico};
   // O cronometro de cada coluna mostra ha quanto tempo o lead esta SEM
   // receber atencao, nao o tempo total que ele leva na etapa - toda vez
