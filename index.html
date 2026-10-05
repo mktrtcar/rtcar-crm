@@ -966,6 +966,15 @@ function calcElapsed(start,end){
   const h=Math.floor(s/3600);const m=Math.floor((s%3600)/60);const sc=s%60;
   return (h?h+'h ':'')+(m||h?m+'min ':'')+(sc+'s');
 }
+const LIMITE_ALERTA_CARD_MS=5*60*1000;
+function atualizarAlertaCard(el){
+  if(!document.getElementById('crm-alerta-card-css')){
+    const st=document.createElement('style');st.id='crm-alerta-card-css';
+    st.textContent='#rtcar-crm-root .lcard.lcard-alerta{background:#e8431e;border-left-color:#a32c10!important;box-shadow:0 0 0 2px #a32c10}#rtcar-crm-root .lcard.lcard-alerta .card-id,#rtcar-crm-root .lcard.lcard-alerta .card-nome,#rtcar-crm-root .lcard.lcard-alerta .card-sub,#rtcar-crm-root .lcard.lcard-alerta .card-sub .ti,#rtcar-crm-root .lcard.lcard-alerta .live-timer{color:#fff!important}';
+    document.head.appendChild(st);
+  }
+  el.classList.toggle('lcard-alerta',Date.now()-new Date(el.dataset.alertaDesde)>LIMITE_ALERTA_CARD_MS);
+}
 function iniciarTimerCRM(){
   if(G.mk._timerInterval)clearInterval(G.mk._timerInterval);
   G.mk._timerInterval=setInterval(()=>{
@@ -974,6 +983,7 @@ function iniciarTimerCRM(){
       const start=el.dataset.start;
       if(start) el.textContent=(el.dataset.prefix||'')+calcElapsed(start,null);
     });
+    document.querySelectorAll('.lcard[data-alerta-desde]').forEach(atualizarAlertaCard);
   },1000);
 }
 function pararTimerCRM(){
@@ -1223,6 +1233,11 @@ function renderKanbanMk(cnt){
       const [campoStart,campoEnd]=CAMPOS_TIMER_COL[col.id]||[null,null];
       const timerStart=campoStart?l[campoStart]:null;
       const timerEnd=campoEnd?l[campoEnd]:null;
+      // Alerta de 5 min no Atendimento (pedido da Aline, 05/10/2026): card
+      // fica todo vermelho quando o lead passa de 5 min sem nenhuma acao do
+      // vendedor (atendimento_at zera a cada acao, ver regHistMk). Nao
+      // conta quando o vendedor marcou "aguardando retorno" do cliente.
+      if(col.id==='atendimento'&&timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;atualizarAlertaCard(c);}
       const timerInline=col.timer&&timerStart&&!timerEnd?
         `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
         (col.timer&&timerStart&&timerEnd?
