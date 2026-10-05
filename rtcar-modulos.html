@@ -810,12 +810,16 @@ function entrarNaApp(u){
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
-  ['ni-geral','ni-rel','ni-ws','ni-an','ni-plataformas','ni-ia','ni-site'].forEach(id=>{
-    const mod={'ni-geral':'geral','ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'meta','ni-plataformas':'plataformas','ni-ia':'ia','ni-site':'site'}[id];
+  ['ni-geral','ni-mk','ni-rel','ni-ws','ni-an','ni-plataformas','ni-ia','ni-site'].forEach(id=>{
+    const mod={'ni-geral':'geral','ni-mk':'marketing','ni-rel':'relacionamento','ni-ws':'workshop','ni-an':'meta','ni-plataformas':'plataformas','ni-ia':'ia','ni-site':'site'}[id];
     const el=document.getElementById(id);
     if(el) el.style.display=podeVerModulo(mod)?'':'none';
   });
-  trocarModulo('marketing');
+  // Modulo inicial: o pedido pelo sistema principal (montar(el,{inicial})),
+  // senao o CRM, senao o primeiro que esse usuario pode ver nessa aba.
+  const inicial=[_embedOpcoes&&_embedOpcoes.inicial,'marketing','relacionamento','meta','plataformas','site','workshop','geral','ia'].find(m=>m&&podeVerModulo(m));
+  if(inicial)trocarModulo(inicial);
+  else toast('Seu usuário não tem acesso a nenhum módulo desta aba','red',6000);
 }
 async function recuperarSenha(){
   const erroEl=document.getElementById('login-error');
@@ -1169,6 +1173,11 @@ const EMAILS_DASHBOARD_GERAL=['contato@rtcar.com.br','marcela@rtcar.com.br','raf
 // abertas com o timer de 10s rodando sem necessidade.
 const EMAILS_IA=['contato@rtcar.com.br'];
 function podeVerModulo(mod){
+  // Embutido no sistema principal com lista de modulos (aba "CRM" so' com o
+  // CRM, aba "Modulos" com o resto - pedido da Aline, 05/10/2026): fora da
+  // lista, nem aparece. Sem lista (standalone ou montar() sem opcoes), igual
+  // a antes.
+  if(_embedOpcoes&&!_embedOpcoes.modulos.includes(mod))return false;
   if(mod==='geral')return EMAILS_DASHBOARD_GERAL.includes((G.user?.e||'').toLowerCase());
   if(mod==='ia')return EMAILS_IA.includes((G.user?.e||'').toLowerCase());
   const r=G.user?.r||'seller';
@@ -5637,6 +5646,8 @@ function renderIA(cnt){
    desta IIFE e' window.RTCarCRM = {montar, desmontar}.
    ============================================================ */
 let _rtcarCrmMontado=false;
+// Opcoes do montar() vindas do sistema principal: {modulos:[...], inicial}.
+let _embedOpcoes=null;
 // Se o sistema principal ja tem alguem logado no MESMO Firebase Auth
 // (os dois projetos compartilham conta), pula a tela de login propria do
 // CRM e entra direto - sem pedir senha de novo. So funciona se o e-mail
@@ -5651,9 +5662,10 @@ function tentarAutoLogin(){
   entrarNaApp(u);
   return true;
 }
-function montarRTCarCRM(containerEl){
+function montarRTCarCRM(containerEl,opcoes){
   const root=document.getElementById('rtcar-crm-root');
   if(!root||!containerEl)return;
+  _embedOpcoes=opcoes&&Array.isArray(opcoes.modulos)?{modulos:opcoes.modulos,inicial:opcoes.inicial||null}:null;
   containerEl.appendChild(root);
   root.classList.remove('hidden');
   if(!_rtcarCrmMontado){
