@@ -5689,6 +5689,15 @@ function montarRTCarCRM(containerEl,opcoes){
   if(!root||!containerEl)return;
   _embedOpcoes=opcoes&&Array.isArray(opcoes.modulos)?{modulos:opcoes.modulos,inicial:opcoes.inicial||null}:null;
   containerEl.appendChild(root);
+  // {semMenu:true}: aba "CRM" do sistema principal - esconde a barra lateral
+  // propria do CRM (o menu do sistema principal ja faz esse papel), pra ficar
+  // com cara de tela do proprio sistema (pedido da Aline, 05/10/2026).
+  if(!document.getElementById('crm-sem-menu-css')){
+    const st=document.createElement('style');st.id='crm-sem-menu-css';
+    st.textContent='#rtcar-crm-root.crm-sem-menu .sb,#rtcar-crm-root.crm-sem-menu .sb-overlay,#rtcar-crm-root.crm-sem-menu .sb-hamburguer{display:none!important}';
+    document.head.appendChild(st);
+  }
+  root.classList.toggle('crm-sem-menu',!!(opcoes&&opcoes.semMenu));
   root.classList.remove('hidden');
   if(!_rtcarCrmMontado){
     document.addEventListener('keydown',handleKeydownRTCarCRM);
