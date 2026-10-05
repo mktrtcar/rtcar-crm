@@ -3204,8 +3204,14 @@ function abrirDetailLead(id){
   // A assistente se chamava Eloá e hoje é Eva; entradas antigas ficaram
   // gravadas com o nome velho, então troca só na exibição.
   const nomeEva=s=>typeof s==='string'?s.replace(/Eloá|Eloa/g,'Eva'):s;
-  const histHtml=hist.length?hist.map(h=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
-    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${nomeEva(h.acao)}</div>${h.obs?`<div class="hist-obs">${nomeEva(h.obs)}</div>`:''}<div class="hist-meta">${h.dt} · ${nomeEva(h.by)||'Sistema'}</div></div></div>`;
+  // Tempo entre uma atualizacao e a anterior (pedido da Aline, 02/10/2026:
+  // medir quanto o vendedor demora entre uma resposta e outra). So' entradas
+  // com hora ("dd/mm/aaaa HH:MM") - as antigas, so' com data, ficam sem.
+  const parseDtHist=dt=>{const m=/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/.exec(dt||'');return m?new Date(+m[3],m[2]-1,+m[1],+m[4],+m[5]):null;};
+  const fmtIntervalo=ms=>{const min=Math.round(ms/60000);if(min<60)return min+'min';const h=Math.floor(min/60);if(h<24)return h+'h '+(min%60)+'min';return Math.floor(h/24)+'d '+(h%24)+'h';};
+  const intervaloHist=i=>{const tAt=parseDtHist(hist[i].dt),tAnt=hist[i+1]?parseDtHist(hist[i+1].dt):null;return tAt&&tAnt&&tAt>=tAnt?` · <span style="color:var(--red);font-weight:600">⏱ ${fmtIntervalo(tAt-tAnt)} após a anterior</span>`:'';};
+  const histHtml=hist.length?hist.map((h,i)=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
+    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${nomeEva(h.acao)}</div>${h.obs?`<div class="hist-obs">${nomeEva(h.obs)}</div>`:''}<div class="hist-meta">${h.dt} · ${nomeEva(h.by)||'Sistema'}${intervaloHist(i)}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
   const SEQ_MK=['ia','atendimento','encantamento','negociacao','agendamento','visita','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
