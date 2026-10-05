@@ -800,10 +800,12 @@ function renderKanbanMk(cnt){
               const tituloBtn=l.origem==='Compra'?'Informar/editar o veículo sendo comprado':'Informar/editar o veículo de troca';
               return `<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="${tituloBtn}"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||rotuloVazio:rotuloVazio}</button>`;
             })():''}
-            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||(l.origem==='Compra'&&l.veiculo&&l.veiculoPlaca)))?(l.agendamentoStatus==='compareceu'
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||l.origem==='Compra'))?(l.agendamentoStatus==='compareceu'
               ?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`
               :`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Só libera depois que o cliente comparecer na loja (botão ✅ Compareceu no Agendamento)"><i class="ti ti-lock"></i> Solicitar Avaliação</button>`):''}
-            ${['negociacao','agendamento'].includes(col.id)?`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Confirma o fechamento e abre o Termo no sistema principal"><i class="ti ti-file-text"></i> ${l.origem==='Compra'?'Termo de Compra':(ehConsignado(l)?'Termo de Consignado':'Termo de Venda')}</button>`:''}
+            ${['negociacao','agendamento'].includes(col.id)?(l.origem==='Compra'&&!l.avaliacaoSolicitadaEm
+              ?`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Só libera depois de Solicitar Avaliação"><i class="ti ti-lock"></i> Termo de Compra</button>`
+              :`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Confirma o fechamento e abre o Termo no sistema principal"><i class="ti ti-file-text"></i> ${l.origem==='Compra'?'Termo de Compra':(ehConsignado(l)?'Termo de Consignado':'Termo de Venda')}</button>`):''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
@@ -2222,8 +2224,20 @@ function solicitarAvaliacaoTroca(id,e){
   // 05/10/2026).
   if(lead.agendamentoStatus!=='compareceu'){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
   const veiculoParaAvaliacao=lead.veiculoTroca||(lead.origem==='Compra'&&lead.veiculo&&lead.veiculoPlaca?veiculoCompraParaAvaliacao(lead):null);
-  if(!veiculoParaAvaliacao){toast('Informe o veículo primeiro','red');return;}
+  // Compra sem veiculo/placa ainda: o botao aparece mesmo assim (pedido da
+  // Aline, 05/10/2026 - a Milena nao achava o botao) e abre direto o
+  // cadastro do veiculo da compra.
+  if(!veiculoParaAvaliacao){toast(lead.origem==='Compra'?'Informe o veículo da compra (com a placa) e clique de novo em Solicitar Avaliação':'Informe o veículo primeiro','red',6000);if(lead.origem==='Compra')abrirVeiculoTroca(id);return;}
   const dados={cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:veiculoParaAvaliacao};
+  // Registra a solicitacao no lead - o Termo de Compra so' libera depois
+  // disso (pedido da Aline, 05/10/2026: Compareceu -> Avaliacao -> Termo).
+  if(!lead.avaliacaoSolicitadaEm){
+    lead.avaliacaoSolicitadaEm=new Date().toISOString();
+    const descAv=[veiculoParaAvaliacao.marca,veiculoParaAvaliacao.modelo,veiculoParaAvaliacao.placa].filter(Boolean).join(' ');
+    salvarCamposMk(id,{avaliacaoSolicitadaEm:lead.avaliacaoSolicitadaEm})
+      .then(()=>regHistMk(lead,'📋 Avaliação solicitada',descAv,G.user?.n||'','purple'))
+      .then(()=>renderMarketing());
+  }
   if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
     window.abrirAvaliacaoDoCRM(dados);
     return;
@@ -2885,7 +2899,11 @@ async function salvarObs(){
 // Botao "📄 Termo de Compra/Venda" no card (Agendamento/Negociacao) abre este
 // mesmo modal - o Termo nasce ao confirmar (pedido da Aline, 05/10/2026: a
 // Milena nao achava onde gerar o Termo de Compra, so' existia via "Vendido").
-function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
+function abrirModalVendido(id){const l=G.mk.leads.find(x=>x.id===id);
+  // Compra: Termo so' depois de solicitar a avaliacao (vale pro botao do
+  // card, pro "Vendido" da ficha e pra arrastar pra coluna Venda).
+  if(l&&l.origem==='Compra'&&!l.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
+  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
