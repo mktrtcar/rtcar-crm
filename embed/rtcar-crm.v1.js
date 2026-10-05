@@ -803,6 +803,7 @@ function renderKanbanMk(cnt){
             ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||(l.origem==='Compra'&&l.veiculo&&l.veiculoPlaca)))?(l.agendamentoStatus==='compareceu'
               ?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`
               :`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Só libera depois que o cliente comparecer na loja (botão ✅ Compareceu no Agendamento)"><i class="ti ti-lock"></i> Solicitar Avaliação</button>`):''}
+            ${['negociacao','agendamento'].includes(col.id)?`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Confirma o fechamento e abre o Termo no sistema principal"><i class="ti ti-file-text"></i> ${l.origem==='Compra'?'Termo de Compra':(ehConsignado(l)?'Termo de Consignado':'Termo de Venda')}</button>`:''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
@@ -2881,7 +2882,10 @@ async function salvarObs(){
   await regHistMk(lead,tipo,obs,G.user?.n||'',icone);
   fecharModal('ov-obs');toast('Registrado!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
 }
-function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
+// Botao "📄 Termo de Compra/Venda" no card (Agendamento/Negociacao) abre este
+// mesmo modal - o Termo nasce ao confirmar (pedido da Aline, 05/10/2026: a
+// Milena nao achava onde gerar o Termo de Compra, so' existia via "Vendido").
+function abrirModalVendido(id){G.mk.detailId=id;const l=G.mk.leads.find(x=>x.id===id);const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
