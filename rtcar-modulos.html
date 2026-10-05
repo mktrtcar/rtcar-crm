@@ -971,6 +971,7 @@ function calcElapsed(start,end){
   return (h?h+'h ':'')+(m||h?m+'min ':'')+(sc+'s');
 }
 const LIMITE_ALERTA_CARD_MS=5*60*1000;
+const COLS_ALERTA_5MIN=['atendimento','encantamento','negociacao','agendamento','visita','resgate'];
 function atualizarAlertaCard(el){
   if(!document.getElementById('crm-alerta-card-css')){
     const st=document.createElement('style');st.id='crm-alerta-card-css';
@@ -1246,7 +1247,10 @@ function renderKanbanMk(cnt){
       // fica todo vermelho quando o lead passa de 5 min sem nenhuma acao do
       // vendedor (atendimento_at zera a cada acao, ver regHistMk). Nao
       // conta quando o vendedor marcou "aguardando retorno" do cliente.
-      if(col.id==='atendimento'&&timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;atualizarAlertaCard(c);}
+      // Depois (05/10/2026, pedido da Aline) vale pra todas as colunas em que o
+      // vendedor trabalha o lead - fora a I.A. (quem atende ali e' a Eva) e as
+      // finais (Venda/Perdido, cronometro ja parado).
+      if(COLS_ALERTA_5MIN.includes(col.id)&&timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;atualizarAlertaCard(c);}
       const timerInline=col.timer&&timerStart&&!timerEnd?
         `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
         (col.timer&&timerStart&&timerEnd?
