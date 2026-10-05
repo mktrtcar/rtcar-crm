@@ -143,7 +143,12 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
     // fica sincronizado se precisar reativar de novo no futuro.
     const BYPASS_EVA_TEMPORARIO=false;
     const RODIZIO_TEMPORARIO=['Janderson','Maicon','Victor'];
-    const semEva=BYPASS_EVA_TEMPORARIO&&!vaiDiretoAtendimento;
+    // 05/10/2026, a pedido da Aline: lead do Mercado Livre nao passa pela
+    // Eva - vai direto pra esteira de Atendimento, ja com vendedor sorteado
+    // pelo rodizio (mesmo caminho do BYPASS acima). O eloa-bot avisa o
+    // vendedor por WhatsApp (getLeadsParaNotificarVendedor).
+    const mercadoLivre=origemBruta.toLowerCase().replace(/[^a-z]/g,'')==='mercadolivre';
+    const semEva=(BYPASS_EVA_TEMPORARIO||mercadoLivre)&&!vaiDiretoAtendimento;
 
     // 22/08/2026: a criacao do lead inteiro agora acontece DENTRO da mesma
     // transacao que reserva o numero de sequencia. Antes eram duas operacoes
@@ -200,7 +205,7 @@ exports.autoconfWebhook = onRequest({region:'southamerica-east1'}, async (req,re
         convertido:false,
         dtVenda:'',
         motivoPerda:'',
-        historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:(semEva?`Via Autoconf (${origem}) — Eva em pausa (créditos), encaminhado direto pro rodízio — vendedor: ${captador}`:`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`)),by:'Autoconf'}],
+        historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:intencaoCompra?'Via Autoconf — intenção de compra, atribuído direto à Milena':(cadastroManual?`Via Autoconf (${origem}) — provável cadastro manual de vendedor, não encaminhado à Eva; verificar e atribuir manualmente`:(semEva?(mercadoLivre?`Via Autoconf (${origem}) — Mercado Livre vai direto pro rodízio, sem passar pela Eva — vendedor: ${captador}`:`Via Autoconf (${origem}) — Eva em pausa (créditos), encaminhado direto pro rodízio — vendedor: ${captador}`):`Via Autoconf (${origem}) — aguardando resposta do cliente pra entrar no rodízio`)),by:'Autoconf'}],
         pendente_at:'',
         pendente_end:'',
         atendimento_at:vaiParaAtendimento?new Date().toISOString():'',
