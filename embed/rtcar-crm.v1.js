@@ -2162,7 +2162,9 @@ function atualizarBotaoVeiculoTroca(){
 function abrirVeiculoTroca(leadIdDireto){
   _veiculoTrocaLeadDireto=leadIdDireto||null;
   const leadRef=leadIdDireto?G.mk.leads.find(l=>l.id===leadIdDireto):null;
-  const vt=leadRef?(leadRef.veiculoTroca||{}):(_veiculoTrocaAtual||{});
+  // Compra: se o "Veiculo da compra" ainda nao foi preenchido, ja abre com o
+  // veiculo/placa do cadastro do lead (pedido da Aline, 05/10/2026).
+  const vt=leadRef?(leadRef.veiculoTroca||(leadRef.origem==='Compra'&&(leadRef.veiculo||leadRef.veiculoPlaca)?veiculoCompraParaAvaliacao(leadRef):{})):(_veiculoTrocaAtual||{});
   // Rotulo contextual (pedido da Marcela/Rafael, 30/09/2026): pra lead de
   // Compra isso nao e' "troca", e' o proprio veiculo sendo comprado - achado
   // real (Toyota Cross SDB-7C40, lead da Milena) fechado sem avaliacao
@@ -2190,7 +2192,16 @@ async function salvarVeiculoTroca(){
     const id=_veiculoTrocaLeadDireto;
     const lead=G.mk.leads.find(l=>l.id===id);
     if(lead)lead.veiculoTroca=dados;
-    await salvarCamposMk(id,{veiculoTroca:dados});
+    const camposVt={veiculoTroca:dados};
+    // Compra: o "Veiculo da compra" E' o veiculo do lead - mantem veiculo/placa
+    // do cadastro iguais, pra Avaliacao e Termo de Compra ja virem preenchidos
+    // (pedido da Aline, 05/10/2026: "informou numa coluna, tem que valer nas outras").
+    if(lead&&lead.origem==='Compra'){
+      const descVt=[marca,modelo,ano].filter(Boolean).join(' ');
+      if(descVt){lead.veiculo=descVt;camposVt.veiculo=descVt;}
+      if(placa){lead.veiculoPlaca=placa.toUpperCase();camposVt.veiculoPlaca=lead.veiculoPlaca;}
+    }
+    await salvarCamposMk(id,camposVt);
     toast('Veículo de troca salvo!');
     if(G.mk.detailId===id)abrirDetailLead(id);
     renderMarketing();
@@ -2903,7 +2914,7 @@ function abrirModalVendido(id){const l=G.mk.leads.find(x=>x.id===id);
   // Compra: Termo so' depois de solicitar a avaliacao (vale pro botao do
   // card, pro "Vendido" da ficha e pra arrastar pra coluna Venda).
   if(l&&l.origem==='Compra'&&!l.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
-  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');document.getElementById('vend-veiculo').value=l?.veiculo||'';document.getElementById('vend-placa').value=l?.veiculoPlaca||'';document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
+  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
