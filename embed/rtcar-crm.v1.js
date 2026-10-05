@@ -776,7 +776,9 @@ function renderKanbanMk(cnt){
               const tituloBtn=l.origem==='Compra'?'Informar/editar o veículo sendo comprado':'Informar/editar o veículo de troca';
               return `<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="${tituloBtn}"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||rotuloVazio:rotuloVazio}</button>`;
             })():''}
-            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||(l.origem==='Compra'&&l.veiculo&&l.veiculoPlaca)))?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`:''}
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||(l.origem==='Compra'&&l.veiculo&&l.veiculoPlaca)))?(l.agendamentoStatus==='compareceu'
+              ?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`
+              :`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Só libera depois que o cliente comparecer na loja (botão ✅ Compareceu no Agendamento)"><i class="ti ti-lock"></i> Solicitar Avaliação</button>`):''}
             ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
@@ -1432,6 +1434,13 @@ async function initGeral(){
 // dia (setas) e o painel "por filtro" (data inicio/fim) usam a mesma
 // funcao, so muda o intervalo passado. dtVenda fica salvo em BR (dd/mm/aaaa),
 // entao precisa converter pra ISO antes de comparar como intervalo.
+// Dia da visita na loja: quando o "✅ Compareceu" foi clicado (data local),
+// ou a data agendada pra registros antigos sem esse horario.
+function dataVisitaISO(l){
+  if(l.agendamentoCompareceuEm){const d=new Date(l.agendamentoCompareceuEm);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+  return l.agendamentoData||'';
+}
+function visitaNoPeriodo(l,iniISO,fimISO){const d=dataVisitaISO(l);return l.agendamentoStatus==='compareceu'&&!!d&&d>=iniISO&&d<=fimISO;}
 function vendaNoPeriodoISO(l,iniISO,fimISO){const v=brParaISO(l.dtVenda);return!!v&&v>=iniISO&&v<=fimISO;}
 // Inicio/fim do mes corrente em ISO (YYYY-MM-DD) - usado pra "zerar" a
 // coluna Vendido do funil todo dia 1, sem apagar nada do historico (o lead
@@ -1498,8 +1507,8 @@ function statsGeralIntervalo(iniISO,fimISO){
   const visitas1ano=clientes.filter(c=>c.visita1ano==='realizada'&&c.visita1anoData>=iniISO&&c.visita1anoData<=fimISO).length;
   const visitas2anos=clientes.filter(c=>c.visita2anos==='realizada'&&c.visita2anosData>=iniISO&&c.visita2anosData<=fimISO).length;
 
-  const visitasMkt=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)==='marketing').length;
-  const visitasOutras=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)==='outros').length;
+  const visitasMkt=G.mk.leads.filter(l=>visitaNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='marketing').length;
+  const visitasOutras=G.mk.leads.filter(l=>visitaNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)==='outros').length;
 
   const agendamento=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem!=='Compra').length;
   const agendamentoCompra=G.mk.leads.filter(l=>l.pendente_at&&l.pendente_at.slice(0,10)>=iniISO&&l.pendente_at.slice(0,10)<=fimISO&&l.origem==='Compra').length;
@@ -1676,7 +1685,7 @@ function abrirDrill(tipo,chave,iniISO,fimISO){
   }else if(tipo==='visitasMkt'||tipo==='visitasOutras'){
     const tipoAlvo=tipo==='visitasMkt'?'marketing':'outros';
     titulo=tipo==='visitasMkt'?'Visitas marketing':'Visitas outras';
-    itens=G.mk.leads.filter(l=>l.agendamentoData>=iniISO&&l.agendamentoData<=fimISO&&l.agendamentoStatus==='compareceu'&&tipoOrigem(l.origem)===tipoAlvo)
+    itens=G.mk.leads.filter(l=>visitaNoPeriodo(l,iniISO,fimISO)&&tipoOrigem(l.origem)===tipoAlvo)
       .map(l=>[l.clienteNome||'(sem nome)',l.veiculo||'',l.origem||'',vendedorLead(l)]);
     colunas=['Cliente','Veículo','Origem','Vendedor'];
   }else if(tipo==='agendamento'||tipo==='agendamentoCompra'){
@@ -1876,9 +1885,12 @@ function renderRelatoriosMk(cnt){
   const emConversa=all.filter(l=>l.st==='em_conversa');
   const aguardando=all.filter(l=>l.st==='aguardando');
   const agendamentos=all.filter(l=>(l.historico||[]).some(h=>/agend/i.test(h.acao)));
-  const visitas=all.filter(l=>(l.historico||[]).some(h=>/visit/i.test(h.acao)));
+  // Visita = "✅ Compareceu" marcado (status atual, ja respeita desmarcar) ou
+  // registro antigo de visita no historico (pedido da Aline, 05/10/2026).
+  const teveVisita=l=>l.agendamentoStatus==='compareceu'||(l.historico||[]).some(h=>/visit/i.test(h.acao)&&!/compareceu|comparecimento/i.test(h.acao));
+  const visitas=all.filter(teveVisita);
   const visitasCompra=visitas.filter(l=>ORIGENS_MK.compra.includes(l.origem));
-  const semVisitas=all.filter(l=>!['vendido','perdido'].includes(l.st)&&!(l.historico||[]).some(h=>/visit/i.test(h.acao)));
+  const semVisitas=all.filter(l=>!['vendido','perdido'].includes(l.st)&&!teveVisita(l));
   const vendas=all.filter(l=>l.st==='vendido');
   const vendaCompra=vendas.filter(l=>ORIGENS_MK.compra.includes(l.origem));
   // Reporte por canal de marketing
@@ -2180,6 +2192,10 @@ function solicitarAvaliacaoTroca(id,e){
   if(e)e.stopPropagation();
   const lead=G.mk.leads.find(l=>l.id===id);
   if(!lead)return;
+  // Avaliacao so pode ser criada com o cliente na loja - o vendedor precisa
+  // ter clicado "✅ Compareceu" no Agendamento antes (pedido da Aline,
+  // 05/10/2026).
+  if(lead.agendamentoStatus!=='compareceu'){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
   const veiculoParaAvaliacao=lead.veiculoTroca||(lead.origem==='Compra'&&lead.veiculo&&lead.veiculoPlaca?veiculoCompraParaAvaliacao(lead):null);
   if(!veiculoParaAvaliacao){toast('Informe o veículo primeiro','red');return;}
   const dados={cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:veiculoParaAvaliacao};
@@ -2878,7 +2894,8 @@ async function confirmarVendido(){
   if(lead.origem==='Compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
   if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
   const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
-  if(!lead.vendido_at){lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;}
+  // Momento exato da venda - e' onde o cronometro do lead trava.
+  lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;
   fecharTimersAbertosMk(lead,camposVenda);
   if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
   await salvarCamposMk(id,camposVenda);
@@ -3091,6 +3108,10 @@ async function setAgendamentoStatusMk(id,valor,e){
   // caso da Milena - marcou 2 "compareceu" e nenhum apareceu no Hoje).
   if(lead.agendamentoStatus==='compareceu'){lead.agendamentoCompareceuEm=new Date().toISOString();campos.agendamentoCompareceuEm=lead.agendamentoCompareceuEm;}
   await salvarCamposMk(id,campos);
+  // "Compareceu" = visita na loja (pedido da Aline, 05/10/2026) - registra no
+  // historico pra ficar visivel no lead e contar nos relatorios de visita.
+  if(lead.agendamentoStatus==='compareceu')await regHistMk(lead,'🚗 Compareceu — visita na loja','Cliente veio à loja.',G.user?.n||'','green');
+  else if(valor==='compareceu')await regHistMk(lead,'↩️ Comparecimento desmarcado','',G.user?.n||'','gold');
   renderMarketing();
 }
 async function setAgendamentoDataMk(id,valor,e){
@@ -3135,8 +3156,11 @@ async function regHistMk(lead,acao,obs,by,icone='blue'){
   // "ia" fica de fora porque _criadoEm precisa continuar sendo a data
   // real de criacao do lead, usada em outros lugares do sistema (a
   // pedido da Aline, 02/09/2026).
+  // Vendido nao entra: vendido_at e' o momento da venda, onde o cronometro
+  // fica travado - nao pode ser mexido por observacao/acao depois da venda
+  // (pedido da Aline, 05/10/2026).
   const [campoStart]=CAMPOS_TIMER_COL[lead.st]||[null];
-  if(campoStart&&campoStart!=='_criadoEm'){
+  if(campoStart&&campoStart!=='_criadoEm'&&lead.st!=='vendido'){
     const agora=new Date().toISOString();
     lead[campoStart]=agora;
     campos[campoStart]=agora;
@@ -3153,7 +3177,10 @@ function abrirDetailLead(id){
   const[campoStartEtapa,campoEndEtapa]=CAMPOS_TIMER_COL[col.id]||[null,null];
   const timerStartEtapa=campoStartEtapa?lead[campoStartEtapa]:null;
   const timerEndEtapa=campoEndEtapa?lead[campoEndEtapa]:null;
-  const timerEtapaHtml=timerStartEtapa&&!timerEndEtapa?
+  // Vendido: cronometro travado no momento da venda (pedido da Aline,
+  // 05/10/2026) - mostra o tempo total da criacao ate a venda, fixo.
+  const vendidoTravado=lead.st==='vendido'&&lead.vendido_at;
+  const timerEtapaHtml=lead.st==='vendido'?null:timerStartEtapa&&!timerEndEtapa?
     `<span class="live-timer" data-start="${timerStartEtapa}" style="color:#e8431e;font-weight:700">calculando...</span>`:
     (timerStartEtapa&&timerEndEtapa?`${calcElapsed(timerStartEtapa,timerEndEtapa)}`:null);
   document.getElementById('detail-ov').classList.remove('hidden');
@@ -3199,7 +3226,9 @@ function abrirDetailLead(id){
           <div class="d-field"><span class="lbl">Data</span><span class="val">${lead.dt||'—'}</span></div>
           <div class="d-field"><span class="lbl">Origem</span><span class="val">${lead.origem||'—'}</span></div>
           <div class="d-field"><span class="lbl">Vendedor</span><span class="val">${lead.captador||lead.by||'—'}${lead.captadorReplicado?` <span style="color:var(--purple)">+ ${lead.captadorReplicado} (réplica)</span>`:''}</span></div>
-          <div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`:'—'}</span></div>
+          ${vendidoTravado
+            ?`<div class="d-field"><span class="lbl">🔒 Tempo até a venda (travado)</span><span class="val" style="color:var(--green);font-weight:700">${lead._criadoEm?calcElapsed(lead._criadoEm,lead.vendido_at):'—'}</span></div>`
+            :`<div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?(lead.st==='vendido'?'— (vendido)':`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`):'—'}</span></div>`}
           ${timerEtapaHtml?`<div class="d-field"><span class="lbl">Tempo na etapa atual (${col.label})</span><span class="val">${timerEtapaHtml}</span></div>`:''}
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
           ${lead.veiculoTroca?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">🔄 Veículo de troca</span><span class="val">${[lead.veiculoTroca.marca,lead.veiculoTroca.modelo,lead.veiculoTroca.ano,lead.veiculoTroca.cor].filter(Boolean).join(' ')||'—'}${lead.veiculoTroca.placa?` · ${lead.veiculoTroca.placa}`:''}</span></div>`:''}
