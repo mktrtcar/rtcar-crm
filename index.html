@@ -1167,8 +1167,6 @@ const KPIS_MILENA=[
     conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&l.pendente_at&&kpiData(l.pendente_at)>=ini&&kpiData(l.pendente_at)<=fim).length},
   {id:'compras',nome:'Compras fechadas',dia:0.5,semana:3,mes:10,como:'Leads de Compra marcados como fechados (data da compra)',
     conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&l.st==='vendido'&&vendaNoPeriodoISO(l,ini,fim)).length},
-  {id:'visitas',nome:'Visitas na loja',dia:0.5,semana:3,mes:10,como:'Leads de Compra com ✅ Compareceu no período',
-    conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&visitaNoPeriodo(l,ini,fim)).length},
   {id:'nps',nome:'NPS coletados',dia:2,semana:10,mes:40,como:'NPS lançados no Relacionamento no período',
     conta:(ini,fim)=>(G.rel.nps||[]).filter(n=>n.dt>=ini&&n.dt<=fim).length},
   {id:'base2anos',nome:'Base de 2 anos: ligações',dia:1,semana:5,mes:20,como:'Clientes que avançaram para "2 anos Agendado" no período',
