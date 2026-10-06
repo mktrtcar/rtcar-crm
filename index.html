@@ -1165,8 +1165,12 @@ const KPIS_MILENA=[
     conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&kpiData(l.dtISO||brParaISO(l.dt))>=ini&&kpiData(l.dtISO||brParaISO(l.dt))<=fim).length},
   {id:'avaliacoes',nome:'Avaliações agendadas',dia:1,semana:5,mes:20,como:'Leads de Compra que entraram em Agendamento no período',
     conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&l.pendente_at&&kpiData(l.pendente_at)>=ini&&kpiData(l.pendente_at)<=fim).length},
-  {id:'compras',nome:'Compras fechadas',dia:0.5,semana:3,mes:10,como:'Leads de Compra marcados como fechados (data da compra)',
+  // Compras e Visitas: sem meta diaria (nao fecha um dia inteiro) - so'
+  // semana e mes (pedido da Aline, 06/10/2026). dia:null = sem quadro "Hoje".
+  {id:'compras',nome:'Compras fechadas',dia:null,semana:3,mes:10,como:'Leads de Compra marcados como fechados (data da compra)',
     conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&l.st==='vendido'&&vendaNoPeriodoISO(l,ini,fim)).length},
+  {id:'visitas',nome:'Visitas na loja',dia:null,semana:3,mes:10,como:'Leads de Compra com ✅ Compareceu no período',
+    conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&visitaNoPeriodo(l,ini,fim)).length},
   {id:'nps',nome:'NPS coletados',dia:2,semana:10,mes:40,como:'NPS lançados no Relacionamento no período',
     conta:(ini,fim)=>(G.rel.nps||[]).filter(n=>n.dt>=ini&&n.dt<=fim).length},
   {id:'base2anos',nome:'Base de 2 anos: ligações',dia:1,semana:5,mes:20,como:'Clientes que avançaram para "2 anos Agendado" no período',
@@ -1243,13 +1247,13 @@ function renderKpisMilena(cnt){
   const linhas=KPIS_MILENA.map(k=>{
     const sem=semAtualIdx>=0?semanas[semAtualIdx]:null;
     const metaSem=sem?Math.round(k.semana*sem.diasUteis/KPI_DIAS_UTEIS_SEMANA*10)/10:0;
-    const blocoDia=mesAtual?cartao('Hoje',k.conta(hojeIso,hojeIso),hojeUtil?k.dia:0,'domingo, sem meta'):'';
+    const blocoDia=mesAtual&&k.dia!=null?cartao('Hoje',k.conta(hojeIso,hojeIso),hojeUtil?k.dia:0,'domingo, sem meta'):'';
     const blocoSem=sem?cartao(`Semana ${semAtualIdx+1} (${sem.diasUteis} dia${sem.diasUteis>1?'s':''} útei${sem.diasUteis>1?'s':''})`,k.conta(sem.ini,sem.fim),metaSem):'';
     const blocoMes=cartao(mesAtual?'Mês até hoje':'Mês',k.conta(iniMes,fimAteHoje),k.mes);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
         <div style="font-weight:700;font-size:13px">${k.nome}</div>
-        <div style="font-size:11px;color:var(--tx3)">Meta: ${kpiFmt(k.dia)}/dia · ${kpiFmt(k.semana)}/semana · ${kpiFmt(k.mes)}/mês</div>
+        <div style="font-size:11px;color:var(--tx3)">Meta: ${k.dia!=null?kpiFmt(k.dia)+'/dia · ':''}${kpiFmt(k.semana)}/semana · ${kpiFmt(k.mes)}/mês</div>
       </div>
       <div style="font-size:10px;color:var(--tx3);margin:2px 0 8px">Conta: ${k.como}</div>
       <div style="display:flex;gap:16px;flex-wrap:wrap">${blocoDia}${blocoSem}${blocoMes}</div>
