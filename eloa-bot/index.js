@@ -31,7 +31,39 @@ const path = require('path');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
-const { fbList, fbGet, fbUpdate } = require('./firestore');
+const { fbList: fbListRaw, fbGet, fbUpdate: fbUpdateRaw } = require('./firestore');
+
+/* Cota de leitura do Firestore estourada (02/10/2026: "429 Quota exceeded"
+   até em leitura de 1 documento, mesmo com o robô parado). Cada ciclo de 20s
+   baixava a coleção inteira de leads ~6 vezes (uma por função de checagem).
+   Agora a lista de leads é compartilhada por 15s entre todas as checagens do
+   mesmo ciclo, e qualquer escrita (fbUpdate) invalida o cache pra nunca ler
+   dado velho depois de uma alteração. Outras coleções passam direto. */
+const LEADS_CACHE_TTL_MS = 15000;
+let leadsCache = { em: 0, dados: null };
+let cotaEstouradaAte = 0;
+async function fbList(col) {
+  if (col !== 'leads') return fbListRaw(col);
+  if (leadsCache.dados && Date.now() - leadsCache.em < LEADS_CACHE_TTL_MS) return leadsCache.dados;
+  // Cota diária estourada: não adianta martelar o Firestore a cada checagem (eram ~40 mil erros
+  // no log) — espera 5 min antes de tentar de novo.
+  if (Date.now() < cotaEstouradaAte) throw new Error('Firestore com cota de leitura estourada — aguardando antes de tentar de novo.');
+  try {
+    const dados = await fbListRaw('leads');
+    leadsCache = { em: Date.now(), dados };
+    return dados;
+  } catch (e) {
+    if (String(e.message).includes('RESOURCE_EXHAUSTED')) {
+      cotaEstouradaAte = Date.now() + 5 * 60 * 1000;
+      console.error('⚠️ Firestore: cota de leitura estourada (429) — pausando leituras de leads por 5 min.');
+    }
+    throw e;
+  }
+}
+async function fbUpdate(col, id, data) {
+  leadsCache.dados = null;
+  return fbUpdateRaw(col, id, data);
+}
 const { gerarResposta, gerarFollowUp, classificarPrimeiraResposta } = require('./claude');
 const { gerarNotaDeVoz } = require('./voz');
 const { buscarDadosReais } = require('./dadosVeiculo');
@@ -96,29 +128,17 @@ function atribuirVendedorRodizio() {
 
 /* Retomada automática de contato (a pedido do Rubens, 19/08/2026) quando o
    cliente não responde depois da última mensagem da Eva. "horas" é o total
-   acumulado desde a última mensagem (não incremental) — bate com o plano:
-   Step 1 em 4h, Step 2 em +4h (8h), Step 3 em +6h (14h), Step 4 em +10h (24h).
-   Parado no Step 4 de propósito: um Step 5 (48h+) exigiria um template
-   pré-aprovado na API oficial do WhatsApp Business — a Eva usa o Baileys
-   (não é a API oficial), então mandar mensagem livre depois de 24h sem
-   resposta é puro risco de a Meta marcar o número como spam, sem o
-   benefício de compliance que o template daria. */
+   acumulado desde a última mensagem (não incremental).
+
+   Reduzido pra um único passo (22/09/2026, decisão da Aline): o lead agora
+   só fica no máximo RESGATE_TIMEOUT_HORAS na coluna "I.A." antes de ir pra
+   Resgate (ver getLeadsParaResgatarSemResposta) — não faz mais sentido ter
+   4 passos espalhados até 24h como antes, já que o lead nem chega a ficar
+   tanto tempo aqui. Um nudge leve na metade do prazo e é isso. */
 const FOLLOWUP_STEPS = [
   {
-    horas: 4,
+    horas: 2,
     instrucao: 'Retome o contato de forma leve, como continuação natural da conversa, sem parecer cobrança. Pergunte se o cliente conseguiu pensar sobre o veículo ou se ficou alguma dúvida. Mantenha tom tranquilo e disponível.',
-  },
-  {
-    horas: 8,
-    instrucao: 'Reforce de forma breve os diferenciais do veículo e da RT Car (vitrificação, revisão completa, garantia), sem repetir tudo que já foi dito antes. Pergunte se há algo específico travando a decisão (preço, condições, dúvida técnica).',
-  },
-  {
-    horas: 14,
-    instrucao: 'Aproxime-se de forma mais pessoal, perguntando diretamente se o cliente ainda tem interesse no veículo ou se prefere que você sugira outra opção do estoque. Mostre disponibilidade total para ajudar, sem soar insistente.',
-  },
-  {
-    horas: 24,
-    instrucao: 'Envie uma mensagem com tom gentil, reconhecendo que talvez o cliente esteja ocupado ou ainda decidindo. Reforce que você está à disposição sem pressão. Inclua uma pergunta curta e fácil de responder.',
   },
 ];
 const INTERVALO_FOLLOWUP_MS = 15 * 60 * 1000; // checa a cada 15min — steps são em horas, não precisa de granularidade fina
@@ -134,10 +154,17 @@ const MODO_VOZ = (process.env.ELOA_MODO_VOZ || '').toLowerCase() === 'true';
    informação sensível demais pra confiar só no comportamento do modelo. */
 const PADRAO_PRECO = /r\$\s?\d|\b\d{1,3}(\.\d{3})+\s*reais\b|\bfinanciamento\b|\bparcela(s)?\b|\bentrada de\b/i;
 
-/* Ponto que ficou em aberto na reunião de 07/08/2026 com Aline/Rafa. Enquanto
-   não for decidido, o comportamento é o mais simples: nunca escalar/reenviar
-   sozinha se o lead não responder. Ajustar aqui quando decidido. */
-const TIMEOUT_SEM_RESPOSTA_HORAS = null; // TODO (decisão pendente)
+/* Decisão que ficou em aberto na reunião de 07/08/2026 com Aline/Rafa, e foi
+   resolvida por ela em 22/09/2026: se o cliente não responder nenhuma
+   mensagem da Eloá em RESGATE_TIMEOUT_HORAS, o lead sai de "I.A." e vai pra
+   "Resgate" com a tag "nunca respondeu" (ver getLeadsParaResgatarSemResposta
+   /resgatarLeadSemResposta, mais abaixo) — antes ficava parado pra sempre.
+   Substitui a versão que só rodava no front-end do CRM quando alguém tinha a
+   tela do Marketing/I.A. aberta (rtcar-modulos.html,
+   resgatarLeadsIaSemRespostaMk, agora desativada) — rodando aqui no eloa-bot
+   funciona sempre, e consegue avisar a Aline por WhatsApp na hora. */
+const RESGATE_TIMEOUT_HORAS = 4;
+const WHATSAPP_ALINE = '554792110733@s.whatsapp.net'; // (47) 9211-0733, sem o 9 — mesmo padrão dos vendedores acima; onWhatsApp() confirma na hora de notificar
 
 function normalizarTxt(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -320,8 +347,36 @@ async function getLeadsNovos() {
     .slice(0, MAX_SAUDACOES_POR_CICLO);
 }
 
+/* Reprocessa, fora do checkpoint normal, os leads que ficaram marcados
+   NUMERO_INVALIDO pelo bug do onWhatsApp() durante a instabilidade de conexão
+   de 17/09/2026 (reason 440 em loop fazendo o check responder errado pra
+   números válidos, ex.: Joao Lottici). Fica independente de getLeadsNovos
+   pra não mexer no avanço do checkpoint — cumprimentarLead decide de novo se
+   o número é válido ou não, agora só marcando inválido de verdade com a
+   conexão estável (ver CONEXAO_ESTAVEL_MS). Só filtra 'NUMERO_INVALIDO' (não
+   o '_CONFIRMADO'): cumprimentarLead(lead, {reconfirmando:true}) grava um
+   marcador terminal diferente quando reconfirma que é inválido de verdade —
+   sem isso, um número realmente ruim ficava sendo pego pra sempre pelo
+   .slice(0, MAX_SAUDACOES_POR_CICLO) e os outros da fila nunca eram
+   tentados (achado em 21/09/2026: o total parado não baixava do lugar). */
+async function getLeadsInvalidosParaRetentar() {
+  const leads = await fbList('leads');
+  return leads
+    .filter((l) => l.st === 'ia' && l.eloaEnviadoEm === 'NUMERO_INVALIDO' && l.clienteTel && l.origem !== 'Teste')
+    .slice(0, MAX_SAUDACOES_POR_CICLO);
+}
+
 let sock = null;
+let conectadoDesde = 0;
 const telParaLeadId = new Map();
+/* Reason 440 (conflito de sessão) ficou entrando em loop de reconecta-e-cai
+   de novo em segundos (17/09/2026) — nesses momentos o onWhatsApp() responde
+   "não existe" pra números que têm WhatsApp de verdade (ex.: Joao Lottici,
+   47996707680, marcado NUMERO_INVALIDO por engano e confirmado por print do
+   Rubens que o número está lá). Por isso só confiamos numa resposta negativa
+   do onWhatsApp pra marcar permanente quando a conexão já está estável há um
+   tempo mínimo; do contrário tratamos como o catch (manda mesmo assim). */
+const CONEXAO_ESTAVEL_MS = 15000;
 
 /* Reconstroi o mapa telefone->lead a partir do Firestore ao iniciar, pra
    sobreviver a reinicios do processo (o Map em memoria some ao reiniciar) —
@@ -329,7 +384,7 @@ const telParaLeadId = new Map();
 async function reconstruirTelParaLeadId() {
   const leads = await fbList('leads');
   leads
-    .filter((l) => l.st === 'ia' && l.eloaEnviadoEm && l.eloaEnviadoEm !== 'NUMERO_INVALIDO' && l.clienteTel)
+    .filter((l) => l.st === 'ia' && l.eloaEnviadoEm && l.eloaEnviadoEm !== 'NUMERO_INVALIDO' && l.eloaEnviadoEm !== 'NUMERO_INVALIDO_CONFIRMADO' && l.clienteTel)
     .forEach((l) => {
       const chave = chaveTel(l.clienteTel);
       if (chave) telParaLeadId.set(chave, l.id);
@@ -402,17 +457,27 @@ async function enviarFotoVeiculo(jid, dados) {
    motivo permanente, ex.: número inválido) e false se falhou por motivo
    transitório (deve ser tentado de novo no próximo ciclo). cicloPoll usa
    esse retorno pra decidir até onde pode avançar o checkpoint. */
-async function cumprimentarLead(lead) {
+async function cumprimentarLead(lead, opts = {}) {
   const jidTentativa = paraJid(lead.clienteTel);
   if (!jidTentativa) return true; // telefone sem dígitos: não adianta tentar de novo
   let jid = jidTentativa;
   try {
     const jidValido = await resolverJidValido(lead.clienteTel);
     if (jidValido) jid = jidValido;
-    else {
+    else if (conectadoDesde && Date.now() - conectadoDesde >= CONEXAO_ESTAVEL_MS) {
+      /* Só conclui "inválido" com a conexão estável há CONEXAO_ESTAVEL_MS —
+         resolverJidValido engole os erros de cada candidato e devolve null,
+         então com a conexão caindo (Motivo 440) um número válido parecia
+         inexistente. Na re-checagem (opts.reconfirmando) usa uma flag terminal
+         diferente: sem isso, um número realmente sem WhatsApp ficava sendo
+         sorteado de novo a cada ciclo pelo getLeadsInvalidosParaRetentar
+         (sempre os mesmos 3 primeiros da lista) e os outros nunca eram
+         tentados (achado em 21/09/2026). */
       console.log(`⚠️ Número de ${lead.clienteNome} (${lead.clienteTel}) não encontrado no WhatsApp (testadas as variações com/sem o 9) — pulando.`);
-      await fbUpdate('leads', lead.id, { eloaEnviadoEm: 'NUMERO_INVALIDO' });
+      await fbUpdate('leads', lead.id, { eloaEnviadoEm: opts.reconfirmando ? 'NUMERO_INVALIDO_CONFIRMADO' : 'NUMERO_INVALIDO' });
       return true;
+    } else {
+      console.warn(`Número de ${lead.clienteNome} (${lead.clienteTel}) veio "não encontrado" com conexão instável — tentando mesmo assim em vez de marcar inválido.`);
     }
   } catch (e) {
     console.error('Erro ao validar número, tentando mesmo assim:', e.message);
@@ -902,6 +967,25 @@ async function cicloPoll() {
     console.error('Erro ao notificar leads de cadastro manual:', e.message);
   }
   try {
+    const invalidosParaRetentar = await getLeadsInvalidosParaRetentar();
+    if (invalidosParaRetentar.length) console.log(`Reprocessando ${invalidosParaRetentar.length} lead(s) marcado(s) NUMERO_INVALIDO por engano (bug do dia 17/09/2026).`);
+    for (const lead of invalidosParaRetentar) await cumprimentarLead(lead, { reconfirmando: true });
+  } catch (e) {
+    console.error('Erro ao reprocessar leads marcados como número inválido:', e.message);
+  }
+  try {
+    const paraResgatar = await getLeadsParaResgatarSemResposta();
+    for (const lead of paraResgatar) await resgatarLeadSemResposta(lead);
+  } catch (e) {
+    console.error('Erro ao mover leads sem resposta pra Resgate:', e.message);
+  }
+  try {
+    const paraAvisarAline = await getLeadsResgatadosParaAvisarAline();
+    for (const lead of paraAvisarAline) await avisarAlineResgateLead(lead);
+  } catch (e) {
+    console.error('Erro ao avisar a Aline sobre leads resgatados:', e.message);
+  }
+  try {
     novos = await getLeadsNovos();
     if (novos.length) console.log(`${novos.length} lead(s) novo(s) — cumprimentando (máx. ${MAX_SAUDACOES_POR_CICLO} por ciclo).`);
     for (const lead of novos) {
@@ -945,7 +1029,7 @@ async function getLeadsParaFollowUp() {
   const leads = await fbList('leads');
   const agora = Date.now();
   return leads.filter((l) => {
-    if (l.st !== 'ia' || !l.eloaEnviadoEm || l.eloaEnviadoEm === 'NUMERO_INVALIDO') return false;
+    if (l.st !== 'ia' || !l.eloaEnviadoEm || l.eloaEnviadoEm === 'NUMERO_INVALIDO' || l.eloaEnviadoEm === 'NUMERO_INVALIDO_CONFIRMADO') return false;
     if (l.origem === 'Teste') return false;
     const conversa = l.conversaEloa || [];
     if (!conversa.length || conversa[conversa.length - 1].role !== 'model') return false;
@@ -955,6 +1039,66 @@ async function getLeadsParaFollowUp() {
     const horasPassadas = (agora - new Date(desde).getTime()) / 3600000;
     return horasPassadas >= FOLLOWUP_STEPS[step].horas;
   });
+}
+
+/* Leads que a Eloá cumprimentou (ou seguiu com follow-up) mas o cliente
+   nunca respondeu nada — última mensagem da conversa é da própria Eloá, e já
+   se passaram RESGATE_TIMEOUT_HORAS desde o primeiro contato. */
+async function getLeadsParaResgatarSemResposta() {
+  const leads = await fbList('leads');
+  const agora = Date.now();
+  return leads.filter((l) => {
+    if (l.st !== 'ia' || !l.clienteTel || l.origem === 'Teste') return false;
+    if (!l.eloaEnviadoEm || l.eloaEnviadoEm === 'NUMERO_INVALIDO' || l.eloaEnviadoEm === 'NUMERO_INVALIDO_CONFIRMADO') return false;
+    const conversa = l.conversaEloa || [];
+    if (!conversa.length || conversa[conversa.length - 1].role !== 'model') return false;
+    const horasPassadas = (agora - new Date(l.eloaEnviadoEm).getTime()) / 3600000;
+    return horasPassadas >= RESGATE_TIMEOUT_HORAS;
+  });
+}
+
+/* Tenta achar o JID certo da Aline via onWhatsApp, mas em caso de erro (ex.:
+   conexão instável, "Motivo: 440" em loop) manda pro número cru mesmo assim
+   em vez de desistir — mesmo padrão de resiliência usado em cumprimentarLead
+   (achado em 25/09/2026: as 2 primeiras vezes que o resgate disparou de
+   verdade, o aviso falhou silenciosamente por causa disso). */
+async function notificarAlineResgate(lead) {
+  let destino = WHATSAPP_ALINE;
+  try {
+    const check = await sock.onWhatsApp(WHATSAPP_ALINE.split('@')[0]);
+    if (check?.[0]?.exists) destino = check[0].jid;
+  } catch (e) {
+    console.error(`Erro ao validar número da Aline pra avisar sobre o resgate de ${lead.id}, tentando mesmo assim:`, e.message);
+  }
+  const texto = `🔄 Lead movido pra Resgate (não respondeu em ${RESGATE_TIMEOUT_HORAS}h)\nCliente: ${lead.clienteNome || lead.id}\nTelefone: ${lead.clienteTel || '-'}\nVeículo: ${lead.veiculo || '-'}`;
+  await sock.sendMessage(destino, { text: texto });
+}
+
+async function resgatarLeadSemResposta(lead) {
+  const motivo = `Cliente não respondeu à Eva em ${RESGATE_TIMEOUT_HORAS}h — movido automaticamente para Resgate.`;
+  const historico = [...(lead.historico || []), { dt: agoraDt(), icone: 'purple', acao: '🔄 Movido automaticamente para Resgate', obs: motivo, by: 'Eva' }];
+  await fbUpdate('leads', lead.id, { st: 'resgate', resgatado: true, nuncaRespondeu: true, resgateMotivo: motivo, historico });
+  console.log(`🔄 ${lead.clienteNome} (${lead.id}) movido pra Resgate — sem resposta em ${RESGATE_TIMEOUT_HORAS}h.`);
+}
+
+/* Resgatar o lead (acima) e avisar a Aline são passos separados de propósito:
+   se o aviso falhar (conexão instável, etc.) o lead já saiu de "ia" e não
+   pode mais depender do mesmo filtro pra tentar de novo — por isso esse
+   segundo filtro próprio, independente, que fica retentando só o aviso até
+   conseguir, sem nunca reprocessar o mesmo lead duas vezes (marca
+   alineAvisadaResgateEm assim que confirma o envio). */
+async function getLeadsResgatadosParaAvisarAline() {
+  const leads = await fbList('leads');
+  return leads.filter((l) => l.st === 'resgate' && l.resgatado && !l.alineAvisadaResgateEm).slice(0, MAX_SAUDACOES_POR_CICLO);
+}
+
+async function avisarAlineResgateLead(lead) {
+  try {
+    await notificarAlineResgate(lead);
+    await fbUpdate('leads', lead.id, { alineAvisadaResgateEm: new Date().toISOString() });
+  } catch (e) {
+    console.error(`Erro ao avisar a Aline sobre o resgate de ${lead.id}, tenta de novo no próximo ciclo:`, e.message);
+  }
 }
 
 async function enviarFollowUp(lead) {
@@ -1067,8 +1211,40 @@ function iniciarPollUmaVez() {
   cicloAtualizarEstoque();
 }
 
+/* Retenta com backoff exponencial — criado depois de repetidos casos reais
+   (setembro/2026) em que uma falha passageira de DNS/rede bem na hora do
+   boot (getaddrinfo ENOTFOUND identitytoolkit.googleapis.com, ao autenticar
+   no Firestore) derrubava o processo inteiro sem nenhuma tentativa nova,
+   deixando a Eloá fora do ar até alguém religar na mão. */
+async function tentarComRetry(fn, tentativas = 5, esperaMs = 5000) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i === tentativas - 1) throw e;
+      console.error(`Tentativa ${i + 1}/${tentativas} falhou, tentando de novo em ${esperaMs / 1000}s:`, e.message);
+      await new Promise((r) => setTimeout(r, esperaMs));
+      esperaMs *= 2;
+    }
+  }
+}
+
+let primeiroBootFeito = false; // start() roda de novo a cada reconexão (connection.update abaixo) — sem essa
+// trava, o retry de reconstruirTelParaLeadId (e o próprio rebuild) repetia a cada reconexão, e com a
+// conexão instável caindo a cada poucos segundos isso virou um consumo extra de CPU/memória sem necessidade
+// (achado em 30/09/2026, processo com 2 dias no ar chegando a 293% de CPU). Só precisa rodar uma vez.
 async function start() {
-  await reconstruirTelParaLeadId();
+  if (!primeiroBootFeito) {
+    primeiroBootFeito = true;
+    try {
+      await tentarComRetry(reconstruirTelParaLeadId);
+    } catch (e) {
+      // Não deixa a falta desse mapa (só usado pra rotear resposta de lead já
+      // cumprimentado) derrubar o boot inteiro — ele se preenche sozinho
+      // conforme a Eloá for conversando com leads novos.
+      console.error('Não consegui reconstruir o mapa telefone->lead depois de várias tentativas — seguindo mesmo assim:', e.message);
+    }
+  }
   const { state, saveCreds } = await useMultiFileAuthState('./auth');
   sock = makeWASocket({ auth: state, logger: P, printQRInTerminal: false });
   sock.ev.on('creds.update', saveCreds);
@@ -1095,11 +1271,13 @@ async function start() {
       });
     }
     if (connection === 'close') {
+      conectadoDesde = 0;
       const reason = lastDisconnect?.error?.output?.statusCode;
       console.log('Conexão fechada. Motivo:', reason);
       if (reason !== DisconnectReason.loggedOut) start();
       else console.log('Sessão desconectada. Apague ./auth e rode de novo.');
     } else if (connection === 'open') {
+      conectadoDesde = Date.now();
       console.log(`\n✅ ELOÁ CONECTADA — ${sock.user?.id}`);
       console.log(`Checando leads novos a cada ${INTERVALO_POLL_MS / 1000}s.\n`);
       iniciarPollUmaVez();
