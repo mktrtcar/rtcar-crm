@@ -138,6 +138,7 @@ h2{font-size:15px;margin-bottom:10px}
   <div id="view-veiculos-lista">
     <div class="sub">Clique num veículo pra editar os dados, fotos ou ocultar do site.</div>
     <button class="btn btn-sm" onclick="novoVeiculo()" style="margin-bottom:12px">+ Adicionar carro</button>
+    <button class="btn btn-sm" onclick="puxarUmCarroAutoconf()" style="margin-bottom:12px" title="Traz só um carro do catálogo do Autoconf, sem mexer nos outros">⬇ Puxar 1 carro do Autoconf</button>
     <div class="lista-veiculos" id="lista-veiculos"></div>
   </div>
 
@@ -555,6 +556,31 @@ function voltarLista(){
   document.getElementById('view-veiculo-editar').classList.add('hidden');
   document.getElementById('view-veiculos-lista').classList.remove('hidden');
   carregarVeiculos();
+}
+
+// Puxa SO' um carro do catalogo do Autoconf (05/10/2026, pedido da Aline) -
+// chama sincronizarVeiculosSitePublico no modo "so' um" (parametro id), que
+// nao mexe em nenhum outro carro. Aceita o link do anuncio ou so' o codigo.
+async function puxarUmCarroAutoconf(){
+  const entrada = prompt('Link do anúncio no rtcar.com.br (ou só o código, o número no fim do link):');
+  if (!entrada) return;
+  const id = (String(entrada).trim().match(/(\d+)\/?$/) || [])[1];
+  if (!id) { alert('Não achei o código no que foi digitado. Ex.: 437611'); return; }
+  const placa = (prompt('Placa do carro no sistema principal, pra já vincular (opcional — deixe em branco pra vincular depois):') || '').trim();
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const r = await fetch('https://southamerica-east1-rtcarprograma.cloudfunctions.net/sincronizarVeiculosSitePublico', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ id, placaSistema: placa })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { alert('Não foi possível puxar: ' + (j.erro || ('HTTP ' + r.status))); return; }
+    const item = (j.resultado || [])[0] || {};
+    let msg = 'Carro ' + id + (item.novo ? ' adicionado' : ' atualizado') + ' no site.';
+    if (j.vinculo) msg += j.vinculo.estoqueSistemaExiste ? ('\nVinculado à placa ' + j.vinculo.placaSistema + (j.vinculo.duplicadoOculto ? ' (o carro sem foto do sistema foi escondido).' : '.')) : ('\nAtenção: a placa ' + j.vinculo.placaSistema + ' não foi encontrada no estoque do sistema.');
+    alert(msg);
+    carregarVeiculos();
+  } catch (e) { alert('Erro ao puxar o carro: ' + (e.message || e)); }
 }
 
 // Carro cadastrado manualmente (nao veio do Autoconf) - marca manual:true e

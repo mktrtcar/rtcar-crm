@@ -47,7 +47,18 @@ exports.sincronizarVeiculosSitePublico=onRequest({region:'southamerica-east1',ti
     const idsNaFonte=new Set(estoque.veiculos.map(v=>String(v.id)));
     const resultado=[];
 
-    for(const v of estoque.veiculos){
+    // Modo "so' um carro" (05/10/2026, pedido da Aline - Range Rover 437611
+    // tinha sumido do site): com "id" (codigo do anuncio no Autoconf, o numero
+    // no fim do link), traz SO' esse veiculo e nao mexe em nenhum outro - nem
+    // roda a parte de "sumiu da fonte". "placaSistema" opcional ja' vincula ao
+    // carro do sistema principal, igual ao botao de vinculo do admin.
+    const corpo=(req.body&&typeof req.body==='object')?req.body:{};
+    const soId=String(req.query.id||corpo.id||'').trim();
+    const placaVinculo=String(req.query.placaSistema||corpo.placaSistema||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    const veiculosAlvo=soId?estoque.veiculos.filter(v=>String(v.id)===soId):estoque.veiculos;
+    if(soId&&!veiculosAlvo.length){res.status(404).json({erro:`Código ${soId} não encontrado no catálogo do site (extraído em ${estoque.extraidoEm}).`});return;}
+
+    for(const v of veiculosAlvo){
       const id=String(v.id);
       const ref=db.collection('site_veiculos').doc(id);
       const snap=await ref.get();
@@ -88,6 +99,24 @@ exports.sincronizarVeiculosSitePublico=onRequest({region:'southamerica-east1',ti
       }
       await ref.set(dados,{merge:true});
       resultado.push({id,novo:!existente,fotosAtualizadas:!fotosBloqueadas});
+    }
+
+    if(soId){
+      let vinculo=null;
+      if(placaVinculo){
+        // Mesmo efeito do vincularLinha() do admin: grava o vinculo e esconde
+        // o carro "duplicado" sem foto que o estoque do sistema criou sozinho.
+        const estSnap=await db.collection('rtcar_estoque_publico').doc(placaVinculo).get();
+        const placaReal=estSnap.exists?(estSnap.data().placaReal||''):'';
+        await db.collection('site_veiculos').doc(soId).set({placaSistema:placaVinculo,placaReal},{merge:true});
+        const dupSnap=await db.collection('site_veiculos').doc(placaVinculo).get();
+        const dup=dupSnap.exists?dupSnap.data():null;
+        const duplicadoOculto=!!(dup&&placaVinculo!==soId&&dup.origemEstoquePrincipal&&!(dup.fotos||[]).length);
+        if(duplicadoOculto)await dupSnap.ref.set({oculto:true,ocultoPorVinculo:soId},{merge:true});
+        vinculo={placaSistema:placaVinculo,estoqueSistemaExiste:estSnap.exists,duplicadoOculto};
+      }
+      res.json({ok:true,soUm:true,resultado,vinculo});
+      return;
     }
 
     // Veiculo que existia antes mas sumiu da fonte agora (provavelmente
