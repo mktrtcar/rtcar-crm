@@ -3836,8 +3836,93 @@ function acharLinhaCabecalhoImport(sheet){
   }
   return 0;
 }
+// Leitura de tabela em PDF pra importacao do Relacionamento (06/10/2026,
+// pedido da Aline). Agrupa os textos da pagina em linhas (mesma altura),
+// junta palavras vizinhas em celulas, acha a linha de cabecalho (2+ celulas
+// batendo com IMPORT_ALIASES) e joga cada celula das linhas seguintes na
+// coluna cujo cabecalho esta mais perto (pelo centro). Cabecalho repetido
+// em paginas seguintes e' ignorado.
+function linhasDoTextoPdf(paginas){
+  const linhas=[];
+  for(const itensPagina of paginas){
+    const itens=itensPagina.filter(i=>i.str&&i.str.trim()).map(i=>({x:i.transform[4],y:i.transform[5],w:i.width||0,t:i.str.trim()}));
+    itens.sort((a,b)=>b.y-a.y||a.x-b.x);
+    let atual=null;
+    for(const it of itens){
+      if(!atual||Math.abs(atual.y-it.y)>3){atual={y:it.y,itens:[]};linhas.push(atual);}
+      atual.itens.push(it);
+    }
+  }
+  linhas.forEach(l=>l.itens.sort((a,b)=>a.x-b.x));
+  return linhas;
+}
+function celulasDaLinhaPdf(l){
+  const out=[];
+  for(const it of l.itens){
+    const u=out[out.length-1];
+    if(u&&it.x-(u.x+u.w)<6){u.t+=' '+it.t;u.w=it.x+it.w-u.x;}
+    else out.push({x:it.x,w:it.w,t:it.t});
+  }
+  return out;
+}
+function objetosDaTabelaPdf(linhas){
+  const todos=Object.values(IMPORT_ALIASES).flat();
+  const ehCabecalho=c=>c.filter(x=>todos.includes(normTxt(x.t))).length>=2;
+  let cab=null,inicio=0;
+  for(let i=0;i<linhas.length;i++){const c=celulasDaLinhaPdf(linhas[i]);if(ehCabecalho(c)){cab=c;inicio=i+1;break;}}
+  if(!cab)return[];
+  const centro=c=>c.x+c.w/2;
+  const objs=[];
+  for(const l of linhas.slice(inicio)){
+    const c=celulasDaLinhaPdf(l);
+    // Titulo, rodape, numero de pagina: linha com uma celula so' nao e' linha da tabela.
+    if(ehCabecalho(c)||c.length<2)continue;
+    const o={};cab.forEach(h=>{o[h.t]='';});
+    for(const cel of c){
+      let alvo=cab[0],menor=Infinity;
+      for(const h of cab){const d=Math.abs(centro(h)-centro(cel));if(d<menor){menor=d;alvo=h;}}
+      o[alvo.t]=o[alvo.t]?o[alvo.t]+' '+cel.t:cel.t;
+    }
+    objs.push(o);
+  }
+  return objs;
+}
+// pdf.js (leitor de PDF da Mozilla) so' e' baixado na primeira vez que alguem
+// escolhe um PDF - nao pesa no carregamento normal do CRM.
+function carregarPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  return new Promise((ok,erro)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';ok(window.pdfjsLib);};
+    s.onerror=()=>erro(new Error('Não foi possível carregar o leitor de PDF'));
+    document.head.appendChild(s);
+  });
+}
+async function lerLinhasImportPdf(file){
+  const pdfjs=await carregarPdfJs();
+  const doc=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const paginas=[];
+  for(let p=1;p<=doc.numPages;p++)paginas.push((await (await doc.getPage(p)).getTextContent()).items);
+  return objetosDaTabelaPdf(linhasDoTextoPdf(paginas));
+}
+function ordenarLinhasImport(linhasBrutas){
+  return linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v))
+    .sort((a,b)=>{if(!a.dtCompra)return 1;if(!b.dtCompra)return-1;return a.dtCompra.localeCompare(b.dtCompra);});
+}
 function processarArquivoImportacao(input){
   const file=input.files&&input.files[0];if(!file)return;
+  // PDF (06/10/2026, pedido da Aline): le a tabela do PDF e passa pelo mesmo
+  // mapeamento de colunas da planilha - a previa aparece antes de confirmar.
+  if(/\.pdf$/i.test(file.name)||file.type==='application/pdf'){
+    toast('Lendo o PDF...','gold');
+    lerLinhasImportPdf(file).then(objs=>{
+      G.rel.importLinhas=ordenarLinhasImport(objs);
+      if(!G.rel.importLinhas.length)toast('Não achei uma tabela com as colunas esperadas nesse PDF (Nome/Cliente, Telefone, Carro...)','red',7000);
+    }).catch(err=>{console.error(err);toast('Erro ao ler o PDF — confira se ele tem texto (PDF escaneado/foto não funciona)','red',7000);G.rel.importLinhas=null;})
+      .finally(()=>renderRelacionamento());
+    return;
+  }
   const reader=new FileReader();
   reader.onload=e=>{
     try{
@@ -3848,8 +3933,7 @@ function processarArquivoImportacao(input){
       // dtCompra fica em ISO (aaaa-mm-dd) - ordem crescente por comparacao direta de string
       // ja da a ordem cronologica certa (dia 01/01 antes de 03/01), sem linha nenhuma
       // ficar antes por acaso (linhas sem data vao pro final).
-      G.rel.importLinhas=linhasBrutas.map(linhaImportParaCampos).filter(l=>Object.values(l).some(v=>v))
-        .sort((a,b)=>{if(!a.dtCompra)return 1;if(!b.dtCompra)return-1;return a.dtCompra.localeCompare(b.dtCompra);});
+      G.rel.importLinhas=ordenarLinhasImport(linhasBrutas);
       if(!G.rel.importLinhas.length)toast('Nenhuma linha encontrada na planilha','red');
     }catch(err){console.error(err);toast('Erro ao ler a planilha — confira o formato (.xlsx, .xls ou .csv)','red');G.rel.importLinhas=null;}
     renderRelacionamento();
@@ -3890,10 +3974,10 @@ function renderImportarRel(cnt){
   const validas=linhas?linhas.filter(l=>l.nome):[];
   const semNome=linhas?linhas.length-validas.length:0;
   wrap.innerHTML=`
-    <div class="rel-section-title" style="margin-bottom:10px"><i class="ti ti-file-import"></i> Importar clientes por planilha</div>
+    <div class="rel-section-title" style="margin-bottom:10px"><i class="ti ti-file-import"></i> Importar clientes por planilha ou PDF</div>
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px;margin-bottom:16px">
       <div style="font-size:12px;color:var(--tx3);line-height:1.6;margin-bottom:14px">
-        A planilha (.xlsx, .xls ou .csv) deve ter colunas: <strong>Nome</strong> (ou <strong>Cliente</strong>), <strong>Telefone</strong>, <strong>Carro</strong>, <strong>Data de compra</strong>, <strong>Data de nascimento</strong> e <strong>Vendedor</strong>. Não precisa ter todas — o que faltar fica em branco. Cada linha vira um cliente novo, criado direto na coluna escolhida abaixo, com essa data de hoje registrada no histórico.
+        A planilha (.xlsx, .xls ou .csv) ou o PDF (com a tabela em texto, não escaneado) deve ter colunas: <strong>Nome</strong> (ou <strong>Cliente</strong>), <strong>Telefone</strong>, <strong>Carro</strong>, <strong>Data de compra</strong>, <strong>Data de nascimento</strong> e <strong>Vendedor</strong>. Não precisa ter todas — o que faltar fica em branco. Cada linha vira um cliente novo, criado direto na coluna escolhida abaixo, com essa data de hoje registrada no histórico.
       </div>
       <div class="field"><label>Coluna de destino *</label>
         <select id="import-col" onchange="__G().rel.importColuna=this.value">
@@ -3902,7 +3986,7 @@ function renderImportarRel(cnt){
         </select>
       </div>
       <div class="field"><label>Arquivo</label>
-        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" onchange="processarArquivoImportacao(this)">
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv,.pdf" onchange="processarArquivoImportacao(this)">
       </div>
     </div>
     ${linhas?`
