@@ -1110,7 +1110,8 @@ function renderMarketing(){
       <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
       <div class="tb-tab${view==='lista'?' on':''}" onclick="__G().mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
       <div class="tb-tab${view==='rel'?' on':''}" onclick="__G().mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
-      <div class="tb-tab${view==='visitas'?' on':''}" onclick="__G().mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
+      ${!isSeller()?`<div class="tb-tab${view==='visitas'?' on':''}" onclick="__G().mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
+      <div class="tb-tab${view==='kpis'?' on':''}" onclick="__G().mk.view='kpis';renderMarketing()"><i class="ti ti-target-arrow"></i> KPIs</div>`:''}
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
@@ -1142,10 +1143,146 @@ function renderMarketing(){
   if(view==='hoje') renderDashboardHoje(cnt);
   else if(view==='kanban') renderKanbanMk(cnt);
   else if(view==='lista') renderListaMk(cnt);
-  else if(view==='visitas') renderVisitasDashboard(cnt,'','');
+  // Relacionamento e KPIs: so' Milena e gerencia (pedido da Aline, 06/10/2026).
+  else if(view==='visitas'&&!isSeller()) renderVisitasDashboard(cnt,'','');
+  else if(view==='kpis'&&!isSeller()) renderKpisMilena(cnt);
+  else if(view==='visitas'||view==='kpis'){G.mk.view='hoje';renderDashboardHoje(cnt);}
   else renderRelatoriosMk(cnt);
 }
 
+/* ---- KPIs DA MILENA (aba "KPIs" do CRM, pedido da Aline, 06/10/2026) ----
+   Metas por dia/semana/mes, com "realizado" e "quanto falta". So' a Milena e
+   a gerencia veem (vendedor nao). Regras do calendario combinadas:
+   - dias uteis = segunda a sabado (domingo nao tem meta);
+   - semana = domingo a sabado, cortada nos limites do mes: se o mes comeca
+     numa sexta, a semana 1 tem so' sexta e sabado (meta proporcional aos
+     dias uteis dela); mes com 5 ou 6 semanas mostra todas;
+   - meta do mes = a combinada (nao e' recalculada).
+   "conta" diz o que vale como realizado no intervalo [ini,fim] (ISO, inclusivo). */
+const KPI_DIAS_UTEIS_SEMANA=6;
+const KPIS_MILENA=[
+  {id:'leadsCompra',nome:'Leads de compra atendidos',dia:5,semana:25,mes:110,como:'Leads de origem Compra que chegaram no período',
+    conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&kpiData(l.dtISO||brParaISO(l.dt))>=ini&&kpiData(l.dtISO||brParaISO(l.dt))<=fim).length},
+  {id:'avaliacoes',nome:'Avaliações agendadas',dia:1,semana:5,mes:20,como:'Leads de Compra que entraram em Agendamento no período',
+    conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&l.pendente_at&&kpiData(l.pendente_at)>=ini&&kpiData(l.pendente_at)<=fim).length},
+  // Compras e Visitas: sem meta diaria (nao fecha um dia inteiro) - so'
+  // semana e mes (pedido da Aline, 06/10/2026). dia:null = sem quadro "Hoje".
+  {id:'compras',nome:'Compras fechadas',dia:null,semana:3,mes:10,como:'Leads de Compra marcados como fechados (data da compra)',
+    conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&l.st==='vendido'&&vendaNoPeriodoISO(l,ini,fim)).length},
+  {id:'visitas',nome:'Visitas na loja',dia:null,semana:3,mes:10,como:'Leads de Compra com ✅ Compareceu no período',
+    conta:(ini,fim)=>G.mk.leads.filter(l=>l.origem==='Compra'&&visitaNoPeriodo(l,ini,fim)).length},
+  {id:'nps',nome:'NPS coletados',dia:2,semana:10,mes:40,como:'NPS lançados no Relacionamento no período',
+    conta:(ini,fim)=>(G.rel.nps||[]).filter(n=>n.dt>=ini&&n.dt<=fim).length},
+  {id:'base2anos',nome:'Base de 2 anos: ligações',dia:1,semana:5,mes:20,como:'Clientes que avançaram para "2 anos Agendado" no período',
+    conta:(ini,fim)=>(G.rel.clientes||[]).filter(c=>(c.historico||[]).some(h=>/Avançou para 2 anos Agendado/.test(h.acao||'')&&kpiData(brParaISO((h.dt||'').slice(0,10)))>=ini&&kpiData(brParaISO((h.dt||'').slice(0,10)))<=fim)).length},
+  {id:'indicacoes',nome:'Indicações lançadas no CRM',dia:1,semana:4,mes:20,como:'Indicações lançadas no Relacionamento no período',
+    conta:(ini,fim)=>(G.rel.indicacoes||[]).filter(n=>n.dt>=ini&&n.dt<=fim).length},
+  {id:'cestas',nome:'Cestas de 1 ano retiradas',dia:1,semana:5,mes:20,como:'Clientes com a cesta de 1 ano marcada como retirada no período',
+    conta:(ini,fim)=>(G.rel.clientes||[]).filter(c=>c.visita1ano==='realizada'&&c.visita1anoData>=ini&&c.visita1anoData<=fim).length},
+];
+// Aceita ISO completo (2026-10-06T13:00:00Z), so' data (2026-10-06) ou vazio.
+// Datas com hora viram o dia LOCAL (Brasil), nao o dia UTC.
+function kpiData(v){
+  if(!v)return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;
+  const d=new Date(v);if(isNaN(d))return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function kpiISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function kpiDiaUtil(d){return d.getDay()!==0;}
+// Semanas (domingo a sabado) do mes, cortadas no 1o e no ultimo dia do mes.
+function kpiSemanasDoMes(ano,mes){
+  const semanas=[];const ultimo=new Date(ano,mes+1,0).getDate();
+  let atual=null;
+  for(let dia=1;dia<=ultimo;dia++){
+    const d=new Date(ano,mes,dia);
+    if(!atual||d.getDay()===0){atual={ini:kpiISO(d),fim:kpiISO(d),diasUteis:0};semanas.push(atual);}
+    atual.fim=kpiISO(d);
+    if(kpiDiaUtil(d))atual.diasUteis++;
+  }
+  // "Semana" que e' so' um domingo (ex: dia 31 caindo no domingo) nao tem dia
+  // util nem meta - nao aparece.
+  return semanas.filter(s=>s.diasUteis>0);
+}
+function kpiFmt(n){return Number.isInteger(n)?String(n):n.toLocaleString('pt-BR',{maximumFractionDigits:1});}
+function kpiBarra(real,meta){
+  const pct=meta>0?Math.round(real/meta*100):(real>0?100:0);
+  const falta=Math.max(0,Math.round((meta-real)*10)/10);
+  const cor=pct>=100?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
+  return{pct,falta,cor,html:`<div style="height:6px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-top:4px"><div style="height:100%;width:${Math.min(100,pct)}%;background:${cor}"></div></div>`};
+}
+function renderKpisMilena(cnt){
+  if(isSeller()){cnt.innerHTML='<div class="rel-wrap">Sem acesso.</div>';return;}
+  // Os KPIs de Relacionamento (NPS, indicacoes, cestas, 2 anos) precisam dos
+  // dados do Relacionamento - carrega uma vez se ainda nao estiverem aqui.
+  if(fbOk()&&!G.mk._kpiRelCarregado&&!(G.rel.clientes||[]).length){
+    G.mk._kpiRelCarregado=true;
+    cnt.innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando...</div>';
+    Promise.all([fbList('clientes_rel'),fbList('nps_rel'),fbList('indicacoes_rel')])
+      .then(([c,n,i])=>{G.rel.clientes=c;G.rel.nps=n;G.rel.indicacoes=i;})
+      .catch(e=>console.error(e)).finally(()=>{if(G.mk.view==='kpis')renderMarketing();});
+    return;
+  }
+  const hojeD=new Date();
+  const ref=G.mk.kpiMesRef?new Date(G.mk.kpiMesRef+'T12:00:00'):new Date(hojeD.getFullYear(),hojeD.getMonth(),1);
+  const ano=ref.getFullYear(),mes=ref.getMonth();
+  const mesAtual=ano===hojeD.getFullYear()&&mes===hojeD.getMonth();
+  const semanas=kpiSemanasDoMes(ano,mes);
+  const iniMes=semanas[0].ini,fimMes=semanas[semanas.length-1].fim;
+  const hojeIso=kpiISO(hojeD);
+  const semAtualIdx=mesAtual?semanas.findIndex(s=>hojeIso>=s.ini&&hojeIso<=s.fim):-1;
+  const nomeMes=ref.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const fimAteHoje=mesAtual?hojeIso:fimMes;
+  const hojeUtil=kpiDiaUtil(hojeD);
+
+  function cartao(titulo,real,meta,sub){
+    const b=kpiBarra(real,meta);
+    return`<div style="flex:1;min-width:120px">
+      <div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px">${titulo}</div>
+      <div style="font-size:18px;font-weight:700;color:${b.cor}">${kpiFmt(real)} <span style="font-size:12px;color:var(--tx3);font-weight:500">/ ${kpiFmt(meta)}</span></div>
+      ${b.html}
+      <div style="font-size:11px;color:var(--tx2);margin-top:3px">${meta===0?(sub||'sem meta'):(b.falta>0?`faltam <strong>${kpiFmt(b.falta)}</strong>`:'✅ meta batida')} · ${b.pct}%</div>
+    </div>`;
+  }
+  const linhas=KPIS_MILENA.map(k=>{
+    const sem=semAtualIdx>=0?semanas[semAtualIdx]:null;
+    const metaSem=sem?Math.round(k.semana*sem.diasUteis/KPI_DIAS_UTEIS_SEMANA*10)/10:0;
+    const blocoDia=mesAtual&&k.dia!=null?cartao('Hoje',k.conta(hojeIso,hojeIso),hojeUtil?k.dia:0,'domingo, sem meta'):'';
+    const blocoSem=sem?cartao(`Semana ${semAtualIdx+1} (${sem.diasUteis} dia${sem.diasUteis>1?'s':''} útei${sem.diasUteis>1?'s':''})`,k.conta(sem.ini,sem.fim),metaSem):'';
+    const blocoMes=cartao(mesAtual?'Mês até hoje':'Mês',k.conta(iniMes,fimAteHoje),k.mes);
+    return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <div style="font-weight:700;font-size:13px">${k.nome}</div>
+        <div style="font-size:11px;color:var(--tx3)">Meta: ${k.dia!=null?kpiFmt(k.dia)+'/dia · ':''}${kpiFmt(k.semana)}/semana · ${kpiFmt(k.mes)}/mês</div>
+      </div>
+      <div style="font-size:10px;color:var(--tx3);margin:2px 0 8px">Conta: ${k.como}</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">${blocoDia}${blocoSem}${blocoMes}</div>
+    </div>`;
+  }).join('');
+  // Quadro com todas as semanas do mes (inclusive as cortadas no comeco/fim).
+  const cab=semanas.map((s,i)=>`<th style="padding:6px;text-align:center;${i===semAtualIdx?'background:var(--goldl)':''}">Sem ${i+1}<div style="font-size:9px;color:var(--tx3);font-weight:400">${s.ini.slice(8)}–${s.fim.slice(8)}/${s.fim.slice(5,7)} · ${s.diasUteis}d</div></th>`).join('');
+  const corpo=KPIS_MILENA.map(k=>`<tr><td style="padding:6px;font-weight:600;white-space:nowrap">${k.nome}</td>${semanas.map((s,i)=>{
+    const meta=Math.round(k.semana*s.diasUteis/KPI_DIAS_UTEIS_SEMANA*10)/10;
+    const futura=mesAtual&&s.ini>hojeIso;
+    const real=futura?null:k.conta(s.ini,s.fim);
+    const b=kpiBarra(real||0,meta);
+    return`<td style="padding:6px;text-align:center;${i===semAtualIdx?'background:var(--goldl)':''}">${futura?`<span style="color:var(--tx3)">— / ${kpiFmt(meta)}</span>`:`<strong style="color:${b.cor}">${kpiFmt(real)}</strong> / ${kpiFmt(meta)}`}</td>`;
+  }).join('')}</tr>`).join('');
+  const navMes=d=>{const n=new Date(ano,mes+d,1);return kpiISO(n);};
+  const wrap=document.createElement('div');wrap.className='rel-wrap';wrap.style.overflow='auto';
+  wrap.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="__G().mk.kpiMesRef='${navMes(-1)}';renderMarketing()">‹</button>
+      <div style="font-size:16px;font-weight:700">🎯 KPIs da Milena — ${nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1)}</div>
+      <button class="btn btn-outline btn-sm" onclick="__G().mk.kpiMesRef='${navMes(1)}';renderMarketing()">›</button>
+      ${mesAtual?'':`<button class="btn btn-outline btn-sm" onclick="__G().mk.kpiMesRef='';renderMarketing()">Mês atual</button>`}
+    </div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">Dias úteis = segunda a sábado. Semana = domingo a sábado, cortada no início e no fim do mês (meta da semana proporcional aos dias úteis dela).</div>
+    ${linhas}
+    <div class="d-section-title" style="margin:16px 0 8px">Todas as semanas do mês (realizado / meta)</div>
+    <div style="overflow-x:auto;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:6px;text-align:left">Indicador</th>${cab}</tr></thead><tbody>${corpo}</tbody></table></div>`;
+  cnt.appendChild(wrap);
+}
 function isSeller(){return G.user?.r==='seller';}
 function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora'||G.user?.r==='rtcred';}
 /* 24/08/2026: "Visita" saiu de uso (a pedido da Aline) - fica oculta pra
