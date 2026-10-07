@@ -483,14 +483,19 @@ function calcElapsed(start,end){
   return (h?h+'h ':'')+(m||h?m+'min ':'')+(sc+'s');
 }
 const LIMITE_ALERTA_CARD_MS=5*60*1000;
-const COLS_ALERTA_5MIN=['atendimento','encantamento','negociacao','agendamento','visita','resgate'];
+// Quanto tempo sem acao do vendedor ate o card ficar vermelho, por coluna
+// (pedido da Aline, 07/10/2026): Encantamento 5 min, Negociacao 4 horas.
+// Agendamento nao conta tempo: so' fica vermelho quando passa a data do
+// agendamento sem "Compareceu/Nao compareceu/Reagendado" (ver alertaData).
+const LIMITES_ALERTA_COL={atendimento:5*60*1000,encantamento:5*60*1000,negociacao:4*60*60*1000,visita:5*60*1000,resgate:5*60*1000};
 function atualizarAlertaCard(el){
   if(!document.getElementById('crm-alerta-card-css')){
     const st=document.createElement('style');st.id='crm-alerta-card-css';
     st.textContent='#rtcar-crm-root .lcard.lcard-alerta{background:#e8431e;border-left-color:#a32c10!important;box-shadow:0 0 0 2px #a32c10}#rtcar-crm-root .lcard.lcard-alerta .card-id,#rtcar-crm-root .lcard.lcard-alerta .card-nome,#rtcar-crm-root .lcard.lcard-alerta .card-sub,#rtcar-crm-root .lcard.lcard-alerta .card-sub .ti,#rtcar-crm-root .lcard.lcard-alerta .live-timer{color:#fff!important}';
     document.head.appendChild(st);
   }
-  el.classList.toggle('lcard-alerta',Date.now()-new Date(el.dataset.alertaDesde)>LIMITE_ALERTA_CARD_MS);
+  if(el.dataset.alertaData){el.classList.toggle('lcard-alerta',el.dataset.alertaData<hojeISOlocal());return;}
+  el.classList.toggle('lcard-alerta',Date.now()-new Date(el.dataset.alertaDesde)>(+el.dataset.alertaLimite||LIMITE_ALERTA_CARD_MS));
 }
 function iniciarTimerCRM(){
   if(G.mk._timerInterval)clearInterval(G.mk._timerInterval);
@@ -500,7 +505,7 @@ function iniciarTimerCRM(){
       const start=el.dataset.start;
       if(start) el.textContent=(el.dataset.prefix||'')+calcElapsed(start,null);
     });
-    document.querySelectorAll('.lcard[data-alerta-desde]').forEach(atualizarAlertaCard);
+    document.querySelectorAll('.lcard[data-alerta-desde],.lcard[data-alerta-data]').forEach(atualizarAlertaCard);
   },1000);
 }
 function pararTimerCRM(){
@@ -899,7 +904,10 @@ function renderKanbanMk(cnt){
       // Depois (05/10/2026, pedido da Aline) vale pra todas as colunas em que o
       // vendedor trabalha o lead - fora a I.A. (quem atende ali e' a Eva) e as
       // finais (Venda/Perdido, cronometro ja parado).
-      if(COLS_ALERTA_5MIN.includes(col.id)&&timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;atualizarAlertaCard(c);}
+      // 07/10/2026: limite por coluna (LIMITES_ALERTA_COL); Agendamento so' pela data.
+      if(col.id==='agendamento'){
+        if(l.agendamentoData&&!l.agendamentoStatus){c.dataset.alertaData=l.agendamentoData;atualizarAlertaCard(c);}
+      }else if(LIMITES_ALERTA_COL[col.id]&&timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;c.dataset.alertaLimite=LIMITES_ALERTA_COL[col.id];atualizarAlertaCard(c);}
       const timerInline=col.timer&&timerStart&&!timerEnd?
         `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
         (col.timer&&timerStart&&timerEnd?
