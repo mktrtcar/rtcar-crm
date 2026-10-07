@@ -250,3 +250,4 @@ Object.assign(exports,require('./admin-usuarios'));
 Object.assign(exports,require('./diag-estoque'));
 Object.assign(exports,require('./migrar-site'));
 Object.assign(exports,require('./vincular-estoque'));
+Object.assign(exports,require('./historico-hora'));
