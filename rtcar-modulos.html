@@ -403,6 +403,7 @@
         <div class="field"><label>Nome indicado *</label><input type="text" id="ri-nome" placeholder="Nome da pessoa indicada"></div>
         <div class="field"><label>Telefone indicado</label><input type="tel" id="ri-tel" placeholder="(47) 99999-9999" oninput="mascaraTel(this)"></div>
         <div class="field"><label>Nome de quem indicou</label><input type="text" id="ri-por" placeholder="Cliente que indicou"></div>
+        <div class="field"><label>Observação</label><textarea id="ri-obs" placeholder="Informações do cliente..."></textarea></div>
       </div>
     </div>
     <div class="mod-foot">
@@ -4161,7 +4162,7 @@ function colNps(){
 /* Coluna Indicações — separada da jornada, controle de quem foi indicado por clientes e se compareceu */
 function indicacoesFiltradas(){
   let ls=[...G.rel.indicacoes];
-  if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(n=>(n.nomeIndicado||'').toLowerCase().includes(b)||(n.telIndicado||'').toLowerCase().includes(b)||(n.indicadoPor||'').toLowerCase().includes(b)||(n.id||'').toLowerCase().includes(b));}
+  if(G.rel.busca){const b=G.rel.busca.toLowerCase();ls=ls.filter(n=>(n.nomeIndicado||'').toLowerCase().includes(b)||(n.telIndicado||'').toLowerCase().includes(b)||(n.indicadoPor||'').toLowerCase().includes(b)||(n.obs||'').toLowerCase().includes(b)||(n.id||'').toLowerCase().includes(b));}
   return ls.sort((a,b)=>(b.dt||'').localeCompare(a.dt||''));
 }
 function colIndicacoes(){
@@ -4180,6 +4181,7 @@ function colIndicacoes(){
       <div class="card-nome">${n.nomeIndicado||'(sem nome)'}</div>
       <div class="card-sub"><i class="ti ti-phone"></i>${n.telIndicado||'Telefone não informado'}</div>
       <div class="card-sub"><i class="ti ti-user"></i>Indicado por: ${n.indicadoPor||'—'}</div>
+      ${n.obs?`<div class="card-sub" title="${String(n.obs).replace(/"/g,'&quot;')}" style="white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"><i class="ti ti-note"></i>${String(n.obs).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`:''}
       <div style="margin:6px 0 2px">
         <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🎯 Status:</div>
         <div style="display:flex;gap:4px">
@@ -4864,6 +4866,7 @@ function abrirModalIndicacao(id=null){
   document.getElementById('ri-nome').value=n?.nomeIndicado||'';
   document.getElementById('ri-tel').value=n?.telIndicado||'';
   document.getElementById('ri-por').value=n?.indicadoPor||'';
+  document.getElementById('ri-obs').value=n?.obs||'';
   document.getElementById('btn-salvar-ind-txt').textContent=id?'Salvar Alterações':'Salvar';
   document.getElementById('ov-ind').classList.remove('hidden');setTimeout(()=>document.getElementById('ri-nome').focus(),50);
 }
@@ -4871,7 +4874,7 @@ async function salvarIndicacao(){
   const nomeIndicado=document.getElementById('ri-nome').value.trim();
   if(!nomeIndicado){toast('Informe o nome indicado','red');return;}
   const btn=document.getElementById('btn-salvar-ind');btn.disabled=true;document.getElementById('btn-salvar-ind-txt').innerHTML='<span class="spin"></span>';
-  const data={nomeIndicado,telIndicado:document.getElementById('ri-tel').value.trim(),indicadoPor:document.getElementById('ri-por').value.trim()};
+  const data={nomeIndicado,telIndicado:document.getElementById('ri-tel').value.trim(),indicadoPor:document.getElementById('ri-por').value.trim(),obs:document.getElementById('ri-obs').value.trim()};
   try{
     if(G.rel.editandoIndId){Object.assign(G.rel.indicacoes.find(x=>x.id===G.rel.editandoIndId),data);if(!G.rel.modoDemo)await fbUpdate('indicacoes_rel',G.rel.editandoIndId,data);toast('Indicação atualizada!');}
     else{const id=await proximoId('IND',G.rel.indicacoes,'rel_config/seq','indSeq');const n={id,tag:'',dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.indicacoes.push(n);if(!G.rel.modoDemo)await fbCreate('indicacoes_rel',id,n);toast(`${nomeIndicado} adicionado!`);}
