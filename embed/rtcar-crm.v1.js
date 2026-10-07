@@ -73,8 +73,8 @@ const COLS_MK=[
   {id:'ia',          label:'I.A.',         emoji:'🤖', desc:'Lead recebido — triagem por I.A.',              cor:'#6b3db8', bg:'#f3e8fb', timer:true},
   {id:'atendimento', label:'Atendimento',  emoji:'💬', desc:'Vendedor em atendimento ativo',                 cor:'#1e4d8c', bg:'#e8f0fb', timer:true},
   {id:'encantamento',label:'Encantamento', emoji:'✨', desc:'Construindo relacionamento com o cliente',      cor:'#0b7ba8', bg:'#e8f8fb', timer:true},
-  {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee', timer:true},
   {id:'agendamento', label:'Agendamento',  emoji:'📅', desc:'Agendamento feito — timer de resposta ativo',  cor:'#b8860b', bg:'#faf6e8', timer:true},
+  {id:'negociacao',  label:'Negociação',   emoji:'🤝', desc:'Em negociação de proposta e condições',         cor:'#1a6b3c', bg:'#e8f5ee', timer:true},
   {id:'visita',      label:'Visita',       emoji:'🚗', desc:'Cliente veio à loja',                           cor:'#4a4a4a', bg:'#f0f0f0'},
   {id:'vendido',     label:'Venda',        emoji:'🏆', desc:'Negócio fechado com sucesso',                   cor:'#1a6b3c', bg:'#e8f5ee', fim:true},
   {id:'resgate',     label:'Resgate',      emoji:'🔄', desc:'Tentativa de resgatar o cliente perdido',       cor:'#6b3db8', bg:'#f3e8fb'},
@@ -3396,7 +3396,7 @@ function abrirDetailLead(id){
   const histHtml=hist.length?hist.map((h,i)=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
     return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${nomeEva(h.acao)}</div>${h.obs?`<div class="hist-obs">${nomeEva(h.obs)}</div>`:''}<div class="hist-meta">${h.dt} · ${nomeEva(h.by)||'Sistema'}${intervaloHist(i)}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
-  const SEQ_MK=['ia','atendimento','encantamento','negociacao','agendamento','visita','vendido'];
+  const SEQ_MK=['ia','atendimento','encantamento','agendamento','negociacao','visita','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
   const movBtns=COLS_MK.filter(c=>c.id!==lead.st&&!['vendido','perdido'].includes(c.id)&&(c.id!=='resgate'||!lead.optOutContato)&&(lead.st!=='encantamento'||!SEQ_MK.includes(c.id)||['agendamento','negociacao'].includes(c.id))&&!(escondeColunaIA()&&c.id==='ia')&&!colunaOculta(c.id)).map(c=>{
     if(c.id==='resgate')return`<button class="col-btn" onclick="abrirModalResgate('${id}')" style="border-color:${c.cor};color:${c.cor}">${c.emoji} ${c.label}</button>`;
