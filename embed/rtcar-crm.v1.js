@@ -3908,6 +3908,20 @@ function carregarPdfJs(){
     document.head.appendChild(s);
   });
 }
+// SheetJS (leitor de planilha): no CRM sozinho ele vem no <head>, mas dentro do
+// sistema da Marcela (embed) nao existe - la a importacao de planilha dava
+// "Erro ao ler a planilha" (08/10/2026). Entao tambem so' e' baixado na
+// primeira vez que alguem escolhe uma planilha.
+function carregarXlsx(){
+  if(window.XLSX)return Promise.resolve(window.XLSX);
+  return new Promise((ok,erro)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=()=>ok(window.XLSX);
+    s.onerror=()=>erro(new Error('Não foi possível carregar o leitor de planilhas'));
+    document.head.appendChild(s);
+  });
+}
 async function lerLinhasImportPdf(file){
   const pdfjs=await carregarPdfJs();
   const doc=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
@@ -3933,8 +3947,9 @@ function processarArquivoImportacao(input){
     return;
   }
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
+      await carregarXlsx();
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       const sheet=wb.Sheets[wb.SheetNames[0]];
       const linhaCabecalho=acharLinhaCabecalhoImport(sheet);
