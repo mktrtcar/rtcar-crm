@@ -1291,6 +1291,9 @@ function renderKpisMilena(cnt){
     <div style="overflow-x:auto;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:6px;text-align:left">Indicador</th>${cab}</tr></thead><tbody>${corpo}</tbody></table></div>`;
   cnt.appendChild(wrap);
 }
+// Momento em que o lead chegou (criacao); leads antigos sem _criadoEm caem
+// na data do cadastro.
+function chaveChegadaLead(l){return l._criadoEm||(l.dtISO?l.dtISO+'T00:00:00':'')||'';}
 function isSeller(){return G.user?.r==='seller';}
 // Perfil "assistente" (Jaqueline, 08/10/2026): ve todos os leads e lanca vendas/compras
 // em nome de outros vendedores, mas nao exclui nem transfere lead, nao entra no
@@ -1373,6 +1376,12 @@ function renderKanbanMk(cnt){
     const leads=col.id==='vendido'
       ?mkLeadsFiltrados().filter(l=>l.st==='vendido'&&vendaNoPeriodoISO(l,inicioMesAtual,fimMesAtual))
       :mkLeadsFiltrados().filter(l=>l.st===col.id);
+    // Ordem dos cards (pedido da Aline, 08/10/2026): no Atendimento o lead
+    // mais novo fica em cima (chegou, entra no topo); nas demais colunas, o
+    // mais antigo fica em cima. Ordena pela data de chegada do lead.
+    const numLead=l=>parseInt((l.id||'').replace(/\D/g,''))||0;
+    const sinalOrdem=col.id==='atendimento'?-1:1;
+    leads.sort((a,b)=>sinalOrdem*(chaveChegadaLead(a).localeCompare(chaveChegadaLead(b))||numLead(a)-numLead(b)));
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
     head.innerHTML=`<span style="font-size:16px">${col.emoji}</span><span class="col-lbl" style="color:${col.cor}">${col.label}</span><span class="col-cnt" style="background:${col.bg};color:${col.cor}">${leads.length}</span>`;
