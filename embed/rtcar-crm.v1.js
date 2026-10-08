@@ -66,6 +66,7 @@ const USUARIOS=[
   {id:'u15',n:'Victor',  e:'victor@rtcar.com.br',           r:'seller'},
   {id:'u16',n:'Guilmara',e:'rtcred@rtcar.com.br',           r:'rtcred'},
   {id:'u17',n:'Ezequiel',e:'consultorezequiel@rtcar.com.br',r:'seller'},
+  {id:'u18',n:'Jaqueline',e:'documentos@rtcar.com.br',r:'assistente'},
 ];
 
 /* COLUNAS MARKETING */
@@ -314,11 +315,12 @@ function entrarNaApp(u){
     return;
   }
   G.user=u;
+  if(u.r==='assistente')G.mk.view='kanban';
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   document.getElementById('sb-name').textContent=u.n;
-  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor',rtcred:'RT Cred'}[u.r]||u.r);
+  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor',rtcred:'RT Cred',assistente:'Assistente'}[u.r]||u.r);
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
@@ -374,7 +376,7 @@ function popularSelects(){
   const vendedores=USUARIOS.filter(u=>['seller','manager','master'].includes(u.r));
   // vendedor do lead
   const selCap=document.getElementById('f-captador');
-  if(selCap){selCap.innerHTML='<option value="">Automático (rodízio)</option>'+VENDEDORES_ATIVOS.map(v=>`<option value="${v}">${v}</option>`).join('');}
+  if(selCap){selCap.innerHTML=(isAssistente()?'<option value="">— Selecione o vendedor —</option>':'<option value="">Automático (rodízio)</option>')+VENDEDORES_ATIVOS.map(v=>`<option value="${v}">${v}</option>`).join('');}
   // responsável no relacionamento
   const selResp=document.getElementById('rc-resp');
   if(selResp){
@@ -627,12 +629,12 @@ function renderMarketing(){
       <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().mk.view='kanban';renderMarketing()"><i class="ti ti-layout-kanban"></i> Funil</div>
       <div class="tb-tab${view==='lista'?' on':''}" onclick="__G().mk.view='lista';renderMarketing()"><i class="ti ti-list"></i> Lista</div>
       <div class="tb-tab${view==='rel'?' on':''}" onclick="__G().mk.view='rel';renderMarketing()"><i class="ti ti-chart-bar"></i> Relatórios</div>
-      ${!isSeller()?`<div class="tb-tab${view==='visitas'?' on':''}" onclick="__G().mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
+      ${!isSeller()&&!isAssistente()?`<div class="tb-tab${view==='visitas'?' on':''}" onclick="__G().mk.view='visitas';renderMarketing()"><i class="ti ti-walk"></i> Relacionamento</div>
       <div class="tb-tab${view==='kpis'?' on':''}" onclick="__G().mk.view='kpis';renderMarketing()"><i class="ti ti-target-arrow"></i> KPIs</div>`:''}
     </div>
     <div class="tb-spacer"></div>
     <div class="tb-filters-inline">
-      ${(G.user?.r==='master'||G.user?.r==='manager')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option>${['Aline',...VENDEDORES_ATIVOS].map(v=>`<option${G.mk.filtroCaptador===v?' selected':''}>${v}</option>`).join('')}</select>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
+      ${(G.user?.r==='master'||G.user?.r==='manager'||G.user?.r==='assistente')?`<select class="select-sm" onchange="__G().mk.filtroCaptador=this.value;renderMarketing()" style="min-width:120px"><option value="">👤 Vendedor</option>${['Aline',...VENDEDORES_ATIVOS].map(v=>`<option${G.mk.filtroCaptador===v?' selected':''}>${v}</option>`).join('')}</select>`:`<span class="badge" style="background:var(--bluel);color:var(--blue);font-size:12px;padding:6px 12px"><i class="ti ti-user"></i> Meus leads — ${G.user?.n||''}</span>`}
       <input type="date" id="mk-data-inicio" class="select-sm" title="Data início" value="${G.mk.filtroDataInicio}" onchange="__G().mk.filtroDataInicio=this.value;renderMarketing()" style="width:130px">
       <input type="date" id="mk-data-fim" class="select-sm" title="Data fim" value="${G.mk.filtroDataFim}" onchange="__G().mk.filtroDataFim=this.value;renderMarketing()" style="width:130px">
       ${(G.mk.filtroCaptador||G.mk.filtroDataInicio||G.mk.filtroDataFim)?'<button class="btn btn-outline btn-sm" onclick="__G().mk.filtroCaptador=\'\';__G().mk.filtroDataInicio=\'\';__G().mk.filtroDataFim=\'\';renderMarketing()"><i class=\"ti ti-x\"></i></button>':''}
@@ -661,8 +663,8 @@ function renderMarketing(){
   else if(view==='kanban') renderKanbanMk(cnt);
   else if(view==='lista') renderListaMk(cnt);
   // Relacionamento e KPIs: so' Milena e gerencia (pedido da Aline, 06/10/2026).
-  else if(view==='visitas'&&!isSeller()) renderVisitasDashboard(cnt,'','');
-  else if(view==='kpis'&&!isSeller()) renderKpisMilena(cnt);
+  else if(view==='visitas'&&!isSeller()&&!isAssistente()) renderVisitasDashboard(cnt,'','');
+  else if(view==='kpis'&&!isSeller()&&!isAssistente()) renderKpisMilena(cnt);
   else if(view==='visitas'||view==='kpis'){G.mk.view='hoje';renderDashboardHoje(cnt);}
   else renderRelatoriosMk(cnt);
 }
@@ -801,7 +803,11 @@ function renderKpisMilena(cnt){
   cnt.appendChild(wrap);
 }
 function isSeller(){return G.user?.r==='seller';}
-function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora'||G.user?.r==='rtcred';}
+// Perfil "assistente" (Jaqueline, 08/10/2026): ve todos os leads e lanca vendas/compras
+// em nome de outros vendedores, mas nao exclui nem transfere lead, nao entra no
+// rodizio e nao aparece em nenhuma lista de vendedor.
+function isAssistente(){return G.user?.r==='assistente';}
+function escondeColunaIA(){return G.user?.r==='seller'||G.user?.r==='coordenadora'||G.user?.r==='rtcred'||G.user?.r==='assistente';}
 /* 24/08/2026: "Visita" saiu de uso (a pedido da Aline) - fica oculta pra
    todo mundo, mas os leads que ja estavam nessa etapa continuam com os
    dados intactos, so nao aparecem mais no quadro. "Resgate" continua em
@@ -863,7 +869,7 @@ function mkLeadsFiltrados(){
   if(G.mk.filtro==='perdidos')ls=ls.filter(l=>l.st==='perdido');
   if(G.mk.filtroOrigem)ls=ls.filter(l=>l.origem===G.mk.filtroOrigem);
   // filtro de captador só disponível para master/manager
-  if(isManager()&&G.mk.filtroCaptador)ls=ls.filter(l=>l.captador===G.mk.filtroCaptador||l.by===G.mk.filtroCaptador);
+  if((isManager()||isAssistente())&&G.mk.filtroCaptador)ls=ls.filter(l=>l.captador===G.mk.filtroCaptador||l.by===G.mk.filtroCaptador);
   if(G.mk.filtroDataInicio){const di=new Date(G.mk.filtroDataInicio+'T00:00:00');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')>=di;});}
   if(G.mk.filtroDataFim){const df=new Date(G.mk.filtroDataFim+'T23:59:59');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')<=df;});}
   ls.sort((a,b)=>ordemDiaMes(a.dtISO)-ordemDiaMes(b.dtISO));
@@ -960,7 +966,7 @@ function renderKanbanMk(cnt){
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
             <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
             ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirReplicarLead('${l.id}',event)" title="Faz esse lead contar tambem pra outro vendedor, sem tirar do atual"><i class="ti ti-link"></i> Replicar</button>`:''}
-            <button class="card-btn card-btn-label" style="color:var(--red)" onclick="confirmarExclusaoLead('${l.id}')"><i class="ti ti-trash"></i> Excluir</button>
+            ${isAssistente()?'':`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="confirmarExclusaoLead('${l.id}')"><i class="ti ti-trash"></i> Excluir</button>`}
           </div>
           ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button></div>`:''}
         </div>
@@ -2937,6 +2943,7 @@ async function salvarLead(){
       return;
     }
   }
+  if(isAssistente()&&!document.getElementById('f-captador').value){toast('Escolha o vendedor deste lead — você lança em nome dele.','red',4000);return;}
   const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
   if(!captador&&!G.mk.editandoId)captador=await proximoVendedorRodizio();
@@ -3063,7 +3070,22 @@ function abrirModalVendido(id){const l=G.mk.leads.find(x=>x.id===id);
   // Compra: Termo so' depois de solicitar a avaliacao (vale pro botao do
   // card, pro "Vendido" da ficha e pra arrastar pra coluna Venda).
   if(l&&l.origem==='Compra'&&!l.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
-  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;document.getElementById('ov-vendido').classList.remove('hidden');}
+  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;prepararVendedorDaVenda(l);document.getElementById('ov-vendido').classList.remove('hidden');}
+// Campo "Vendedor da venda" (08/10/2026, pedido da Marcela/Aline): so' gestao e assistente
+// veem. Padrao = captador do lead; ao trocar, o lead e a venda passam pro escolhido.
+function prepararVendedorDaVenda(l){
+  let wrap=document.getElementById('vend-vendedor-wrap');
+  if(!(isManager()||isAssistente())){if(wrap)wrap.style.display='none';return;}
+  if(!wrap){
+    wrap=document.createElement('div');wrap.className='field';wrap.id='vend-vendedor-wrap';
+    wrap.innerHTML='<label>Vendedor da venda</label><select id="vend-vendedor"></select>';
+    document.getElementById('vend-obs').closest('.field').before(wrap);
+  }
+  wrap.style.display='';
+  const atual=(l&&l.captador)||'';
+  const nomes=[...VENDEDORES_ATIVOS];if(atual&&!nomes.includes(atual))nomes.unshift(atual);
+  document.getElementById('vend-vendedor').innerHTML=nomes.map(n=>`<option value="${n}"${n===atual?' selected':''}>${n}</option>`).join('');
+}
 async function vincularClienteRelacionamento(lead){
   const telDigits=(lead.clienteTel||'').replace(/\D/g,'');
   if(!telDigits)return;
@@ -3100,11 +3122,16 @@ async function confirmarVendido(){
   if(lead.origem==='Compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
   if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
   const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
+  const wrapVend=document.getElementById('vend-vendedor-wrap');
+  const novoVend=(wrapVend&&wrapVend.style.display!=='none')?document.getElementById('vend-vendedor').value:'';
+  const captadorAnterior=lead.captador;
+  if(novoVend&&novoVend!==captadorAnterior){lead.captador=novoVend;camposVenda.captador=novoVend;}
   // Momento exato da venda - e' onde o cronometro do lead trava.
   lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;
   fecharTimersAbertosMk(lead,camposVenda);
   if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
   await salvarCamposMk(id,camposVenda);
+  if(novoVend&&novoVend!==captadorAnterior)await regHistMk(lead,'🔁 Vendedor da venda','De '+(captadorAnterior||'—')+' para '+novoVend,G.user?.n||'','blue');
   await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',(repasse?'🔁 Repasse — ':'')+(obs||'Negócio fechado!'),G.user?.n||'','green');
   await vincularClienteRelacionamento(lead);
   fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
@@ -3122,7 +3149,7 @@ async function confirmarVendido(){
   // Termo de Venda, mesmo sendo Compra. Agora chama abrirCompraDoCRM em vez
   // de abrirTermoDoCRM quando a origem for Compra.
   if(ORIGENS_MK.compra.includes(lead.origem)){
-    const dadosCompra={leadId:lead.id,cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
+    const dadosCompra={leadId:lead.id,vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
     if(window.RTCARCRM_EMBED&&typeof window.abrirCompraDoCRM==='function'){
       window.abrirCompraDoCRM(dadosCompra);
     }else if(!window.RTCARCRM_EMBED){
@@ -3134,7 +3161,7 @@ async function confirmarVendido(){
   // Consignado (pedido da Marcela/Rafael, 29/09/2026, opcao 1 escolhida
   // pela Aline: nova origem dentro do mesmo funil, mesmo padrao de Compra).
   if(ehConsignado(lead)){
-    const dadosConsignado={leadId:lead.id,cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
+    const dadosConsignado={leadId:lead.id,vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
     if(window.RTCARCRM_EMBED&&typeof window.abrirConsignadoDoCRM==='function'){
       window.abrirConsignadoDoCRM(dadosConsignado);
     }else if(!window.RTCARCRM_EMBED){
@@ -3143,7 +3170,7 @@ async function confirmarVendido(){
     }
     return;
   }
-  const dadosTermo={leadId:lead.id,cliente:lead.clienteNome,telefone:lead.clienteTel,origem:lead.origem,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor}};
+  const dadosTermo={leadId:lead.id,vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,origem:lead.origem,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,preco:lead.valor}};
   if(window.RTCARCRM_EMBED&&typeof window.abrirTermoDoCRM==='function'){
     window.abrirTermoDoCRM(dadosTermo);
   }else if(!window.RTCARCRM_EMBED){
@@ -3353,7 +3380,10 @@ async function regHistMk(lead,acao,obs,by,icone='blue'){
   // outra. "dd/mm/aaaa HH:MM" - quem le so' a data usa slice(0,10).
   const agora=new Date();
   const dtComHora=`${hoje()} ${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}`;
-  lead.historico.push({dt:dtComHora,icone,acao,obs,by});
+  // Assistente lancando em nome do vendedor do lead: a entrada conta pro
+  // vendedor (by = captador, e' o que os paineis usam) e guarda quem lancou.
+  const lancadoPorOutro=isAssistente()&&lead.captador&&lead.captador!==G.user.n;
+  lead.historico.push(lancadoPorOutro?{dt:dtComHora,icone,acao,obs,by:lead.captador,lancadoPor:G.user.n}:{dt:dtComHora,icone,acao,obs,by});
   const campos={historico:lead.historico};
   // O cronometro de cada coluna mostra ha quanto tempo o lead esta SEM
   // receber atencao, nao o tempo total que ele leva na etapa - toda vez
@@ -3402,7 +3432,7 @@ function abrirDetailLead(id){
   const fmtIntervalo=ms=>{const min=Math.round(ms/60000);if(min<60)return min+'min';const h=Math.floor(min/60);if(h<24)return h+'h '+(min%60)+'min';return Math.floor(h/24)+'d '+(h%24)+'h';};
   const intervaloHist=i=>{const tAt=parseDtHist(hist[i].dt),tAnt=hist[i+1]?parseDtHist(hist[i+1].dt):null;return tAt&&tAnt&&tAt>=tAnt?` · <span style="color:var(--red);font-weight:600">⏱ ${fmtIntervalo(tAt-tAnt)} após a anterior</span>`:'';};
   const histHtml=hist.length?hist.map((h,i)=>{const dotBg={blue:'var(--bluel)',green:'var(--greenl)',red:'var(--redl)',gold:'var(--goldl)',purple:'var(--purplel)'}[h.icone||'blue']||'var(--bluel)';const dotC={blue:'var(--blue)',green:'var(--green)',red:'var(--red)',gold:'var(--gold)',purple:'var(--purple)'}[h.icone||'blue']||'var(--blue)';
-    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${nomeEva(h.acao)}</div>${h.obs?`<div class="hist-obs">${nomeEva(h.obs)}</div>`:''}<div class="hist-meta">${h.dt} · ${nomeEva(h.by)||'Sistema'}${intervaloHist(i)}</div></div></div>`;
+    return`<div class="hist-item"><div class="hist-dot" style="background:${dotBg};color:${dotC}"><i class="ti ti-${h.icone==='green'?'check':h.icone==='red'?'x':h.icone==='gold'?'phone':h.icone==='purple'?'calendar':'circle-plus'}"></i></div><div class="hist-info"><div class="hist-acao">${nomeEva(h.acao)}</div>${h.obs?`<div class="hist-obs">${nomeEva(h.obs)}</div>`:''}<div class="hist-meta">${h.dt} · ${nomeEva(h.by)||'Sistema'}${h.lancadoPor?` · Lançado por ${h.lancadoPor}`:''}${intervaloHist(i)}</div></div></div>`;
   }).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação registrada.</div>';
   const SEQ_MK=['ia','atendimento','encantamento','agendamento','negociacao','visita','vendido'];
   const idxAtualMk=SEQ_MK.indexOf(lead.st);
@@ -3458,10 +3488,11 @@ function abrirDetailLead(id){
     <div class="detail-foot">
       <button class="btn btn-outline btn-sm" onclick="abrirModalLead('${id}')"><i class="ti ti-pencil"></i> Editar</button>
       <button class="btn btn-red btn-sm" onclick="abrirModalObs('${id}')"><i class="ti ti-message-circle"></i> Registrar</button>
-      <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="confirmarExclusaoLead('${id}')"><i class="ti ti-trash"></i> Excluir</button>
+      ${isAssistente()?'':`<button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="confirmarExclusaoLead('${id}')"><i class="ti ti-trash"></i> Excluir</button>`}
     </div>`;
 }
 function confirmarExclusaoLead(id){
+  if(isAssistente()){toast('Seu perfil não pode excluir leads','red');return;}
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   G.mk._excluindoId=id;
   document.getElementById('excluir-lead-nome').textContent=`${lead.id} — ${lead.clienteNome||'(sem nome)'}`;
