@@ -2846,6 +2846,7 @@ async function salvarVeiculoTroca(){
       if(placa){lead.veiculoPlaca=placa.toUpperCase();camposVt.veiculoPlaca=lead.veiculoPlaca;}
     }
     await salvarCamposMk(id,camposVt);
+    if(lead)await regHistMk(lead,lead.origem==='Compra'?'🚗 Veículo da compra informado':'🔄 Veículo de troca informado',[marca,modelo,ano,cor,placa].filter(Boolean).join(' '),G.user?.n||'','blue');
     toast('Veículo de troca salvo!');
     if(G.mk.detailId===id)abrirDetailLead(id);
     renderMarketing();
@@ -3802,6 +3803,8 @@ function abrirWhatsappLead(id){
   const primeiroNome=(l.clienteNome||'').split(' ')[0];
   const msg=`Olá, ${primeiroNome}! 😊 Aqui é da RT Car. Vi seu interesse${l.veiculo?` no ${l.veiculo}`:''} e quero te ajudar a encontrar a melhor condição. Podemos conversar?`;
   window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,'_blank');
+  // Registra o contato e zera o cronometro (pedido da Aline, 08/10/2026).
+  regHistMk(l,'💬 WhatsApp aberto para o cliente','',G.user?.n||'','green').then(()=>renderMarketing()).catch(e=>console.error(e));
 }
 async function toggleAguardandoRetornoMk(id,e){
   e.stopPropagation();
@@ -3816,6 +3819,7 @@ async function toggleNuncaRespondeuMk(id,e){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead.nuncaRespondeu=!lead.nuncaRespondeu;
   await salvarCamposMk(id,{nuncaRespondeu:lead.nuncaRespondeu});
+  await regHistMk(lead,lead.nuncaRespondeu?'⚫ Marcado: nunca respondeu':'↩️ Desmarcado: nunca respondeu','',G.user?.n||'','gold');
   renderMarketing();
 }
 async function setAgendamentoStatusMk(id,valor,e){
@@ -3833,7 +3837,10 @@ async function setAgendamentoStatusMk(id,valor,e){
   // "Compareceu" = visita na loja (pedido da Aline, 05/10/2026) - registra no
   // historico pra ficar visivel no lead e contar nos relatorios de visita.
   if(lead.agendamentoStatus==='compareceu')await regHistMk(lead,'🚗 Compareceu — visita na loja','Cliente veio à loja.',G.user?.n||'','green');
+  else if(lead.agendamentoStatus==='nao_compareceu')await regHistMk(lead,'❌ Não compareceu','',G.user?.n||'','red');
+  else if(lead.agendamentoStatus==='reagendado')await regHistMk(lead,'🔄 Reagendamento','',G.user?.n||'','gold');
   else if(valor==='compareceu')await regHistMk(lead,'↩️ Comparecimento desmarcado','',G.user?.n||'','gold');
+  else await regHistMk(lead,'↩️ Status do agendamento desmarcado','',G.user?.n||'','gold');
   renderMarketing();
 }
 async function setAgendamentoDataMk(id,valor,e){
@@ -3860,6 +3867,10 @@ async function toggleEncantamentoMk(id,campo,e){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead[campo]=!lead[campo];
   await salvarCamposMk(id,{[campo]:lead[campo]});
+  // Toda acao do vendedor no card fica no historico e zera o cronometro da
+  // etapa (regHistMk) - pedido da Aline, 08/10/2026.
+  const nomeEnc={encVideoTecnico:'Vídeo técnico',encVideoLoja:'Vídeo da loja',encTelefone:'Ligação'}[campo]||campo;
+  await regHistMk(lead,lead[campo]?`✨ ${nomeEnc} feito`:`↩️ ${nomeEnc} desmarcado`,'',G.user?.n||'','blue');
   renderMarketing();
 }
 async function regHistMk(lead,acao,obs,by,icone='blue'){
