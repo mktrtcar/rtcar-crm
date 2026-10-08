@@ -484,10 +484,10 @@ function calcElapsed(start,end){
 }
 const LIMITE_ALERTA_CARD_MS=5*60*1000;
 // Quanto tempo sem acao do vendedor ate o card ficar vermelho, por coluna
-// (pedido da Aline, 07/10/2026): Encantamento 5 min, Negociacao 4 horas.
+// (pedido da Aline, 07-08/10/2026): Atendimento 5 min, Encantamento e Negociacao 4 horas.
 // Agendamento nao conta tempo: so' fica vermelho quando passa a data do
 // agendamento sem "Compareceu/Nao compareceu/Reagendado" (ver alertaData).
-const LIMITES_ALERTA_COL={atendimento:5*60*1000,encantamento:5*60*1000,negociacao:4*60*60*1000,visita:5*60*1000,resgate:5*60*1000};
+const LIMITES_ALERTA_COL={atendimento:5*60*1000,encantamento:4*60*60*1000,negociacao:4*60*60*1000,visita:5*60*1000,resgate:5*60*1000};
 function atualizarAlertaCard(el){
   if(!document.getElementById('crm-alerta-card-css')){
     const st=document.createElement('style');st.id='crm-alerta-card-css';
