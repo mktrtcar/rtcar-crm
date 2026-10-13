@@ -95,7 +95,7 @@ const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','ate
 const ORIGENS_MK={
   marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
   compra:['Compra'],
-  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','BV','Repasse','Consignado']
+  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','Recompra','BV','Repasse','Consignado']
 };
 const TODAS_ORIGENS=[...ORIGENS_MK.marketing,...ORIGENS_MK.compra,...ORIGENS_MK.outros];
 function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(ORIGENS_MK.compra.includes(o))return'compra';return'outros';}
@@ -1700,7 +1700,7 @@ function statsGeralIntervalo(iniISO,fimISO){
   const totalLeadsMkt=Object.values(leadsPorCanalMkt).reduce((a,b)=>a+b,0);
   const leadsPassanteLojaEvento=leadsNoPeriodo.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length;
   const leadsMyBusinessOutra=leadsNoPeriodo.filter(l=>['My Business','Outra'].includes(l.origem)).length;
-  const leadsCarteiraProspIndic=leadsNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length;
+  const leadsCarteiraProspIndic=leadsNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação','Recompra'].includes(l.origem)).length;
   const totalLeadsOutros=leadsNoPeriodo.filter(l=>ORIGENS_MK.outros.includes(l.origem)).length;
   // Leads cuja origem nao bate com NENHUM nome conhecido (nem apos a
   // normalizacao de maiusculas/espaco em fbListLeads) - em vez de sumir
@@ -1719,7 +1719,7 @@ function statsGeralIntervalo(iniISO,fimISO){
   const totalLeadsMktChegada=Object.values(leadsPorCanalMktChegada).reduce((a,b)=>a+b,0);
   const leadsPassanteLojaEventoChegada=leadsChegaramNoPeriodo.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length;
   const leadsMyBusinessOutraChegada=leadsChegaramNoPeriodo.filter(l=>['My Business','Outra'].includes(l.origem)).length;
-  const leadsCarteiraProspIndicChegada=leadsChegaramNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length;
+  const leadsCarteiraProspIndicChegada=leadsChegaramNoPeriodo.filter(l=>['Carteira','Prospecção','Indicação','Recompra'].includes(l.origem)).length;
   const totalLeadsOutrosChegada=leadsChegaramNoPeriodo.filter(l=>ORIGENS_MK.outros.includes(l.origem)).length;
   const leadsNaoMapeadosChegada=leadsChegaramNoPeriodo.filter(l=>!TODAS_ORIGENS.includes(l.origem));
   const totalLeadsNaoMapeadosChegada=leadsNaoMapeadosChegada.length;
@@ -1795,7 +1795,7 @@ function mostrarDrilldown(titulo,itens,colunas){
     :'<div style="color:var(--tx3);font-size:13px;padding:10px 0">Nenhum registro nesse período.</div>';
   document.getElementById('ov-drill').classList.remove('hidden');
 }
-const GRUPOS_OUTROS_REL={passante:['Passante','Loja','Evento Externo'],mybusiness:['My Business','Outra'],carteira:['Carteira','Prospecção','Indicação']};
+const GRUPOS_OUTROS_REL={passante:['Passante','Loja','Evento Externo'],mybusiness:['My Business','Outra'],carteira:['Carteira','Prospecção','Indicação','Recompra']};
 function abrirDrill(tipo,chave,iniISO,fimISO){
   const fmtV=l=>l.valor?`R$ ${l.valor}`:'';
   const vendedorLead=l=>l.captador||l.by||'';
@@ -2139,7 +2139,7 @@ function renderRelatoriosMk(cnt){
         <div class="rp-sec-title">🏪 Leads Outros Canais</div>
         <div class="rp-row"><span>Passante + Loja + Evento</span><strong>${all.filter(l=>['Passante','Loja','Evento Externo'].includes(l.origem)).length}</strong></div>
         <div class="rp-row"><span>My Business + Outra</span><strong>${all.filter(l=>['My Business','Outra'].includes(l.origem)).length}</strong></div>
-        <div class="rp-row"><span>Carteira + Prospecção + Indicação</span><strong>${all.filter(l=>['Carteira','Prospecção','Indicação'].includes(l.origem)).length}</strong></div>
+        <div class="rp-row"><span>Carteira + Prospecção + Indicação + Recompra</span><strong>${all.filter(l=>['Carteira','Prospecção','Indicação','Recompra'].includes(l.origem)).length}</strong></div>
         <div class="rp-row rp-total"><span>Total Outros</span><strong>${outrosLeads.length}</strong></div>
         <div class="rp-sec-title" style="margin-top:14px">🛒 Lead Compra</div>
         <div class="rp-row rp-total"><span>Compra (Milena)</span><strong>${compraLeads.length}</strong></div>
@@ -4537,18 +4537,25 @@ async function salvarIndicacao(){
   finally{btn.disabled=false;document.getElementById('btn-salvar-ind-txt').textContent=G.rel.editandoIndId?'Salvar Alterações':'Salvar';}
 }
 /* Ajuste 02 (Aline, 13/10/2026): botao "Sucesso" no cartao do Relacionamento.
-   O cliente respondeu e quer Comprar (a loja compra o carro dele), Vender (ele
-   quer comprar um carro nosso) ou Recomprar: cria na hora um lead no Funil do CRM
-   com os dados do cartao, ja em Atendimento (o vendedor recebe o aviso por
-   WhatsApp), e vincula os dois (lead guarda relClienteId; cliente guarda sucesso). */
+   O cliente respondeu e vira lead no Funil do CRM, ja em Atendimento (o vendedor
+   recebe o aviso por WhatsApp), vinculado ao cartao (lead guarda relClienteId;
+   cliente guarda sucesso). Definicoes da Aline:
+   - Compra: a Milena compra um carro do cliente (origem Compra, vai pra Milena).
+   - Recompra: o cliente veio de uma venda de carro (a Milena comprou dele) e ela
+     o envia pra um vendedor (origem Recompra).
+   - Venda: qualquer canal normal de aquisicao (marketing ou vendedor proprio),
+     menos Relacionamento, Compra e Recompra - por isso o canal e' escolhido. */
 const SUCESSO_TIPOS={
-  compra:{label:'Compra',emoji:'🛒',origem:'Compra',desc:'A loja compra o carro do cliente (vai pra Milena)'},
-  venda:{label:'Venda',emoji:'🚗',origem:'Relacionamento',desc:'O cliente quer comprar um carro da loja'},
-  recompra:{label:'Recompra',emoji:'🔁',origem:'Carteira',desc:'O cliente quer trocar ou comprar outro carro'},
+  compra:{label:'Compra',emoji:'🛒',desc:'A Milena compra um carro do cliente'},
+  recompra:{label:'Recompra',emoji:'🔁',desc:'O cliente veio de uma venda de carro (a Milena comprou dele) e vai pra um vendedor'},
+  venda:{label:'Venda',emoji:'🚗',desc:'O cliente quer comprar um carro — você escolhe o canal de origem'},
 };
-function abrirSucessoRel(id,e){
-  if(e&&e.stopPropagation)e.stopPropagation();
-  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+const ORIGENS_FORA_DA_VENDA=['Relacionamento','Compra','Recompra','Consignado','Repasse'];
+function sucessoVendedorPadrao(c){
+  const primeiro=(c.vendedor||'').trim().split(/\s+/)[0].toLowerCase();
+  return VENDEDORES_ATIVOS.find(n=>n.toLowerCase()===primeiro)||'';
+}
+function sucessoModal(){
   let ov=document.getElementById('ov-sucesso-rel');
   if(!ov){
     ov=document.createElement('div');ov.id='ov-sucesso-rel';ov.className='ov hidden';
@@ -4557,13 +4564,35 @@ function abrirSucessoRel(id,e){
     const pai=document.getElementById('ov-an');
     if(pai&&pai.parentNode)pai.parentNode.appendChild(ov);else document.body.appendChild(ov);
   }
+  return ov;
+}
+function abrirSucessoRel(id,e){
+  if(e&&e.stopPropagation)e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  const ov=sucessoModal();
   document.getElementById('sucesso-rel-corpo').innerHTML=
     '<p style="font-size:13px;color:var(--tx2);margin-bottom:12px;line-height:1.5"><strong>'+(c.clienteNome||'(sem nome)')+'</strong>'+(c.veiculo?' — '+c.veiculo:'')+'<br>Escolha o que o cliente quer. Vou criar um lead no Funil do CRM com os dados deste cartão.</p>'+
-    Object.entries(SUCESSO_TIPOS).map(([k,t])=>'<button class="btn btn-outline" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:8px;text-align:left" onclick="confirmarSucessoRel(\''+c.id+'\',\''+k+'\')"><span style="font-size:20px">'+t.emoji+'</span><span><strong>'+t.label+'</strong><br><span style="font-size:11px;color:var(--tx3)">'+t.desc+'</span></span></button>').join('');
+    Object.entries(SUCESSO_TIPOS).map(([k,t])=>'<button class="btn btn-outline" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:8px;text-align:left" onclick="escolherTipoSucessoRel(\''+c.id+'\',\''+k+'\')"><span style="font-size:20px">'+t.emoji+'</span><span><strong>'+t.label+'</strong><br><span style="font-size:11px;color:var(--tx3)">'+t.desc+'</span></span></button>').join('');
   ov.classList.remove('hidden');
+}
+function escolherTipoSucessoRel(id,tipo){
+  const c=G.rel.clientes.find(x=>x.id===id),t=SUCESSO_TIPOS[tipo];if(!c||!t)return;
+  if(tipo==='compra'){confirmarSucessoRel(id,'compra');return;}
+  const padrao=sucessoVendedorPadrao(c);
+  const canais=TODAS_ORIGENS.filter(o=>!ORIGENS_FORA_DA_VENDA.includes(o));
+  document.getElementById('sucesso-rel-corpo').innerHTML=
+    '<p style="font-size:13px;color:var(--tx2);margin-bottom:12px"><strong>'+t.emoji+' '+t.label+'</strong> — '+(c.clienteNome||'(sem nome)')+'</p>'+
+    (tipo==='venda'?'<div class="field"><label>Canal de origem *</label><select id="sucesso-rel-origem"><option value="">Selecione o canal...</option>'+canais.map(o=>'<option>'+o+'</option>').join('')+'</select></div>':'')+
+    '<div class="field"><label>Vendedor</label><select id="sucesso-rel-vendedor"><option value="">Automático (rodízio)</option>'+VENDEDORES_ATIVOS.map(n=>'<option'+(n===padrao?' selected':'')+'>'+n+'</option>').join('')+'</select></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn btn-outline" onclick="abrirSucessoRel(\''+c.id+'\')">Voltar</button><button class="btn btn-red" onclick="confirmarSucessoRel(\''+c.id+'\',\''+tipo+'\')"><i class="ti ti-check"></i> Criar lead</button></div>';
 }
 async function confirmarSucessoRel(id,tipo){
   const c=G.rel.clientes.find(x=>x.id===id),t=SUCESSO_TIPOS[tipo];if(!c||!t)return;
+  const selO=document.getElementById('sucesso-rel-origem'),selV=document.getElementById('sucesso-rel-vendedor');
+  let origem;
+  if(tipo==='compra')origem='Compra';
+  else if(tipo==='recompra')origem='Recompra';
+  else{origem=selO?selO.value:'';if(!origem){toast('Escolha o canal de origem','red');return;}}
   fecharModal('ov-sucesso-rel');
   try{
     if(!G.mk.leads.length&&!G.mk.modoDemo)G.mk.leads=await fbListLeads();
@@ -4572,13 +4601,11 @@ async function confirmarSucessoRel(id,tipo){
     const ABERTAS=['ia','atendimento','encantamento','negociacao','agendamento','visita'];
     const dup=tel8?G.mk.leads.find(l=>(l.clienteTel||'').replace(/\D/g,'').slice(-8)===tel8&&ABERTAS.includes(l.st)):null;
     if(dup&&!confirm('Já existe o lead '+dup.id+' em aberto com esse telefone ('+(dup.clienteNome||'sem nome')+'). Criar outro mesmo assim?'))return;
-    // Vendedor: Compra vai pra Milena; Venda/Recompra ficam com o vendedor do cartao
-    // (se ele for um vendedor ativo), senao entra no rodizio.
+    // Compra vai pra Milena; Venda e Recompra: o vendedor escolhido, ou o rodizio.
     let captador='';
     if(tipo==='compra')captador='Milena';
     else{
-      const primeiro=(c.vendedor||'').trim().split(/\s+/)[0].toLowerCase();
-      captador=VENDEDORES_ATIVOS.find(n=>n.toLowerCase()===primeiro)||'';
+      captador=(selV&&selV.value)||'';
       if(!captador)captador=await proximoVendedorRodizio();
     }
     const agora=new Date().toISOString();
@@ -4586,7 +4613,7 @@ async function confirmarSucessoRel(id,tipo){
     const lead={
       id:leadId,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,
       clienteNome:c.clienteNome||'',clienteTel:c.clienteTel||'',clienteEmail:c.clienteEmail||'',clienteCidade:'',clienteUF:'',
-      origem:t.origem,captador,by:G.user?.n||'',uid:G.user?.id||'',
+      origem,captador,by:G.user?.n||'',uid:G.user?.id||'',
       veiculo:tipo==='compra'?(c.veiculo||''):'',veiculoPlaca:'',veiculoTroca:null,valor:'',
       st:'atendimento',dtISO:agora.split('T')[0],dt:hoje(),atendimento_at:agora,
       obs:t.label+' gerada pelo Relacionamento ('+c.id+')'+(c.veiculo?' — carro atual do cliente: '+c.veiculo:'')+(c.dtCompra?', comprado em '+isoParaBR(c.dtCompra):'')+'.',
@@ -4594,15 +4621,16 @@ async function confirmarSucessoRel(id,tipo){
     };
     G.mk.leads.push(lead);
     if(!G.mk.modoDemo)await fbCreate('leads',leadId,lead);
-    await regHistMk(lead,'🎯 Lead criado pelo Relacionamento ('+t.label+')','Cliente '+c.id+' — '+(c.clienteNome||'')+'. Vendedor: '+captador+'.',G.user?.n||'','green');
+    await regHistMk(lead,'🎯 Lead criado pelo Relacionamento ('+t.label+')','Cliente '+c.id+' — '+(c.clienteNome||'')+'. Origem: '+origem+'. Vendedor: '+captador+'.',G.user?.n||'','green');
     c.sucesso={tipo,leadId,dt:hoje()};
     if(fbOk())await salvarCamposRel(c.id,{sucesso:c.sucesso});
-    await regHistRel(c,'🎯 Sucesso: '+t.label,'Lead '+leadId+' criado no Funil do CRM (vendedor '+captador+').',G.user?.n||'','🎯');
+    await regHistRel(c,'🎯 Sucesso: '+t.label,'Lead '+leadId+' criado no Funil do CRM (origem '+origem+', vendedor '+captador+').',G.user?.n||'','🎯');
     toast('🎯 '+t.label+': lead '+leadId+' criado no CRM, com '+captador+'!');
     renderRelacionamento();
   }catch(err){console.error(err);toast('Erro ao criar o lead — tente de novo','red');}
 }
 window.abrirSucessoRel=abrirSucessoRel;
+window.escolherTipoSucessoRel=escolherTipoSucessoRel;
 window.confirmarSucessoRel=confirmarSucessoRel;
 async function setTagIndicacao(id,valor,e){
   e.stopPropagation();
