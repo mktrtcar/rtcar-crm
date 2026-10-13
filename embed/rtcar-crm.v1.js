@@ -956,7 +956,8 @@ function renderKanbanMk(cnt){
       const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano,l.veiculoTroca.cor].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}</div>
-        <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo||'Veículo não informado'}</div>
+        <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo2?('Interesse: '+(l.veiculo||'—')+' / '+l.veiculo2):(l.veiculo||'Veículo não informado')}</div>${l.leadExtra?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> 2º veículo de ${l.leadMaeId}</div>`:''}
+
         ${col.id==='atendimento'?`<button class="card-btn card-btn-label" onclick="toggleAguardandoRetornoMk('${l.id}',event)" style="margin:4px 0;${l.aguardandoRetornoDesde?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">⏳ ${l.aguardandoRetornoDesde?'Cliente respondeu':'Marcar aguardando retorno'}</button>`:''}
         ${(col.id==='perdido'||col.id==='resgate')?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
         ${col.id==='agendamento'?`<div style="margin:4px 0">
@@ -995,7 +996,9 @@ function renderKanbanMk(cnt){
             ${['negociacao','agendamento'].includes(col.id)?(l.origem==='Compra'&&!l.avaliacaoSolicitadaEm
               ?`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Só libera depois de Solicitar Avaliação"><i class="ti ti-lock"></i> Termo de Compra</button>`
               :`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Confirma o fechamento e abre o Termo no sistema principal"><i class="ti ti-file-text"></i> ${l.origem==='Compra'?'Termo de Compra':(ehConsignado(l)?'Termo de Consignado':'Termo de Venda')}</button>`):''}
-            ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')" title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
+            ${col.id==='vendido'&&l.leadExtra?`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="abrirTermoParaLeadId('${l.id}',event)" title="Abre o termo deste 2º veículo no sistema principal"><i class="ti ti-file-text"></i> Gerar termo</button>`:''}
+            ${l.clienteTel?`<button class="card-btn card-btn-label" onclick="abrirWhatsappLead('${l.id}')"
+ title="Chamar no WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             ${col.id==='ia'?`<button class="card-btn card-btn-label" style="color:var(--purple)" onclick="event.stopPropagation();encaminharParaAtendimentoMk('${l.id}')" title="Manda direto pro rodizio de vendedor, sem esperar a Eva"><i class="ti ti-arrow-forward-up"></i> Encaminhar (rodízio)</button>`:''}
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
             <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
@@ -1111,7 +1114,8 @@ function exportarLeadsCSV(){
   const linhas=leads.map(l=>{
     const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
     const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
-    return[l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'',l.captador||l.by||'',col.label,rotuloTipoNeg(l),resultado];
+    return[l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',[l.veiculo,l.veiculo2].filter(Boolean).join(' / '),l.origem||'',
+l.captador||l.by||'',col.label,rotuloTipoNeg(l),resultado];
 
   });
   baixarXLS(`leads_${hoje().replace(/\//g,'-')}.xls`,'Leads',['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Tipo de negociação','Motivo/Resultado']
@@ -1233,7 +1237,8 @@ function gerarRelatorioCanal(){
     const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
     const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
     const conv=clienteEmConversa(l);
-    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'(sem origem)',l.captador||l.by||'',conv.sim?'Sim':'Não',conv.motivo,primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,rotuloTipoNeg(l),resultado],[],false);
+    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',[l.veiculo,l.veiculo2].filter(Boolean).join(' / '),l.origem||'(sem origem)'
+,l.captador||l.by||'',conv.sim?'Sim':'Não',conv.motivo,primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,rotuloTipoNeg(l),resultado],[],false);
   });
   baixarXMLWorkbook(`relatorio_leads_${de}_a_${ate}.xls`,'Relatório',xml);
   fecharModal('ov-rel-canal');
@@ -1264,6 +1269,7 @@ function hojeISOlocal(offset=0){const d=new Date();d.setDate(d.getDate()+offset)
 // fato atendeu (a pedido da Aline, 02/09/2026). Enquanto nenhum vendedor
 // respondeu ainda, o lead nao conta em nenhum dia.
 function primeiraRespostaVendedorISO(l){
+  if(l.leadExtra)return null; // 2o veiculo da mesma negociacao nao conta como lead recebido
   // So conta resposta/cadastro do PROPRIO dono do lead, nao de qualquer
   // vendedor ativo que tenha mexido nele - inclui cadastro manual (o "by"
   // do "Lead criado" agora reflete quem realmente digitou, nao o vendedor
@@ -1677,14 +1683,16 @@ function inicioFimMesAtual(){
   const fim=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
   return[ini,fim];
 }
-function leadRecebidoNoPeriodo(l,iniISO,fimISO){const r=primeiraRespostaVendedorISO(l);return!!r&&r>=iniISO&&r<=fimISO;}
+function leadRecebidoNoPeriodo(l,iniISO,fimISO){if(l.leadExtra)return false;const r=primeiraRespostaVendedorISO(l);
+return!!r&&r>=iniISO&&r<=fimISO;}
 // Data em que o lead de fato CHEGOU (veio do Autoconf), diferente de
 // leadRecebidoNoPeriodo (data em que um vendedor respondeu) - usado so no
 // "Dashboard por Filtro" pra mostrar quantos leads vieram por canal de
 // verdade, batendo com o relatorio do Autoconf, mesmo quem ainda esta
 // parado na I.A. sem resposta (pedido da Aline, 13/09/2026 - o "Hoje"
 // continua contando por resposta, igual ao painel dos vendedores).
-function leadChegouNoPeriodo(l,iniISO,fimISO){return!!l.dtISO&&l.dtISO>=iniISO&&l.dtISO<=fimISO;}
+function leadChegouNoPeriodo(l,iniISO,fimISO){return!l.leadExtra&&!!l.dtISO&&
+l.dtISO>=iniISO&&l.dtISO<=fimISO;}
 function statsGeralIntervalo(iniISO,fimISO){
   // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
   // vendedor de fato respondeu (nao a data de chegada do lead).
@@ -2309,7 +2317,8 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('btn-salvar-lead-txt').textContent=id?'Salvar Alterações':'Salvar Lead';
   document.getElementById('f-nome').value=l?.clienteNome||'';document.getElementById('f-tel').value=l?.clienteTel||'';
   document.getElementById('f-email').value=l?.clienteEmail||'';document.getElementById('f-origem').value=l?.origem||'';
-  document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';
+  document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';garantirCampoVeiculo2(l);
+
   document.getElementById('f-veiculo-placa').value=l?.veiculoPlaca||'';
   // RT Cred (resgate BV) cadastra o lead ja em Atendimento - o trabalho dela
   // e' resgatar um financiamento que caiu, nao fazer triagem do zero pela
@@ -3017,7 +3026,8 @@ async function salvarLead(){
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
   const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),clienteCidade:document.getElementById('f-cliente-cidade').value.trim(),clienteUF:document.getElementById('f-cliente-uf').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroca:_veiculoTrocaAtual||null,valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),clienteCidade:document.getElementById('f-cliente-cidade').value.trim(),clienteUF:document.getElementById('f-cliente-uf').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculo2:(document.getElementById('f-veiculo2')||{value:''}).value.trim(),
+veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroca:_veiculoTrocaAtual||null,valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
   // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
   // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
   // em vermelho, so os que chegavam automaticamente pelo Autoconf/Eva.
@@ -3128,7 +3138,8 @@ function abrirModalVendido(id){const l=G.mk.leads.find(x=>x.id===id);
   // Compra: Termo so' depois de solicitar a avaliacao (vale pro botao do
   // card, pro "Vendido" da ficha e pra arrastar pra coluna Venda).
   if(l&&l.origem==='Compra'&&!l.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
-  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;prepararVendedorDaVenda(l);document.getElementById('ov-vendido').classList.remove('hidden');}
+  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;prepararVendedorDaVenda(l);prepararSegundoVeiculoVenda(l);document.getElementById('ov-vendido').classList.remove('hidden');}
+
 // Campo "Vendedor da venda" (08/10/2026, pedido da Marcela/Aline): so' gestao e assistente
 // veem. Padrao = captador do lead; ao trocar, o lead e a venda passam pro escolhido.
 function prepararVendedorDaVenda(l){
@@ -3196,43 +3207,10 @@ async function setTipoNegociacao(id,tipo,e){
   renderMarketing();
 }
 window.setTipoNegociacao=setTipoNegociacao;
-async function confirmarVendido(){
-
-  const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
-  const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim(),repasse=document.getElementById('vend-repasse').checked;
-  // Placa obrigatoria pra Compra (pedido da Marcela/Rafael, 01/10/2026): o
-  // carro de uma Compra ja existe e ja tem placa de verdade - sem isso o
-  // Termo de Compra nascia sem placa e o veiculo ficava invisivel na busca
-  // de estoque (achado real: BYD Song Plus, lead DVA).
-  if(lead.origem==='Compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
-  if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
-  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
-  const wrapVend=document.getElementById('vend-vendedor-wrap');
-  const novoVend=(wrapVend&&wrapVend.style.display!=='none')?document.getElementById('vend-vendedor').value:'';
-  const captadorAnterior=lead.captador;
-  if(novoVend&&novoVend!==captadorAnterior){lead.captador=novoVend;camposVenda.captador=novoVend;}
-  // Momento exato da venda - e' onde o cronometro do lead trava.
-  lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;
-  fecharTimersAbertosMk(lead,camposVenda);
-  if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
-  await salvarCamposMk(id,camposVenda);
-  if(novoVend&&novoVend!==captadorAnterior)await regHistMk(lead,'🔁 Vendedor da venda','De '+(captadorAnterior||'—')+' para '+novoVend,G.user?.n||'','blue');
-  await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',(repasse?'🔁 Repasse — ':'')+(obs||'Negócio fechado!'),G.user?.n||'','green');
-  await vincularClienteRelacionamento(lead);
-  fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
-  // Fase 3 (16/09/2026, mesmo espirito da Fase 2/Avaliacao): ao confirmar a
-  // venda, pula direto pro Termo de Venda ja preenchido com o que o CRM
-  // sabe (cliente/telefone/veiculo/placa/valor) - o vendedor/Marcela
-  // completa o resto (forma de pagamento, veiculo de troca formal etc)
-  // pelo formulario normal deles. Embutido chama a funcao direto (mesma
-  // janela); standalone abre o sistema principal em aba nova com os dados
-  // na URL - os dois dependem de window.abrirTermoDoCRM existir do lado
-  // dela; enquanto nao existir, isso e' um no-op no modo embutido.
-  // Correcao 29/09/2026 (pedido da Marcela/Rafael): lead de origem "Compra"
-  // (trabalho da Milena, captando vendedor de carro) e' um negocio
-  // diferente de Venda - antes disso, todo lead confirmado abria o mesmo
-  // Termo de Venda, mesmo sendo Compra. Agora chama abrirCompraDoCRM em vez
-  // de abrirTermoDoCRM quando a origem for Compra.
+// Abre o Termo certo (compra, consignado ou venda) pra um lead ja vendido. Fica numa funcao
+// propria pra o 2o veiculo de uma negociacao (lead extra) gerar o proprio termo depois -
+// um termo por carro (Aline, 13/10/2026).
+function abrirTermoParaLead(lead){
   if(ORIGENS_MK.compra.includes(lead.origem)){
     const dadosCompra={leadId:lead.id,vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
     if(window.RTCARCRM_EMBED&&typeof window.abrirCompraDoCRM==='function'){
@@ -3262,6 +3240,124 @@ async function confirmarVendido(){
     const payloadTermo=btoa(unescape(encodeURIComponent(JSON.stringify(dadosTermo))));
     window.open(`${URL_SISTEMA_PRINCIPAL}?crmTermo=${encodeURIComponent(payloadTermo)}`,'_blank');
   }
+}
+function abrirTermoParaLeadId(id,e){
+  if(e&&e.stopPropagation)e.stopPropagation();
+  const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
+  abrirTermoParaLead(l);
+}
+window.abrirTermoParaLeadId=abrirTermoParaLeadId;
+/* Ajuste 03 (Aline, 13/10/2026): dois veiculos na mesma negociacao (no maximo 2).
+   - Vendido/Comprado: "+ Adicionar outro veiculo vendido" no Marcar como Vendido. O 2o carro
+     vira um lead EXTRA, ligado ao primeiro (leadMaeId), ja vendido, mesmo cliente e vendedor:
+     assim conta 2 vendas (ou 2 compras pra Milena) em todos os paineis. O lead extra nao conta
+     como "lead recebido" (ver leadExtra nas funcoes de periodo) e gera o proprio termo
+     (um termo por carro) pelo botao "Gerar termo" do cartao.
+   - Interesse: segundo veiculo de interesse no Novo Lead (so informacao, nao conta). */
+function prepararSegundoVeiculoVenda(l){
+  let wrap=document.getElementById('vend-veic2-wrap');
+  if(!wrap){
+    wrap=document.createElement('div');wrap.id='vend-veic2-wrap';
+    wrap.innerHTML='<button type="button" id="vend-veic2-btn" class="btn btn-outline btn-sm" style="width:100%;border-style:dashed;margin-bottom:8px"></button><div id="vend-veic2-campos" style="display:none"><div class="field"><label id="vend-veic2-lbl">2º veículo</label><input type="text" id="vend-veiculo2" placeholder="Veículo"></div><div class="field"><label>Placa do 2º veículo</label><input type="text" id="vend-placa2" placeholder="Ex: ABC1234" style="text-transform:uppercase"></div><button type="button" class="btn btn-outline btn-sm" id="vend-veic2-rm" style="margin-bottom:8px">Remover 2º veículo</button></div>';
+    document.getElementById('vend-obs').closest('.field').before(wrap);
+    document.getElementById('vend-veic2-btn').onclick=()=>definirSegundoVeiculoVenda(true);
+    document.getElementById('vend-veic2-rm').onclick=()=>definirSegundoVeiculoVenda(false);
+  }
+  const compra=!!l&&l.origem==='Compra';
+  document.getElementById('vend-veic2-btn').textContent=compra?'+ Adicionar outro veículo comprado':'+ Adicionar outro veículo vendido';
+  document.getElementById('vend-veic2-lbl').textContent=compra?'2º veículo comprado':'2º veículo vendido';
+  document.getElementById('vend-veiculo2').value='';document.getElementById('vend-placa2').value='';
+  definirSegundoVeiculoVenda(false);
+}
+function definirSegundoVeiculoVenda(aberto){
+  const wrap=document.getElementById('vend-veic2-wrap');if(!wrap)return;
+  wrap.dataset.aberto=aberto?'1':'0';
+  document.getElementById('vend-veic2-btn').style.display=aberto?'none':'';
+  document.getElementById('vend-veic2-campos').style.display=aberto?'':'none';
+}
+async function criarLeadExtraVenda(lead,veiculo2,placa2){
+  const agora=new Date().toISOString();
+  const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');
+  const extra={
+    id,convertido:true,dtVenda:hoje(),motivoPerda:'',historico:[],_criadoEm:agora,
+    clienteNome:lead.clienteNome||'',clienteTel:lead.clienteTel||'',clienteEmail:lead.clienteEmail||'',clienteCidade:lead.clienteCidade||'',clienteUF:lead.clienteUF||'',
+    origem:lead.origem,captador:lead.captador,by:lead.by||G.user?.n||'',uid:lead.uid||'',
+    veiculo:veiculo2,veiculoPlaca:placa2,veiculoTroca:null,valor:'',
+    st:'vendido',dtISO:lead.dtISO||agora.split('T')[0],dt:lead.dt||hoje(),vendido_at:agora,
+    repasse:!!lead.repasse,obs:'2º veículo da mesma negociação do '+lead.id+'.',
+    leadExtra:true,leadMaeId:lead.id,
+  };
+  if(lead.origemCanal)extra.origemCanal=lead.origemCanal;
+  G.mk.leads.push(extra);
+  if(!G.mk.modoDemo)await fbCreate('leads',id,extra);
+  lead.leadExtraId=id;
+  await salvarCamposMk(lead.id,{leadExtraId:id});
+  await regHistMk(extra,'🔗 Criado como 2º veículo do '+lead.id,'Mesma negociação, cliente '+extra.clienteNome+'.',G.user?.n||'','green');
+  await regHistMk(lead,'🔗 2º veículo registrado como '+id,veiculo2+(placa2?' — placa '+placa2:''),G.user?.n||'','green');
+  return extra;
+}
+function garantirCampoVeiculo2(l){
+  let wrap=document.getElementById('f-veiculo2-wrap');
+  if(!wrap){
+    const base=document.getElementById('f-veiculo');if(!base)return;
+    wrap=document.createElement('div');wrap.className='field';wrap.id='f-veiculo2-wrap';
+    wrap.innerHTML='<label>2º veículo de interesse (opcional)</label><input type="text" id="f-veiculo2" placeholder="Ex: Jeep Compass 2021">';
+    (base.closest('.field')||base.parentNode).after(wrap);
+  }
+  document.getElementById('f-veiculo2').value=(l&&l.veiculo2)||'';
+}
+
+async function confirmarVendido(){
+
+  const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim(),repasse=document.getElementById('vend-repasse').checked;
+  // Placa obrigatoria pra Compra (pedido da Marcela/Rafael, 01/10/2026): o
+  // carro de uma Compra ja existe e ja tem placa de verdade - sem isso o
+  // Termo de Compra nascia sem placa e o veiculo ficava invisivel na busca
+  // de estoque (achado real: BYD Song Plus, lead DVA).
+  if(lead.origem==='Compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
+  const blocoV2=document.getElementById('vend-veic2-wrap');
+  const v2aberto=!!blocoV2&&blocoV2.dataset.aberto==='1';
+  const veiculo2=v2aberto?document.getElementById('vend-veiculo2').value.trim():'';
+  const placa2=v2aberto?document.getElementById('vend-placa2').value.trim():'';
+  if(v2aberto&&!veiculo2){toast('Informe o 2º veículo ou clique em "Remover 2º veículo"','red');return;}
+  if(v2aberto&&lead.origem==='Compra'&&!placa2){toast('Informe a placa do 2º veículo','red');return;}
+
+  if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
+  const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
+  const wrapVend=document.getElementById('vend-vendedor-wrap');
+  const novoVend=(wrapVend&&wrapVend.style.display!=='none')?document.getElementById('vend-vendedor').value:'';
+  const captadorAnterior=lead.captador;
+  if(novoVend&&novoVend!==captadorAnterior){lead.captador=novoVend;camposVenda.captador=novoVend;}
+  // Momento exato da venda - e' onde o cronometro do lead trava.
+  lead.vendido_at=new Date().toISOString();camposVenda.vendido_at=lead.vendido_at;
+  fecharTimersAbertosMk(lead,camposVenda);
+  if(lead.resgatado){lead.vendaRecuperada=true;camposVenda.vendaRecuperada=true;}
+  await salvarCamposMk(id,camposVenda);
+  if(novoVend&&novoVend!==captadorAnterior)await regHistMk(lead,'🔁 Vendedor da venda','De '+(captadorAnterior||'—')+' para '+novoVend,G.user?.n||'','blue');
+  await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',(repasse?'🔁 Repasse — ':'')+(obs||'Negócio fechado!'),G.user?.n||'','green');
+  await vincularClienteRelacionamento(lead);
+  let leadExtra=null;
+  if(v2aberto){
+    leadExtra=await criarLeadExtraVenda(lead,veiculo2,placa2);
+    setTimeout(()=>toast('2º veículo criado como '+leadExtra.id+'. Depois do primeiro termo, abra o cartão dele na coluna Venda e clique em "Gerar termo".','gold',9000),1500);
+  }
+
+  fecharModal('ov-vendido');toast(lead.vendaRecuperada?'🎉 Venda recuperada com sucesso!':'🎉 Venda registrada!');if(G.mk.detailId===id)abrirDetailLead(id);renderMarketing();
+  // Fase 3 (16/09/2026, mesmo espirito da Fase 2/Avaliacao): ao confirmar a
+  // venda, pula direto pro Termo de Venda ja preenchido com o que o CRM
+  // sabe (cliente/telefone/veiculo/placa/valor) - o vendedor/Marcela
+  // completa o resto (forma de pagamento, veiculo de troca formal etc)
+  // pelo formulario normal deles. Embutido chama a funcao direto (mesma
+  // janela); standalone abre o sistema principal em aba nova com os dados
+  // na URL - os dois dependem de window.abrirTermoDoCRM existir do lado
+  // dela; enquanto nao existir, isso e' um no-op no modo embutido.
+  // Correcao 29/09/2026 (pedido da Marcela/Rafael): lead de origem "Compra"
+  // (trabalho da Milena, captando vendedor de carro) e' um negocio
+  // diferente de Venda - antes disso, todo lead confirmado abria o mesmo
+  // Termo de Venda, mesmo sendo Compra. Agora chama abrirCompraDoCRM em vez
+  // de abrirTermoDoCRM quando a origem for Compra.
+  abrirTermoParaLead(lead);
 }
 function abrirModalPerda(id){G.mk.detailId=id;document.getElementById('perda-motivo').value='';document.getElementById('perda-obs').value='';document.getElementById('ov-perda').classList.remove('hidden');}
 async function confirmarPerda(){
