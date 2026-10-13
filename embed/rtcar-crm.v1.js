@@ -976,9 +976,14 @@ function renderKanbanMk(cnt){
           <button class="card-btn card-btn-label" onclick="toggleEncantamentoMk('${l.id}','encVideoLoja',event)" style="${l.encVideoLoja?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">${l.encVideoLoja?'✓ ':''}Vídeo da loja</button>
           <button class="card-btn card-btn-label" onclick="toggleEncantamentoMk('${l.id}','encTelefone',event)" style="${l.encTelefone?'background:#e8f0fb;color:#1e4d8c;border-color:#1e4d8c;font-weight:600':''}">${l.encTelefone?'✓ ':''}Ligação</button>
         </div>`:''}
+        ${col.id==='vendido'?`<div style="margin:6px 0 2px">
+          <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🔀 Tipo de negociação:</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap">${Object.entries(TIPOS_NEG).map(([k,rot])=>`<button class="card-btn card-btn-label" onclick="setTipoNegociacao('${l.id}','${k}',event)" style="${tipoNegociacaoAtual(l)===k?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">${tipoNegociacaoAtual(l)===k?'✓ ':''}${rot}</button>`).join('')}</div>
+        </div>`:''}
         <div class="card-footer">
           <div class="card-actions" style="flex-wrap:wrap">
-            <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')"><i class="ti ti-message-circle"></i> Observação</button>
+            <button class="card-btn card-btn-label" onclick="abrirModalObs('${l.id}')">
+<i class="ti ti-message-circle"></i> Observação</button>
             ${COLS_PERMITE_TROCA.includes(col.id)?(()=>{
               const rotuloVazio=l.origem==='Compra'?'Veículo da compra':'Veículo de troca';
               const tituloBtn=l.origem==='Compra'?'Informar/editar o veículo sendo comprado':'Informar/editar o veículo de troca';
@@ -1106,9 +1111,11 @@ function exportarLeadsCSV(){
   const linhas=leads.map(l=>{
     const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
     const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
-    return[l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'',l.captador||l.by||'',col.label,resultado];
+    return[l.id||'',l.dt||'',l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'',l.captador||l.by||'',col.label,rotuloTipoNeg(l),resultado];
+
   });
-  baixarXLS(`leads_${hoje().replace(/\//g,'-')}.xls`,'Leads',['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Motivo/Resultado'],linhas);
+  baixarXLS(`leads_${hoje().replace(/\//g,'-')}.xls`,'Leads',['ID','Data','Cliente','Telefone','Veículo','Origem','Vendedor','Etapa','Tipo de negociação','Motivo/Resultado']
+,linhas);
   toast(`${leads.length} lead(s) exportado(s)!`);
 }
 
@@ -1196,7 +1203,13 @@ function gerarRelatorioCanal(){
     xml+=gerarLinhaXLS([c,k.total,k.sim,k.nao,pct(k.sim,k.total),k.atendido,pct(k.atendido,k.total)],[1,2,3,5],false);
   });
   xml+=gerarLinhaXLS(['TOTAL',T.total,T.sim,T.nao,pct(T.sim,T.total),T.atendido,pct(T.atendido,T.total)],[1,2,3,5],true);
+  // Negociacoes concluidas no periodo, por tipo (Venda/Compra/Consignacao)
+  const porTipo={venda:0,compra:0,consignacao:0};
+  ls.filter(l=>l.st==='vendido').forEach(l=>{porTipo[tipoNegociacaoAtual(l)]++;});
+  xml+=gerarLinhaXLS([],[],false)+gerarLinhaXLS(['Negociações concluídas no período, por tipo'],[],true);
+  xml+=gerarLinhaXLS(['Venda','Compra','Consignação'],[],true)+gerarLinhaXLS([porTipo.venda,porTipo.compra,porTipo.consignacao],[0,1,2],false);
   // Por veiculo de interesse (texto livre do lead, agrupado ignorando maiusculas)
+
   const veics={};
   ls.forEach(l=>{
     const nome=String(l.veiculo||'').replace(/\s+/g,' ').trim();
@@ -1214,12 +1227,13 @@ function gerarRelatorioCanal(){
     xml+=gerarLinhaXLS([v.nome,v.total,v.sim,v.atendido,canaisTxt],[1,2,3],false);
   });
   xml+=gerarLinhaXLS([],[],false)+gerarLinhaXLS(['Lista de leads'],[],true);
-  xml+=gerarLinhaXLS(['ID','Data','Cliente','Telefone','Veículo','Canal','Vendedor','Cliente em conversa?','Situação da conversa','Vendedor atendeu?','Etapa atual','Motivo/Resultado'],[],true);
+  xml+=gerarLinhaXLS(['ID','Data','Cliente','Telefone','Veículo','Canal','Vendedor','Cliente em conversa?','Situação da conversa','Vendedor atendeu?','Etapa atual','Tipo de negociação','Motivo/Resultado'],[],true);
+
   ls.forEach(l=>{
     const col=COLS_MK.find(c=>c.id===l.st)||COLS_MK[0];
     const resultado=l.st==='vendido'?`Vendido${l.dtVenda?' em '+l.dtVenda:''}`:(l.motivoPerda||'-');
     const conv=clienteEmConversa(l);
-    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'(sem origem)',l.captador||l.by||'',conv.sim?'Sim':'Não',conv.motivo,primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,resultado],[],false);
+    xml+=gerarLinhaXLS([l.id||'',l.dt||fmtBR(dtISOdoLead(l)),l.clienteNome||'',l.clienteTel||'',l.veiculo||'',l.origem||'(sem origem)',l.captador||l.by||'',conv.sim?'Sim':'Não',conv.motivo,primeiraRespostaVendedorISO(l)?'Sim':'Não',col.label,rotuloTipoNeg(l),resultado],[],false);
   });
   baixarXMLWorkbook(`relatorio_leads_${de}_a_${ate}.xls`,'Relatório',xml);
   fecharModal('ov-rel-canal');
@@ -2911,9 +2925,10 @@ window.despublicarPlataforma=despublicarPlataforma;
    informacoes". Busca por nome OU telefone (qualquer um dos dois campos
    digitado), com debounce pra nao disparar uma function a cada tecla.
    So LEITURA - nunca grava nada de volta no cadastro dela. */
-let _leadClienteBuscaTimer=null;
+let _leadClienteBuscaTimer=null;let _leadClienteSeq=0;
+function ocultarSugestaoCliente(){const b=document.getElementById('lead-cliente-sug');if(b)b.style.display='none';}
 function leadClienteSugerir(){
-  clearTimeout(_leadClienteBuscaTimer);
+  clearTimeout(_leadClienteBuscaTimer);_leadClienteSeq++; // invalida qualquer busca ainda em andamento
   const nome=document.getElementById('f-nome').value.trim();
   const tel=document.getElementById('f-tel').value.trim();
   const q=tel.replace(/\D/g,'').length>=6?tel:nome;
@@ -2925,8 +2940,10 @@ function leadClienteSugerir(){
 }
 async function leadClienteBuscar(q){
   const box=document.getElementById('lead-cliente-sug');
+  const meuSeq=_leadClienteSeq;
   try{
     const{resultados}=await litoralCarFetch(`buscarClienteCadastro?q=${encodeURIComponent(q)}`);
+    if(meuSeq!==_leadClienteSeq)return; // o cliente digitou outra coisa enquanto esperava: ignora essa resposta
     if(!resultados||!resultados.length){box.style.display='none';box.innerHTML='';return;}
     box.innerHTML=resultados.map(r=>`<div data-id="${r.id}" onmousedown="leadClienteEscolher('${r.id}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''"><span style="font-size:12px;font-weight:600">${r.tipo==='PF'?'👤':'🏢'} ${r.nome}</span><span style="font-size:11px;color:var(--tx3);white-space:nowrap">${r.tel||''}</span></div>`).join('');
     box.dataset.resultados=JSON.stringify(resultados);
@@ -2950,6 +2967,17 @@ function leadClienteEscolher(id){
   toast(`Dados preenchidos: ${c.nome}`);
 }
 window.leadClienteSugerir=leadClienteSugerir;
+// Ajuste 01 (Aline, 13/10/2026): a lista de nomes nao sumia e tampava os campos de
+// baixo. Agora fecha ao ir pra outro campo, clicar fora ou apertar Esc. Tambem
+// desliga a lista de nomes salvos do navegador nos campos do CRM (Relacionamento
+// incluido), que aparecia por cima do formulario do mesmo jeito.
+if(!window._lcSugFechamento){window._lcSugFechamento=true;
+  document.addEventListener('mousedown',e=>{const t=e.target;if(t&&t.closest&&!t.closest('#lead-cliente-sug')&&t.id!=='f-nome'&&t.id!=='f-tel')ocultarSugestaoCliente();});
+  document.addEventListener('focusin',e=>{const t=e.target;if(!t||!t.closest)return;
+    if(!t.closest('#lead-cliente-sug')&&t.id!=='f-nome'&&t.id!=='f-tel')ocultarSugestaoCliente();
+    if(t.tagName==='INPUT'&&t.closest('#rtcar-crm-root')&&!t.hasAttribute('autocomplete'))t.setAttribute('autocomplete','off');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')ocultarSugestaoCliente();});
+}
 window.leadClienteEscolher=leadClienteEscolher;
 
 async function salvarLead(){
@@ -3142,7 +3170,34 @@ function fecharTimersAbertosMk(lead,extras){
     if(lead[campoAt]&&!lead[campoEnd]){lead[campoEnd]=new Date().toISOString();extras[campoEnd]=lead[campoEnd];}
   });
 }
+/* Ajuste 04 (Aline, 13/10/2026): na coluna Venda, cada cartao escolhe o "Tipo de
+   negociacao": Venda, Compra ou Consignacao. O CRM decide compra/consignacao
+   pela origem do lead (contagens, termos, relatorios), entao trocar o tipo troca
+   a origem pra "Compra" ou "Consignado" - e guarda o canal original (origemCanal)
+   pra voltar quando escolher Venda de novo. */
+const TIPOS_NEG={venda:'Venda',compra:'Compra',consignacao:'Consignação'};
+function tipoNegociacaoAtual(l){return l.origem==='Compra'?'compra':(l.origem==='Consignado'?'consignacao':'venda');}
+function rotuloTipoNeg(l){return l.st==='vendido'?TIPOS_NEG[tipoNegociacaoAtual(l)]:'—';}
+async function setTipoNegociacao(id,tipo,e){
+  if(e&&e.stopPropagation)e.stopPropagation();
+  const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo])return;
+  const atual=tipoNegociacaoAtual(l);if(atual===tipo)return;
+  const campos={};
+  if(atual==='venda'){l.origemCanal=l.origem;campos.origemCanal=l.origem;}
+  let nova;
+  if(tipo==='compra')nova='Compra';
+  else if(tipo==='consignacao')nova='Consignado';
+  else nova=(l.origemCanal&&l.origemCanal!=='Compra'&&l.origemCanal!=='Consignado')?l.origemCanal:'Outra';
+  l.origem=nova;campos.origem=nova;
+  await salvarCamposMk(id,campos);
+  await regHistMk(l,'🔀 Tipo de negociação alterado','De '+TIPOS_NEG[atual]+' para '+TIPOS_NEG[tipo]+(tipo==='venda'?' (canal: '+nova+')':'')+'.',G.user?.n||'','blue');
+  toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
+  if(G.mk.detailId===id&&typeof abrirDetailLead==='function')abrirDetailLead(id);
+  renderMarketing();
+}
+window.setTipoNegociacao=setTipoNegociacao;
 async function confirmarVendido(){
+
   const id=G.mk.detailId,lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   const veiculo=document.getElementById('vend-veiculo').value.trim(),placa=document.getElementById('vend-placa').value.trim(),obs=document.getElementById('vend-obs').value.trim(),repasse=document.getElementById('vend-repasse').checked;
   // Placa obrigatoria pra Compra (pedido da Marcela/Rafael, 01/10/2026): o
@@ -3682,12 +3737,14 @@ function renderKanbanRel(cnt){
         <div class="card-sub"><i class="ti ti-car"></i>${c.veiculo||'Veículo não informado'}</div>
         <div class="card-acao" style="background:${col.bg};color:${col.cor}"><i class="ti ti-bolt"></i>${col.acolabel}</div>
         ${renderSubStatusRel(c,col)}
+        ${c.sucesso?`<div class="card-sub" style="color:var(--green);font-weight:600"><i class="ti ti-target-arrow"></i> Sucesso: ${(SUCESSO_TIPOS[c.sucesso.tipo]||{}).label||c.sucesso.tipo} → ${c.sucesso.leadId}</div>`:''}
         <div class="card-btn card-btn-label" style="display:inline-flex;margin:2px 0 6px;cursor:pointer" onclick="abrirVendedorPopup('${c.id}',event)" title="Clique pra trocar o vendedor"><i class="ti ti-steering-wheel"></i> ${c.vendedor?('Vendedor: '+c.vendedor):'Definir vendedor'}</div>
         <div class="card-footer" style="flex-direction:column;align-items:stretch;gap:6px">
           <span class="badge" style="background:${col.bg};color:${col.cor};align-self:flex-start">${labelDias(dias)}</span>
           <div class="card-actions" style="flex-wrap:wrap">
             <button class="card-btn" onclick="event.stopPropagation();abrirModalCliente('${c.id}')" title="Editar"><i class="ti ti-pencil"></i> Editar</button>
             <button class="card-btn" onclick="abrirModalInt('${c.id}')" title="Registrar"><i class="ti ti-message-circle"></i> Registrar</button>
+            <button class="card-btn" onclick="abrirSucessoRel('${c.id}',event)" title="Cliente quer comprar, vender ou recomprar: cria um lead no Funil do CRM" style="color:var(--green)"><i class="ti ti-target-arrow"></i> Sucesso</button>
             ${col.msg?`<button class="card-btn" onclick="copiarMsg('${c.id}')" title="Copiar WhatsApp"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>`:''}
             <button class="card-btn" onclick="event.stopPropagation();excluirClienteRel('${c.id}')" title="Excluir" style="color:var(--red)"><i class="ti ti-trash"></i> Excluir</button>
           </div>
@@ -4479,6 +4536,74 @@ async function salvarIndicacao(){
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-ind-txt').textContent=G.rel.editandoIndId?'Salvar Alterações':'Salvar';}
 }
+/* Ajuste 02 (Aline, 13/10/2026): botao "Sucesso" no cartao do Relacionamento.
+   O cliente respondeu e quer Comprar (a loja compra o carro dele), Vender (ele
+   quer comprar um carro nosso) ou Recomprar: cria na hora um lead no Funil do CRM
+   com os dados do cartao, ja em Atendimento (o vendedor recebe o aviso por
+   WhatsApp), e vincula os dois (lead guarda relClienteId; cliente guarda sucesso). */
+const SUCESSO_TIPOS={
+  compra:{label:'Compra',emoji:'🛒',origem:'Compra',desc:'A loja compra o carro do cliente (vai pra Milena)'},
+  venda:{label:'Venda',emoji:'🚗',origem:'Relacionamento',desc:'O cliente quer comprar um carro da loja'},
+  recompra:{label:'Recompra',emoji:'🔁',origem:'Carteira',desc:'O cliente quer trocar ou comprar outro carro'},
+};
+function abrirSucessoRel(id,e){
+  if(e&&e.stopPropagation)e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  let ov=document.getElementById('ov-sucesso-rel');
+  if(!ov){
+    ov=document.createElement('div');ov.id='ov-sucesso-rel';ov.className='ov hidden';
+    ov.onclick=ev=>{if(ev.target===ov)fecharModal('ov-sucesso-rel');};
+    ov.innerHTML='<div class="mod" style="max-width:420px"><div class="mod-head"><h3><i class="ti ti-target-arrow"></i> Sucesso — criar lead no CRM</h3><button class="mod-close" onclick="fecharModal(\'ov-sucesso-rel\')"><i class="ti ti-x"></i></button></div><div class="mod-body" id="sucesso-rel-corpo"></div></div>';
+    const pai=document.getElementById('ov-an');
+    if(pai&&pai.parentNode)pai.parentNode.appendChild(ov);else document.body.appendChild(ov);
+  }
+  document.getElementById('sucesso-rel-corpo').innerHTML=
+    '<p style="font-size:13px;color:var(--tx2);margin-bottom:12px;line-height:1.5"><strong>'+(c.clienteNome||'(sem nome)')+'</strong>'+(c.veiculo?' — '+c.veiculo:'')+'<br>Escolha o que o cliente quer. Vou criar um lead no Funil do CRM com os dados deste cartão.</p>'+
+    Object.entries(SUCESSO_TIPOS).map(([k,t])=>'<button class="btn btn-outline" style="width:100%;justify-content:flex-start;gap:10px;margin-bottom:8px;text-align:left" onclick="confirmarSucessoRel(\''+c.id+'\',\''+k+'\')"><span style="font-size:20px">'+t.emoji+'</span><span><strong>'+t.label+'</strong><br><span style="font-size:11px;color:var(--tx3)">'+t.desc+'</span></span></button>').join('');
+  ov.classList.remove('hidden');
+}
+async function confirmarSucessoRel(id,tipo){
+  const c=G.rel.clientes.find(x=>x.id===id),t=SUCESSO_TIPOS[tipo];if(!c||!t)return;
+  fecharModal('ov-sucesso-rel');
+  try{
+    if(!G.mk.leads.length&&!G.mk.modoDemo)G.mk.leads=await fbListLeads();
+    // Ja existe lead em aberto com esse telefone? Pergunta antes de duplicar.
+    const tel8=(c.clienteTel||'').replace(/\D/g,'').slice(-8);
+    const ABERTAS=['ia','atendimento','encantamento','negociacao','agendamento','visita'];
+    const dup=tel8?G.mk.leads.find(l=>(l.clienteTel||'').replace(/\D/g,'').slice(-8)===tel8&&ABERTAS.includes(l.st)):null;
+    if(dup&&!confirm('Já existe o lead '+dup.id+' em aberto com esse telefone ('+(dup.clienteNome||'sem nome')+'). Criar outro mesmo assim?'))return;
+    // Vendedor: Compra vai pra Milena; Venda/Recompra ficam com o vendedor do cartao
+    // (se ele for um vendedor ativo), senao entra no rodizio.
+    let captador='';
+    if(tipo==='compra')captador='Milena';
+    else{
+      const primeiro=(c.vendedor||'').trim().split(/\s+/)[0].toLowerCase();
+      captador=VENDEDORES_ATIVOS.find(n=>n.toLowerCase()===primeiro)||'';
+      if(!captador)captador=await proximoVendedorRodizio();
+    }
+    const agora=new Date().toISOString();
+    const leadId=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');
+    const lead={
+      id:leadId,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,
+      clienteNome:c.clienteNome||'',clienteTel:c.clienteTel||'',clienteEmail:c.clienteEmail||'',clienteCidade:'',clienteUF:'',
+      origem:t.origem,captador,by:G.user?.n||'',uid:G.user?.id||'',
+      veiculo:tipo==='compra'?(c.veiculo||''):'',veiculoPlaca:'',veiculoTroca:null,valor:'',
+      st:'atendimento',dtISO:agora.split('T')[0],dt:hoje(),atendimento_at:agora,
+      obs:t.label+' gerada pelo Relacionamento ('+c.id+')'+(c.veiculo?' — carro atual do cliente: '+c.veiculo:'')+(c.dtCompra?', comprado em '+isoParaBR(c.dtCompra):'')+'.',
+      relClienteId:c.id,relSucessoTipo:tipo,
+    };
+    G.mk.leads.push(lead);
+    if(!G.mk.modoDemo)await fbCreate('leads',leadId,lead);
+    await regHistMk(lead,'🎯 Lead criado pelo Relacionamento ('+t.label+')','Cliente '+c.id+' — '+(c.clienteNome||'')+'. Vendedor: '+captador+'.',G.user?.n||'','green');
+    c.sucesso={tipo,leadId,dt:hoje()};
+    if(fbOk())await salvarCamposRel(c.id,{sucesso:c.sucesso});
+    await regHistRel(c,'🎯 Sucesso: '+t.label,'Lead '+leadId+' criado no Funil do CRM (vendedor '+captador+').',G.user?.n||'','🎯');
+    toast('🎯 '+t.label+': lead '+leadId+' criado no CRM, com '+captador+'!');
+    renderRelacionamento();
+  }catch(err){console.error(err);toast('Erro ao criar o lead — tente de novo','red');}
+}
+window.abrirSucessoRel=abrirSucessoRel;
+window.confirmarSucessoRel=confirmarSucessoRel;
 async function setTagIndicacao(id,valor,e){
   e.stopPropagation();
   const n=G.rel.indicacoes.find(x=>x.id===id);if(!n)return;
