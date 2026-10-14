@@ -2794,10 +2794,13 @@ function selecionarVeiculoEstoque(evId){
   if(_buscaEstoqueDestino==='venda'){
     document.getElementById('vend-veiculo').value=descricaoVeiculoEstoque(v);
     document.getElementById('vend-placa').value=v.placa;
+  }else if(_buscaEstoqueDestino==='lead2'){
+    document.getElementById('f-veiculo2').value=descricaoVeiculoEstoque(v);
   }else{
     document.getElementById('f-veiculo').value=descricaoVeiculoEstoque(v);
     document.getElementById('f-veiculo-placa').value=v.placa;
   }
+
   fecharModal('ov-busca-estoque');
 }
 function abrirModalLead(id=null,etapa=null){
@@ -2834,6 +2837,7 @@ function atualizarCamposOrigemLead(){
   const ehCompra=origem==='Compra';
   document.getElementById('lbl-veiculo-interesse').textContent=ehCompra?'Veículo do cliente (a ser comprado)':'Veículo de interesse';
   document.getElementById('btn-buscar-estoque').style.display=ehCompra?'none':'';
+  const btnEst2=document.getElementById('btn-buscar-estoque2');if(btnEst2)btnEst2.style.display=ehCompra?'none':'';
   document.getElementById('f-veiculo-placa').style.display=ehCompra?'':'none';
   document.getElementById('field-veiculo-troca').style.display=ehCompra?'none':'';
 }
@@ -3790,7 +3794,8 @@ function garantirCampoVeiculo2(l){
   if(!wrap){
     const base=document.getElementById('f-veiculo');if(!base)return;
     wrap=document.createElement('div');wrap.className='field';wrap.id='f-veiculo2-wrap';
-    wrap.innerHTML='<label>2º veículo de interesse (opcional)</label><input type="text" id="f-veiculo2" placeholder="Ex: Jeep Compass 2021">';
+    wrap.innerHTML='<label>2º veículo de interesse (opcional)</label><div style="display:flex;gap:6px"><input type="text" id="f-veiculo2" placeholder="Ex: Jeep Compass 2021" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="btn-buscar-estoque2" onclick="abrirBuscaEstoque(\'lead2\')">🔍 Buscar no estoque</button></div>';
+
     (base.closest('.field')||base.parentNode).after(wrap);
   }
   document.getElementById('f-veiculo2').value=(l&&l.veiculo2)||'';
