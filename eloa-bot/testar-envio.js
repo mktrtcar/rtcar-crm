@@ -6,7 +6,7 @@
    Uso:
      node testar-envio.js <telefone> [veiculo] [origem]
    Exemplo:
-     node testar-envio.js 5547991711193 "BYD Song Plus" Webmotors
+     node testar-envio.js 5547900000000 "BYD Song Plus" Webmotors
 */
 require('dotenv').config();
 // Testes usam uma chave Gemini separada (cota grátis própria), pra não gastar a cota da produção.

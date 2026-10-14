@@ -9,7 +9,7 @@
      node enviar-resgate-avulso.js <casoAutoconf> <nome> <telefone> <veiculo> <origem> "<mensagem original do cliente>"
 
    Exemplo:
-     node enviar-resgate-avulso.js 8867851 Eduardo 5547988057335 "BYD Dolphin" WebMotors "Olá, tenho interesse no veículo."
+     node enviar-resgate-avulso.js 1234567 Fulano 5547900000000 "BYD Dolphin" WebMotors "Olá, tenho interesse no veículo."
 */
 require('dotenv').config();
 const path = require('path');

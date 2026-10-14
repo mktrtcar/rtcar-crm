@@ -80,16 +80,32 @@ const INTERVALO_POLL_MS = 20000; // checa leads novos a cada 20s
    conversa completa. O persona.md e o fluxo completo continuam intactos no
    código pra quando quisermos reativar; só mudar isto pra false. */
 const MODO_SIMPLES_ATIVO = true;
-const NOTIFICACAO_PESSOAL = '5551998050105@s.whatsapp.net'; // avisa o Rubens quando um consultor humano precisa assumir (fallback se o vendedor do rodízio não tiver WhatsApp cadastrado abaixo)
+/* Telefones da equipe NÃO ficam no código: o repositório do GitHub é público. Vêm do .env
+   (ver .env.example), só dígitos com 55+DDD (o "9" extra é testado nas duas formas na hora de enviar). */
+function jidDeEnv(valor) {
+  const d = String(valor || '').replace(/D/g, '');
+  return d ? `${d}@s.whatsapp.net` : null;
+}
+// avisa o Rubens quando um consultor humano precisa assumir (fallback se o vendedor do rodízio não tiver WhatsApp cadastrado abaixo)
+const NOTIFICACAO_PESSOAL = jidDeEnv(process.env.NOTIFICACAO_PESSOAL);
 
-/* WhatsApp de cada vendedor do rodízio (mesmos nomes usados em RODIZIO_VENDEDORES
-   abaixo e em rtcar-modulos.html) — usado pra encaminhar direto pro
-   vendedor da vez (lead.captador) em vez de sempre avisar só o Rubens. */
-const WHATSAPP_VENDEDORES = {
-  Janderson: '554796732227@s.whatsapp.net', // sem o "9" — número real dele, confirmado (18/08/2026) por bater com o que onWhatsApp já resolvia
-  Maicon: '554791800978@s.whatsapp.net', // sem o "9" — número real dele, confirmado 18/08/2026
-  Milena: '5547999938679@s.whatsapp.net', // recebe 100% dos leads de "Compra" (avaliação/venda do veículo do cliente), fora do rodízio
-};
+/* WhatsApp de cada vendedor (mesmos nomes do CRM — captador) — usado pra encaminhar/avisar direto
+   o vendedor do lead em vez de sempre avisar só o Rubens. No .env:
+   WHATSAPP_VENDEDORES='{"Nome":"55DDDNUMERO", ...}' (uma linha só, JSON). A Milena recebe 100% dos
+   leads de "Compra" (avaliação/venda do veículo do cliente), fora do rodízio; o Ezequiel recebe por
+   transferência manual, também fora do rodízio. */
+const WHATSAPP_VENDEDORES = (() => {
+  try {
+    const o = JSON.parse(process.env.WHATSAPP_VENDEDORES || '{}');
+    const mapa = {};
+    for (const [nome, tel] of Object.entries(o)) { const j = jidDeEnv(tel); if (j) mapa[nome] = j; }
+    return mapa;
+  } catch (e) {
+    console.error('⚠️ WHATSAPP_VENDEDORES no .env não é um JSON válido — nenhum vendedor vai receber aviso direto:', e.message);
+    return {};
+  }
+})();
+console.log(`Config de telefones — vendedores com WhatsApp: ${Object.keys(WHATSAPP_VENDEDORES).join(', ') || '(nenhum!)'} | aviso pessoal: ${NOTIFICACAO_PESSOAL ? 'ok' : 'FALTA NOTIFICACAO_PESSOAL no .env'}`);
 
 /* Até 20/08/2026, o vendedor da vez era sorteado no momento em que o Autoconf
    criava o lead (dentro de webhook-autoconf/index.js) — mesmo que o cliente
@@ -102,9 +118,7 @@ const WHATSAPP_VENDEDORES = {
    captador vazio até aqui). */
 // Victor entrou desativado (ver leads_config/rodizio.ativos, painel
 // Integracoes do CRM) - so participa do sorteio quando a Aline ligar ele
-// la. ATENCAO: falta o WhatsApp dele em WHATSAPP_VENDEDORES acima - sem
-// isso, se ele for ativado antes disso ser preenchido, a notificacao de
-// lead atribuido a ele cai no fallback (Rubens) em vez de chegar pra ele.
+// la. (WhatsApp dele ja cadastrado em WHATSAPP_VENDEDORES acima.)
 const RODIZIO_VENDEDORES = ['Janderson', 'Maicon', 'Victor'];
 let filaRodizio = Promise.resolve(); // serializa leitura+escrita do contador — evita dois clientes respondendo quase juntos "empatarem" no mesmo vendedor
 function atribuirVendedorRodizio() {
@@ -164,7 +178,7 @@ const PADRAO_PRECO = /r\$\s?\d|\b\d{1,3}(\.\d{3})+\s*reais\b|\bfinanciamento\b|\
    resgatarLeadsIaSemRespostaMk, agora desativada) — rodando aqui no eloa-bot
    funciona sempre, e consegue avisar a Aline por WhatsApp na hora. */
 const RESGATE_TIMEOUT_HORAS = 4;
-const WHATSAPP_ALINE = '554792110733@s.whatsapp.net'; // (47) 9211-0733, sem o 9 — mesmo padrão dos vendedores acima; onWhatsApp() confirma na hora de notificar
+const WHATSAPP_ALINE = jidDeEnv(process.env.WHATSAPP_ALINE); // vem do .env (ver .env.example)
 
 function normalizarTxt(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -289,8 +303,11 @@ function candidatosJid(tel) {
   const digitos = (tel || '').replace(/\D/g, '');
   if (!digitos) return [];
   const semDDI = digitos.startsWith('55') && digitos.length > 11 ? digitos.slice(2) : digitos;
-  const ddd = semDDI.slice(0, -8) || semDDI.slice(0, 2);
-  const numero = semDDI.length > 8 ? semDDI.slice(-9) : semDDI.slice(-8);
+  // DDD são sempre os 2 primeiros dígitos e o resto é o número local (8 ou 9 dígitos). Antes
+  // (slice(0,-8)/slice(-9)) o DDD saía com 3 dígitos num número de 11 e a variação "com/sem o 9"
+  // nunca era testada de verdade (achado em 10/10/2026, testando o cadastro do Victor).
+  const ddd = semDDI.slice(0, 2);
+  const numero = semDDI.slice(2);
   const candidatos = [];
   if (numero.length === 9) {
     candidatos.push(`55${ddd}${numero}`); // como veio, com o 9
@@ -316,6 +333,12 @@ async function resolverJidValido(tel) {
     }
   }
   return null;
+}
+// Mesmo formato de retorno do sock.onWhatsApp ([{exists, jid}] ou []), mas testando as
+// variações com/sem o 9 — pros avisos aos vendedores, que antes testavam uma forma só.
+async function consultarWhatsAppVendedor(numeroCru) {
+  const jid = await resolverJidValido(numeroCru);
+  return jid ? [{ exists: true, jid }] : [];
 }
 
 /* Checkpoint persistido em disco pra nunca mais varrer o backlog inteiro de
@@ -350,7 +373,7 @@ async function getLeadsNovos() {
 /* Reprocessa, fora do checkpoint normal, os leads que ficaram marcados
    NUMERO_INVALIDO pelo bug do onWhatsApp() durante a instabilidade de conexão
    de 17/09/2026 (reason 440 em loop fazendo o check responder errado pra
-   números válidos, ex.: Joao Lottici). Fica independente de getLeadsNovos
+   números válidos). Fica independente de getLeadsNovos
    pra não mexer no avanço do checkpoint — cumprimentarLead decide de novo se
    o número é válido ou não, agora só marcando inválido de verdade com a
    conexão estável (ver CONEXAO_ESTAVEL_MS). Só filtra 'NUMERO_INVALIDO' (não
@@ -371,9 +394,7 @@ let conectadoDesde = 0;
 const telParaLeadId = new Map();
 /* Reason 440 (conflito de sessão) ficou entrando em loop de reconecta-e-cai
    de novo em segundos (17/09/2026) — nesses momentos o onWhatsApp() responde
-   "não existe" pra números que têm WhatsApp de verdade (ex.: Joao Lottici,
-   47996707680, marcado NUMERO_INVALIDO por engano e confirmado por print do
-   Rubens que o número está lá). Por isso só confiamos numa resposta negativa
+   "não existe" pra números que têm WhatsApp de verdade (um lead real foi marcado NUMERO_INVALIDO por engano e o Rubens confirmou por print que o número tinha WhatsApp). Por isso só confiamos numa resposta negativa
    do onWhatsApp pra marcar permanente quando a conexão já está estável há um
    tempo mínimo; do contrário tratamos como o catch (manda mesmo assim). */
 const CONEXAO_ESTAVEL_MS = 15000;
@@ -577,7 +598,7 @@ async function encaminharParaConsultor(lead, motivoResumo) {
   let vendedorJid = null;
   if (numeroVendedorCru) {
     try {
-      const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+      const check = await consultarWhatsAppVendedor(numeroVendedorCru);
       if (check?.[0]?.exists) vendedorJid = check[0].jid;
       else console.error(`Número de ${lead.captador} (${numeroVendedorCru}) não encontrado no WhatsApp — encaminhando pro Rubens.`);
     } catch (e) {
@@ -798,7 +819,7 @@ async function notificarVendedorAtribuido(lead) {
   let vendedorJid = null;
   if (numeroVendedorCru) {
     try {
-      const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+      const check = await consultarWhatsAppVendedor(numeroVendedorCru);
       if (check?.[0]?.exists) vendedorJid = check[0].jid;
     } catch (e) {
       console.error(`Erro ao validar número de ${lead.captador} pra notificar lead ${lead.id}:`, e.message);
@@ -851,7 +872,7 @@ async function notificarCadastroManual(lead) {
   let vendedorJid = null;
   if (numeroVendedorCru) {
     try {
-      const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+      const check = await consultarWhatsAppVendedor(numeroVendedorCru);
       if (check?.[0]?.exists) vendedorJid = check[0].jid;
     } catch (e) {
       console.error(`Erro ao validar número de ${captador} pra notificar cadastro manual ${lead.id}:`, e.message);
@@ -923,7 +944,7 @@ async function enviarMensagemAvulsa(msg) {
   }
   let jid = numeroVendedorCru;
   try {
-    const check = await sock.onWhatsApp(numeroVendedorCru.split('@')[0]);
+    const check = await consultarWhatsAppVendedor(numeroVendedorCru);
     if (check?.[0]?.exists) jid = check[0].jid;
   } catch (e) {
     console.error(`Erro ao validar número de ${msg.destino} pra mensagem avulsa:`, e.message);
