@@ -1156,6 +1156,7 @@ function renderMarketing(){
   else if(view==='kpis'&&!isSeller()&&!isAssistente()) renderKpisMilena(cnt);
   else if(view==='visitas'||view==='kpis'){G.mk.view='hoje';renderDashboardHoje(cnt);}
   else renderRelatoriosMk(cnt);
+  if((view==='hoje'||view==='kanban')&&isManager())avisoLeadsSemWhatsapp(cnt);
 }
 
 /* ---- KPIs DA MILENA (aba "KPIs" do CRM, pedido da Aline, 06/10/2026) ----
@@ -1314,6 +1315,21 @@ function aplicarDataFiltro(obj,campo,valor){
   return true;
 }
 window.aplicarDataFiltro=aplicarDataFiltro;
+// Lead parado na I.A. porque o telefone nao tem WhatsApp (a Eva testa com e
+// sem o 9 e marca eloaEnviadoEm=NUMERO_INVALIDO*) - sem isso ele ficava
+// parado sem ninguem perceber (caso real: LEAD-857, 10h na I.A., 15/10/2026).
+// Aviso no topo do Hoje/Funil pra gestao ligar (pedido da Aline).
+function leadSemWhatsapp(l){return l.st==='ia'&&String(l.eloaEnviadoEm||'').startsWith('NUMERO_INVALIDO');}
+function avisoLeadsSemWhatsapp(cnt){
+  const lista=mkLeadsFiltrados().filter(leadSemWhatsapp);
+  if(!lista.length)return;
+  const div=document.createElement('div');
+  div.style.cssText='margin:12px 20px 0;padding:10px 14px;border-radius:var(--r2);background:var(--redl);border:1px solid var(--red);color:var(--tx);font-size:12px;flex-shrink:0';
+  div.innerHTML=`<div style="font-weight:700;color:var(--red);margin-bottom:6px">📵 ${lista.length} lead(s) parado(s) na I.A.: o número não tem WhatsApp — ligue para o cliente</div>`+
+    lista.map(l=>`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px"><a href="javascript:void(0)" onclick="abrirDetailLead('${l.id}')" style="font-weight:600;color:var(--tx)">${l.id} · ${l.clienteNome||'(sem nome)'}</a><span>📞 <strong>${l.clienteTel||'—'}</strong></span>${l.clienteEmail?`<span style="color:var(--tx3)">✉ ${l.clienteEmail}</span>`:''}<span style="color:var(--tx3)">${l.origem||''}</span></div>`).join('')+
+    `<div style="color:var(--tx3);margin-top:6px">Depois de falar, use "Encaminhar (rodízio)" no card ou mova o lead para Atendimento.</div>`;
+  cnt.insertBefore(div,cnt.firstChild);
+}
 function isSeller(){return G.user?.r==='seller';}
 // Perfil "assistente" (Jaqueline, 08/10/2026): ve todos os leads e lanca vendas/compras
 // em nome de outros vendedores, mas nao exclui nem transfere lead, nao entra no
@@ -1442,9 +1458,10 @@ function renderKanbanMk(cnt){
         `<span class="badge live-timer" data-start="${l.ultimaMensagemEm||l._criadoEm}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:
         (col.id==='atendimento'&&l.aguardandoRetornoDesde?
           `<span class="badge live-timer" data-start="${l.aguardandoRetornoDesde}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:'');
+      const tagSemWhatsapp=leadSemWhatsapp(l)?`<span class="badge" title="A Eva testou o número com e sem o 9 e ele não tem WhatsApp - ligue para o cliente" style="background:var(--red);color:#fff;font-size:9px">📵 Sem WhatsApp — ligar</span>`:'';
       const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano,l.veiculoTroca.cor].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
-        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}</div>
+        <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}${tagSemWhatsapp}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo2?('Interesse: '+(l.veiculo||'—')+' / '+l.veiculo2):(l.veiculo||'Veículo não informado')}</div>${l.leadExtra?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> 2º veículo de ${l.leadMaeId}</div>`:''}
 
         ${col.id==='atendimento'?`<button class="card-btn card-btn-label" onclick="toggleAguardandoRetornoMk('${l.id}',event)" style="margin:4px 0;${l.aguardandoRetornoDesde?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">⏳ ${l.aguardandoRetornoDesde?'Cliente respondeu':'Marcar aguardando retorno'}</button>`:''}
