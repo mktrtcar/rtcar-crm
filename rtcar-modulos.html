@@ -2925,6 +2925,7 @@ async function salvarVeiculoTroca(){
     toast('Veículo de troca salvo!');
     if(G.mk.detailId===id)abrirDetailLead(id);
     renderMarketing();
+    if(_avaliacaoAposVeiculo===id){_avaliacaoAposVeiculo=null;solicitarAvaliacaoTroca(id);}
   }else{
     _veiculoTrocaAtual=dados;
     atualizarBotaoVeiculoTroca();
@@ -2942,6 +2943,7 @@ const URL_SISTEMA_PRINCIPAL='https://rtcaroficial.github.io/rtcar/dev.html';
 // "veiculo", tipo "Honda HR-V") - divide na primeira palavra (marca) e o
 // resto (modelo), melhor esforco. Quem faz a avaliacao no sistema
 // principal pode corrigir isso na hora se vier errado.
+let _avaliacaoAposVeiculo=null;
 function veiculoCompraParaAvaliacao(lead){
   const partes=(lead.veiculo||'').trim().split(/\s+/);
   return{marca:partes[0]||'',modelo:partes.slice(1).join(' ')||'',ano:'',cor:'',placa:lead.veiculoPlaca||''};
@@ -2958,7 +2960,9 @@ function solicitarAvaliacaoTroca(id,e){
   // Compra sem veiculo/placa ainda: o botao aparece mesmo assim (pedido da
   // Aline, 05/10/2026 - a Milena nao achava o botao) e abre direto o
   // cadastro do veiculo da compra.
-  if(!veiculoParaAvaliacao){toast(lead.origem==='Compra'?'Informe o veículo da compra (com a placa) e clique de novo em Solicitar Avaliação':'Informe o veículo primeiro','red',6000);if(lead.origem==='Compra')abrirVeiculoTroca(id);return;}
+  // Sem veiculo ainda: abre o cadastro do veiculo e, ao salvar, a avaliacao
+  // abre sozinha (16/10/2026, pedido da Aline - antes tinha que clicar de novo).
+  if(!veiculoParaAvaliacao){_avaliacaoAposVeiculo=id;toast(lead.origem==='Compra'?'Informe o veículo da compra (com a placa) — a avaliação abre em seguida':'Informe o veículo — a avaliação abre em seguida','blue',6000);abrirVeiculoTroca(id);return;}
   const dados={cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:veiculoParaAvaliacao};
   // Registra a solicitacao no lead - o Termo de Compra so' libera depois
   // disso (pedido da Aline, 05/10/2026: Compareceu -> Avaliacao -> Termo).
