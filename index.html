@@ -3743,7 +3743,9 @@ let _tipoNegVenda=null;
 function prepararTipoNegVenda(l){
   let wrap=document.getElementById('vend-tiponeg-wrap');
   if(!wrap){const body=document.querySelector('#ov-vendido .mod-body');if(!body)return;
-    wrap=document.createElement('div');wrap.id='vend-tiponeg-wrap';wrap.style.cssText='margin-bottom:14px';body.insertBefore(wrap,body.firstChild);}
+    wrap=document.createElement('div');wrap.id='vend-tiponeg-wrap';wrap.style.cssText='margin-bottom:14px';
+    // logo abaixo do texto explicativo, em cima do Buscar no estoque
+    const ref=body.querySelector('p');if(ref)ref.after(wrap);else body.insertBefore(wrap,body.firstChild);}
   _tipoNegVenda=l?tipoNegociacaoAtual(l):'venda';desenharTipoNegVenda();
 }
 function desenharTipoNegVenda(){
