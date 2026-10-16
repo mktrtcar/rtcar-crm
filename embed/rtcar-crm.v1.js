@@ -3257,8 +3257,9 @@ function prepararTipoNegVenda(l){
     wrap=document.createElement('div');wrap.id='vend-tiponeg-wrap';wrap.style.cssText='margin-bottom:14px';
     // logo abaixo do texto explicativo, em cima do Buscar no estoque
     const ref=body.querySelector('p');if(ref)ref.after(wrap);else body.insertBefore(wrap,body.firstChild);}
-  // Nada marcado ao abrir: so' confirma depois de escolher (trava pedida pela Aline, 16/10).
-  _tipoNegVenda=null;desenharTipoNegVenda();
+  // Ja' vem marcado se o tipo foi escolhido ao entrar em Negociacao; senao
+  // nada marcado e so' confirma depois de escolher (trava pedida pela Aline, 16/10).
+  _tipoNegVenda=(l&&l.tipoNegDefinido)?tipoNegociacaoAtual(l):null;desenharTipoNegVenda();
 }
 function desenharTipoNegVenda(){
   const wrap=document.getElementById('vend-tiponeg-wrap');if(!wrap)return;
@@ -3267,6 +3268,27 @@ function desenharTipoNegVenda(){
   const t=document.querySelector('#ov-vendido .mod-head h3');
   if(t&&_tipoNegVenda)t.textContent=_tipoNegVenda==='compra'?'✅ Confirmar Compra (gera o Termo de Compra)':_tipoNegVenda==='consignacao'?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido';
 }
+function abrirTipoNegNegociacao(id){
+  let ov=document.getElementById('ov-tiponeg');
+  if(!ov){
+    ov=document.createElement('div');ov.id='ov-tiponeg';ov.className='ov hidden';
+    const pai=document.getElementById('ov-vendido');if(pai&&pai.parentNode)pai.parentNode.appendChild(ov);else document.body.appendChild(ov);
+  }
+  ov.innerHTML=`<div class="mod" style="max-width:420px"><div class="mod-head"><h3>🤝 Mover para Negociação</h3><button class="mod-close" onclick="fecharModal('ov-tiponeg')"><i class="ti ti-x"></i></button></div>
+    <div class="mod-body"><p style="font-size:13px;color:var(--tx2);margin-bottom:14px;line-height:1.6">Qual é o <strong>tipo de negociação</strong> deste cliente?</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${Object.entries(TIPOS_NEG).map(([k,rot])=>`<button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="confirmarTipoNegNegociacao('${id}','${k}')">${rot}</button>`).join('')}</div></div>
+    <div class="mod-foot"><button class="btn btn-outline" onclick="fecharModal('ov-tiponeg')">Cancelar</button></div></div>`;
+  ov.classList.remove('hidden');
+}
+async function confirmarTipoNegNegociacao(id,tipo){
+  const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo])return;
+  fecharModal('ov-tiponeg');
+  await aplicarTipoNegociacao(l,tipo);
+  l.tipoNegDefinido=true;await salvarCamposMk(id,{tipoNegDefinido:true});
+  await moverLead(id,'negociacao',true);
+  toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
+}
+window.abrirTipoNegNegociacao=abrirTipoNegNegociacao;window.confirmarTipoNegNegociacao=confirmarTipoNegNegociacao;
 function escolherTipoNegVenda(k){if(!TIPOS_NEG[k])return;_tipoNegVenda=k;desenharTipoNegVenda();}
 window.escolherTipoNegVenda=escolherTipoNegVenda;
 // Abre o Termo certo (compra, consignado ou venda) pra um lead ja vendido. Fica numa funcao
@@ -3515,12 +3537,15 @@ async function encaminharTodosIA(){
   renderMarketing();
 }
 window.encaminharTodosIA=encaminharTodosIA;
-async function moverLead(id,novaCol){
+async function moverLead(id,novaCol,tipoNegOk){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   if(lead.st==='encantamento'&&['agendamento','negociacao'].includes(novaCol)){
     const feitas=[lead.encVideoTecnico,lead.encVideoLoja,lead.encTelefone].filter(Boolean).length;
     if(feitas<2){toast('Complete pelo menos 2 das 3 etapas do Encantamento antes de avançar','red',4000);return;}
   }
+  // Tipo de negociacao escolhido na ENTRADA da Negociacao (16/10/2026, pedido
+  // da Aline: e' ali que o vendedor ja' sabe se e' venda, compra ou consignacao).
+  if(novaCol==='negociacao'&&!lead.tipoNegDefinido&&!tipoNegOk){abrirTipoNegNegociacao(id);return;}
   const oldLabel=COLS_MK.find(c=>c.id===lead.st)?.label;
   const extras={};
   if(novaCol==='agendamento'&&!lead.pendente_at){
