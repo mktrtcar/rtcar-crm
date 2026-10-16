@@ -3661,7 +3661,7 @@ function abrirModalVendido(id){const l=G.mk.leads.find(x=>x.id===id);
   // Compra: Termo so' depois de solicitar a avaliacao (vale pro botao do
   // card, pro "Vendido" da ficha e pra arrastar pra coluna Venda).
   if(l&&l.origem==='Compra'&&!l.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
-  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;prepararVendedorDaVenda(l);prepararSegundoVeiculoVenda(l);document.getElementById('ov-vendido').classList.remove('hidden');}
+  G.mk.detailId=id;const tituloVend=document.querySelector('#ov-vendido .mod-head h3');if(tituloVend)tituloVend.textContent=l?.origem==='Compra'?'✅ Confirmar Compra (gera o Termo de Compra)':(l&&ehConsignado(l)?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido');const vtVend=l?.veiculoTroca&&l.origem==='Compra'?l.veiculoTroca:null;document.getElementById('vend-veiculo').value=l?.veiculo||(vtVend?[vtVend.marca,vtVend.modelo,vtVend.ano].filter(Boolean).join(' '):'');document.getElementById('vend-placa').value=l?.veiculoPlaca||(vtVend?.placa||'');document.getElementById('vend-obs').value='';document.getElementById('vend-repasse').checked=false;prepararTipoNegVenda(l);prepararVendedorDaVenda(l);prepararSegundoVeiculoVenda(l);document.getElementById('ov-vendido').classList.remove('hidden');}
 
 // Campo "Vendedor da venda" (08/10/2026, pedido da Marcela/Aline): so' gestao e assistente
 // veem. Padrao = captador do lead; ao trocar, o lead e a venda passam pro escolhido.
@@ -3715,7 +3715,16 @@ function rotuloTipoNeg(l){return l.st==='vendido'?TIPOS_NEG[tipoNegociacaoAtual(
 async function setTipoNegociacao(id,tipo,e){
   if(e&&e.stopPropagation)e.stopPropagation();
   const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo])return;
-  const atual=tipoNegociacaoAtual(l);if(atual===tipo)return;
+  if(tipoNegociacaoAtual(l)===tipo)return;
+  await aplicarTipoNegociacao(l,tipo);
+  toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
+  if(G.mk.detailId===id&&typeof abrirDetailLead==='function')abrirDetailLead(id);
+  renderMarketing();
+}
+// Grava o tipo (troca a origem) sem redesenhar a tela - usado tambem pela
+// janela de "Marcar como Vendido".
+async function aplicarTipoNegociacao(l,tipo){
+  const id=l.id;const atual=tipoNegociacaoAtual(l);if(atual===tipo)return;
   const campos={};
   if(atual==='venda'){l.origemCanal=l.origem;campos.origemCanal=l.origem;}
   let nova;
@@ -3725,11 +3734,27 @@ async function setTipoNegociacao(id,tipo,e){
   l.origem=nova;campos.origem=nova;
   await salvarCamposMk(id,campos);
   await regHistMk(l,'🔀 Tipo de negociação alterado','De '+TIPOS_NEG[atual]+' para '+TIPOS_NEG[tipo]+(tipo==='venda'?' (canal: '+nova+')':'')+'.',G.user?.n||'','blue');
-  toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
-  if(G.mk.detailId===id&&typeof abrirDetailLead==='function')abrirDetailLead(id);
-  renderMarketing();
 }
 window.setTipoNegociacao=setTipoNegociacao;
+// Tipo de negociacao na propria janela de Vendido (16/10/2026, pedido da
+// Aline): ao arrastar de Negociacao pra Venda ja escolhe Venda/Compra/
+// Consignacao ali, sem precisar clicar depois no card da coluna Venda.
+let _tipoNegVenda=null;
+function prepararTipoNegVenda(l){
+  let wrap=document.getElementById('vend-tiponeg-wrap');
+  if(!wrap){const body=document.querySelector('#ov-vendido .mod-body');if(!body)return;
+    wrap=document.createElement('div');wrap.id='vend-tiponeg-wrap';wrap.style.cssText='margin-bottom:14px';body.insertBefore(wrap,body.firstChild);}
+  _tipoNegVenda=l?tipoNegociacaoAtual(l):'venda';desenharTipoNegVenda();
+}
+function desenharTipoNegVenda(){
+  const wrap=document.getElementById('vend-tiponeg-wrap');if(!wrap)return;
+  wrap.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔀 Tipo de negociação</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+
+    Object.entries(TIPOS_NEG).map(([k,rot])=>`<button type="button" class="btn btn-sm ${_tipoNegVenda===k?'btn-green':'btn-outline'}" onclick="escolherTipoNegVenda('${k}')">${_tipoNegVenda===k?'✓ ':''}${rot}</button>`).join('')+'</div>';
+  const t=document.querySelector('#ov-vendido .mod-head h3');
+  if(t)t.textContent=_tipoNegVenda==='compra'?'✅ Confirmar Compra (gera o Termo de Compra)':_tipoNegVenda==='consignacao'?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido';
+}
+function escolherTipoNegVenda(k){if(!TIPOS_NEG[k])return;_tipoNegVenda=k;desenharTipoNegVenda();}
+window.escolherTipoNegVenda=escolherTipoNegVenda;
 // Abre o Termo certo (compra, consignado ou venda) pra um lead ja vendido. Fica numa funcao
 // propria pra o 2o veiculo de uma negociacao (lead extra) gerar o proprio termo depois -
 // um termo por carro (Aline, 13/10/2026).
@@ -3840,13 +3865,16 @@ async function confirmarVendido(){
   // carro de uma Compra ja existe e ja tem placa de verdade - sem isso o
   // Termo de Compra nascia sem placa e o veiculo ficava invisivel na busca
   // de estoque (achado real: BYD Song Plus, lead DVA).
-  if(lead.origem==='Compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
+  const tipoEsc=_tipoNegVenda||tipoNegociacaoAtual(lead);
+  if(tipoEsc==='compra'&&lead.origem!=='Compra'&&!lead.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
+  if(tipoEsc==='compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
   const blocoV2=document.getElementById('vend-veic2-wrap');
   const v2aberto=!!blocoV2&&blocoV2.dataset.aberto==='1';
   const veiculo2=v2aberto?document.getElementById('vend-veiculo2').value.trim():'';
   const placa2=v2aberto?document.getElementById('vend-placa2').value.trim():'';
   if(v2aberto&&!veiculo2){toast('Informe o 2º veículo ou clique em "Remover 2º veículo"','red');return;}
-  if(v2aberto&&lead.origem==='Compra'&&!placa2){toast('Informe a placa do 2º veículo','red');return;}
+  if(v2aberto&&tipoEsc==='compra'&&!placa2){toast('Informe a placa do 2º veículo','red');return;}
+  if(tipoEsc!==tipoNegociacaoAtual(lead))await aplicarTipoNegociacao(lead,tipoEsc);
 
   if(veiculo)lead.veiculo=veiculo;lead.veiculoPlaca=placa;lead.st='vendido';lead.convertido=true;lead.dtVenda=hoje();lead.repasse=repasse;
   const camposVenda={st:'vendido',convertido:true,dtVenda:hoje(),veiculo:lead.veiculo,veiculoPlaca:placa,repasse};
