@@ -3354,9 +3354,12 @@ window.escolherTipoNegVenda=escolherTipoNegVenda;
 // Abre o Termo certo (compra, consignado ou venda) pra um lead ja vendido. Fica numa funcao
 // propria pra o 2o veiculo de uma negociacao (lead extra) gerar o proprio termo depois -
 // um termo por carro (Aline, 13/10/2026).
+function origemCanalDoLead(l){const c=l.origemCanal;return(c&&c!=='Compra'&&c!=='Consignado')?c:'';}
 function abrirTermoParaLead(lead){
   if(ORIGENS_MK.compra.includes(lead.origem)){
-    const dadosCompra={leadId:lead.id,vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
+    // origem = canal original do cliente (ex: Carteira) quando o tipo virou
+    // Compra pelo "Tipo de negociacao" - o termo mostra o canal, nao o tipo (16/10/2026).
+    const dadosCompra={leadId:lead.id,origem:origemCanalDoLead(lead),vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
     if(window.RTCARCRM_EMBED&&typeof window.abrirCompraDoCRM==='function'){
       window.abrirCompraDoCRM(dadosCompra);
     }else if(!window.RTCARCRM_EMBED){
@@ -3368,7 +3371,7 @@ function abrirTermoParaLead(lead){
   // Consignado (pedido da Marcela/Rafael, 29/09/2026, opcao 1 escolhida
   // pela Aline: nova origem dentro do mesmo funil, mesmo padrao de Compra).
   if(ehConsignado(lead)){
-    const dadosConsignado={leadId:lead.id,vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
+    const dadosConsignado={leadId:lead.id,origem:origemCanalDoLead(lead),vendedor:lead.captador||'',cliente:lead.clienteNome,telefone:lead.clienteTel,veiculo:{descricao:lead.veiculo,placa:lead.veiculoPlaca,valor:lead.valor}};
     if(window.RTCARCRM_EMBED&&typeof window.abrirConsignadoDoCRM==='function'){
       window.abrirConsignadoDoCRM(dadosConsignado);
     }else if(!window.RTCARCRM_EMBED){
