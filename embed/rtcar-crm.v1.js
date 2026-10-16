@@ -3257,14 +3257,15 @@ function prepararTipoNegVenda(l){
     wrap=document.createElement('div');wrap.id='vend-tiponeg-wrap';wrap.style.cssText='margin-bottom:14px';
     // logo abaixo do texto explicativo, em cima do Buscar no estoque
     const ref=body.querySelector('p');if(ref)ref.after(wrap);else body.insertBefore(wrap,body.firstChild);}
-  _tipoNegVenda=l?tipoNegociacaoAtual(l):'venda';desenharTipoNegVenda();
+  // Nada marcado ao abrir: so' confirma depois de escolher (trava pedida pela Aline, 16/10).
+  _tipoNegVenda=null;desenharTipoNegVenda();
 }
 function desenharTipoNegVenda(){
   const wrap=document.getElementById('vend-tiponeg-wrap');if(!wrap)return;
-  wrap.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔀 Tipo de negociação</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+
+  wrap.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔀 Tipo de negociação *</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+
     Object.entries(TIPOS_NEG).map(([k,rot])=>`<button type="button" class="btn btn-sm ${_tipoNegVenda===k?'btn-green':'btn-outline'}" onclick="escolherTipoNegVenda('${k}')">${_tipoNegVenda===k?'✓ ':''}${rot}</button>`).join('')+'</div>';
   const t=document.querySelector('#ov-vendido .mod-head h3');
-  if(t)t.textContent=_tipoNegVenda==='compra'?'✅ Confirmar Compra (gera o Termo de Compra)':_tipoNegVenda==='consignacao'?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido';
+  if(t&&_tipoNegVenda)t.textContent=_tipoNegVenda==='compra'?'✅ Confirmar Compra (gera o Termo de Compra)':_tipoNegVenda==='consignacao'?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido';
 }
 function escolherTipoNegVenda(k){if(!TIPOS_NEG[k])return;_tipoNegVenda=k;desenharTipoNegVenda();}
 window.escolherTipoNegVenda=escolherTipoNegVenda;
@@ -3378,7 +3379,8 @@ async function confirmarVendido(){
   // carro de uma Compra ja existe e ja tem placa de verdade - sem isso o
   // Termo de Compra nascia sem placa e o veiculo ficava invisivel na busca
   // de estoque (achado real: BYD Song Plus, lead DVA).
-  const tipoEsc=_tipoNegVenda||tipoNegociacaoAtual(lead);
+  if(!_tipoNegVenda){toast('Escolha o tipo de negociação: Venda, Compra ou Consignação','red');const w=document.getElementById('vend-tiponeg-wrap');if(w)w.scrollIntoView({block:'center'});return;}
+  const tipoEsc=_tipoNegVenda;
   if(tipoEsc==='compra'&&lead.origem!=='Compra'&&!lead.avaliacaoSolicitadaEm){toast('Para gerar o Termo de Compra, primeiro clique em Solicitar Avaliação (depois do ✅ Compareceu)','red',6000);return;}
   if(tipoEsc==='compra'&&!placa){toast('Informe a placa do veículo antes de confirmar a compra','red');return;}
   const blocoV2=document.getElementById('vend-veic2-wrap');
