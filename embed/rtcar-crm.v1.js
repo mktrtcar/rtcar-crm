@@ -3077,7 +3077,10 @@ veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroc
   try{
     if(G.mk.editandoId){Object.assign(G.mk.leads.find(l=>l.id===G.mk.editandoId),data);await salvarCamposMk(G.mk.editandoId,data);toast('Lead atualizado!');}
     else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,G.user?.n||data.captador||'');toast(`Lead ${id} criado!`);}
+    // Cadastrou/editou ja' na etapa Negociacao: pergunta o tipo na hora (16/10/2026, pedido da Aline).
+    const alvoNeg=stEscolhido==='negociacao'?(G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):G.mk.leads[G.mk.leads.length-1]):null;
     fecharModal('ov-lead');renderMarketing();
+    if(alvoNeg&&!alvoNeg.tipoNegDefinido)abrirTipoNegNegociacao(alvoNeg.id);
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-lead-txt').textContent=G.mk.editandoId?'Salvar Alterações':'Salvar Lead';}
 }
@@ -3285,7 +3288,7 @@ async function confirmarTipoNegNegociacao(id,tipo){
   fecharModal('ov-tiponeg');
   await aplicarTipoNegociacao(l,tipo);
   l.tipoNegDefinido=true;await salvarCamposMk(id,{tipoNegDefinido:true});
-  await moverLead(id,'negociacao',true);
+  if(l.st!=='negociacao')await moverLead(id,'negociacao',true);else renderMarketing();
   toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
 }
 window.abrirTipoNegNegociacao=abrirTipoNegNegociacao;window.confirmarTipoNegNegociacao=confirmarTipoNegNegociacao;
