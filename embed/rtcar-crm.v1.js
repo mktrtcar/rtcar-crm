@@ -2365,6 +2365,9 @@ function atualizarCamposOrigemLead(){
   document.getElementById('lbl-veiculo-interesse').textContent=ehCompra?'Veículo do cliente (a ser comprado)':'Veículo de interesse';
   document.getElementById('btn-buscar-estoque').style.display=ehCompra?'none':'';
   const btnEst2=document.getElementById('btn-buscar-estoque2');if(btnEst2)btnEst2.style.display=ehCompra?'none':'';
+  // Rotulo do 2o veiculo acompanha a origem (16/10/2026, pedido da Aline:
+  // 2 carros tambem na compra e na consignacao, nao so' no interesse).
+  const lbl2=document.getElementById('lbl-veiculo2');if(lbl2)lbl2.textContent=ehCompra?'2º veículo do cliente (a ser comprado, opcional)':origem==='Consignado'?'2º veículo consignado (opcional)':'2º veículo de interesse (opcional)';
   document.getElementById('f-veiculo-placa').style.display=ehCompra?'':'none';
   document.getElementById('field-veiculo-troca').style.display=ehCompra?'none':'';
 }
@@ -3332,11 +3335,12 @@ function garantirCampoVeiculo2(l){
   if(!wrap){
     const base=document.getElementById('f-veiculo');if(!base)return;
     wrap=document.createElement('div');wrap.className='field';wrap.id='f-veiculo2-wrap';
-    wrap.innerHTML='<label>2º veículo de interesse (opcional)</label><div style="display:flex;gap:6px"><input type="text" id="f-veiculo2" placeholder="Ex: Jeep Compass 2021" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="btn-buscar-estoque2" onclick="abrirBuscaEstoque(\'lead2\')">🔍 Buscar no estoque</button></div>';
+    wrap.innerHTML='<label id="lbl-veiculo2">2º veículo de interesse (opcional)</label><div style="display:flex;gap:6px"><input type="text" id="f-veiculo2" placeholder="Ex: Jeep Compass 2021" style="flex:1"><button type="button" class="btn btn-outline btn-sm" id="btn-buscar-estoque2" onclick="abrirBuscaEstoque(\'lead2\')">🔍 Buscar no estoque</button></div>';
 
     (base.closest('.field')||base.parentNode).after(wrap);
   }
   document.getElementById('f-veiculo2').value=(l&&l.veiculo2)||'';
+  atualizarCamposOrigemLead();
 }
 
 async function confirmarVendido(){
@@ -3696,6 +3700,7 @@ function abrirDetailLead(id){
             :`<div class="d-field"><span class="lbl">Tempo total (desde a criação)</span><span class="val">${lead._criadoEm?(lead.st==='vendido'?'— (vendido)':`<span class="live-timer" data-start="${lead._criadoEm}" style="color:var(--red);font-weight:700">calculando...</span>`):'—'}</span></div>`}
           ${timerEtapaHtml?`<div class="d-field"><span class="lbl">Tempo na etapa atual (${col.label})</span><span class="val">${timerEtapaHtml}</span></div>`:''}
           <div class="d-field" style="grid-column:1/-1"><span class="lbl">Veículo</span><span class="val">${lead.veiculo||'—'}</span></div>
+          ${lead.veiculo2?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">2º veículo</span><span class="val">${lead.veiculo2}</span></div>`:''}
           ${lead.veiculoTroca?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">🔄 Veículo de troca</span><span class="val">${[lead.veiculoTroca.marca,lead.veiculoTroca.modelo,lead.veiculoTroca.ano,lead.veiculoTroca.cor].filter(Boolean).join(' ')||'—'}${lead.veiculoTroca.placa?` · ${lead.veiculoTroca.placa}`:''}</span></div>`:''}
           ${lead.valorFechado?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">💰 Valor fechado (Termo de Venda)</span><span class="val" style="color:var(--green);font-weight:700">R$ ${Number(lead.valorFechado).toLocaleString('pt-BR')}${lead.formaPagamento?` · ${lead.formaPagamento}`:''}</span></div>`:''}
           ${lead.motivoPerda?`<div class="d-field" style="grid-column:1/-1"><span class="lbl">Motivo perda</span><span class="val" style="color:var(--red)">${lead.motivoPerda}</span></div>`:''}
