@@ -1499,6 +1499,7 @@ function renderKanbanMk(cnt){
             ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||l.origem==='Compra'))?(l.agendamentoStatus==='compareceu'
               ?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`
               :`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Só libera depois que o cliente comparecer na loja (botão ✅ Compareceu no Agendamento)"><i class="ti ti-lock"></i> Solicitar Avaliação</button>`):''}
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&((l.origem==='Compra'&&l.veiculo2)||l.veiculoTroca2||(l.veiculoTroca&&l.origem!=='Compra')))?`<button class="card-btn card-btn-label" style="${l.agendamentoStatus==='compareceu'?'color:var(--red)':'opacity:.45;cursor:not-allowed'}" onclick="solicitarAvaliacao2('${l.id}',event)" title="Avaliação do 2º veículo do cliente"><i class="ti ti-clipboard-check"></i> ${(l.veiculoTroca2||(l.origem==='Compra'&&l.veiculo2))?'Avaliação 2º veículo'+(l.avaliacao2SolicitadaEm?' ✓':''):'+ 2º veículo (avaliação)'}</button>`:''}
             ${['negociacao','agendamento'].includes(col.id)?(l.origem==='Compra'&&!l.avaliacaoSolicitadaEm
               ?`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Só libera depois de Solicitar Avaliação"><i class="ti ti-lock"></i> Termo de Compra</button>`
               :`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Confirma o fechamento e abre o Termo no sistema principal"><i class="ti ti-file-text"></i> ${l.origem==='Compra'?'Termo de Compra':(ehConsignado(l)?'Termo de Consignado':'Termo de Venda')}</button>`):''}
@@ -2878,8 +2879,9 @@ function atualizarBotaoVeiculoTroca(){
   const vt=_veiculoTrocaAtual;
   btn.textContent=vt?`🔄 ${[vt.marca,vt.modelo,vt.ano].filter(Boolean).join(' ')||'Veículo de troca'} ✏️`:'🔄 Veículo de troca';
 }
+let _veiculoTrocaSlot=1;
 function abrirVeiculoTroca(leadIdDireto){
-  _veiculoTrocaLeadDireto=leadIdDireto||null;
+  _veiculoTrocaLeadDireto=leadIdDireto||null;_veiculoTrocaSlot=1;
   const leadRef=leadIdDireto?G.mk.leads.find(l=>l.id===leadIdDireto):null;
   // Compra: se o "Veiculo da compra" ainda nao foi preenchido, ja abre com o
   // veiculo/placa do cadastro do lead (pedido da Aline, 05/10/2026).
@@ -2907,6 +2909,19 @@ async function salvarVeiculoTroca(){
   // (botao "📋 Solicitar Avaliação" no card), a qualquer momento depois de
   // informado (pedido da Aline, 16/09/2026 - antes disparava junto, mas
   // ela quer poder so anotar o carro sem já pedir a avaliacao).
+  if(_veiculoTrocaLeadDireto&&_veiculoTrocaSlot===2){
+    const id=_veiculoTrocaLeadDireto;_veiculoTrocaSlot=1;
+    const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+    lead.veiculoTroca2=dados;const c2={veiculoTroca2:dados};
+    if(lead.origem==='Compra'){const d=[marca,modelo,ano].filter(Boolean).join(' ');if(d){lead.veiculo2=d;c2.veiculo2=d;}if(placa){lead.veiculo2Placa=placa.toUpperCase();c2.veiculo2Placa=lead.veiculo2Placa;}}
+    await salvarCamposMk(id,c2);
+    await regHistMk(lead,'🚗 2º veículo informado',[marca,modelo,ano,cor,placa].filter(Boolean).join(' '),G.user?.n||'','blue');
+    toast('2º veículo salvo!');
+    if(G.mk.detailId===id)abrirDetailLead(id);
+    renderMarketing();
+    if(_avaliacao2AposVeiculo===id){_avaliacao2AposVeiculo=null;solicitarAvaliacao2(id);}
+    return;
+  }
   if(_veiculoTrocaLeadDireto){
     const id=_veiculoTrocaLeadDireto;
     const lead=G.mk.leads.find(l=>l.id===id);
@@ -2973,6 +2988,9 @@ function solicitarAvaliacaoTroca(id,e){
       .then(()=>regHistMk(lead,'📋 Avaliação solicitada',descAv,G.user?.n||'','purple'))
       .then(()=>renderMarketing());
   }
+  abrirAvaliacaoComDados(dados);
+}
+function abrirAvaliacaoComDados(dados){
   if(window.RTCARCRM_EMBED&&typeof window.abrirAvaliacaoDoCRM==='function'){
     window.abrirAvaliacaoDoCRM(dados);
     return;
@@ -2987,6 +3005,41 @@ function solicitarAvaliacaoTroca(id,e){
   toast('Abrindo o sistema principal numa nova aba...');
 }
 window.solicitarAvaliacaoTroca=solicitarAvaliacaoTroca;
+/* 2o veiculo do cliente (16/10/2026, pedido da Aline): Compra de 2 carros, ou
+   2 carros na troca. Mesmo fluxo do 1o: sem dados/placa abre o cadastro e a
+   avaliacao abre sozinha ao salvar. Fica em veiculoTroca2 (e, na Compra,
+   veiculo2/veiculo2Placa, que e' o que o Termo do 2o veiculo usa). */
+let _avaliacao2AposVeiculo=null;
+function veiculo2DoLead(l){
+  if(l.veiculoTroca2)return l.veiculoTroca2;
+  if(l.origem==='Compra'&&l.veiculo2&&l.veiculo2Placa){const p=l.veiculo2.trim().split(/s+/);return{marca:p[0]||'',modelo:p.slice(1).join(' ')||'',ano:'',cor:'',placa:l.veiculo2Placa};}
+  return null;
+}
+function abrirVeiculoTroca2(id){
+  const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
+  _veiculoTrocaLeadDireto=id;_veiculoTrocaSlot=2;
+  const vt=l.veiculoTroca2||(l.origem==='Compra'&&l.veiculo2?(()=>{const p=l.veiculo2.trim().split(/s+/);return{marca:p[0]||'',modelo:p.slice(1).join(' ')||'',placa:l.veiculo2Placa||''};})():{});
+  document.getElementById('vt-titulo').textContent=l.origem==='Compra'?'🚗 2º veículo da compra':'🔄 2º veículo de troca';
+  document.getElementById('vt-marca').value=vt.marca||'';document.getElementById('vt-modelo').value=vt.modelo||'';
+  document.getElementById('vt-ano').value=vt.ano||'';document.getElementById('vt-cor').value=vt.cor||'';document.getElementById('vt-placa').value=vt.placa||'';
+  document.getElementById('btn-remover-veiculo-troca').style.display='none';
+  document.getElementById('ov-veiculo-troca').classList.remove('hidden');
+}
+function solicitarAvaliacao2(id,e){
+  if(e)e.stopPropagation();
+  const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
+  if(l.agendamentoStatus!=='compareceu'){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
+  const v=veiculo2DoLead(l);
+  if(!v||!v.placa){_avaliacao2AposVeiculo=id;toast('Informe o 2º veículo (com a placa) — a avaliação abre em seguida','blue',6000);abrirVeiculoTroca2(id);return;}
+  if(!l.avaliacao2SolicitadaEm){
+    l.avaliacao2SolicitadaEm=new Date().toISOString();
+    salvarCamposMk(id,{avaliacao2SolicitadaEm:l.avaliacao2SolicitadaEm})
+      .then(()=>regHistMk(l,'📋 Avaliação solicitada (2º veículo)',[v.marca,v.modelo,v.placa].filter(Boolean).join(' '),G.user?.n||'','purple'))
+      .then(()=>renderMarketing());
+  }
+  abrirAvaliacaoComDados({cliente:l.clienteNome,telefone:l.clienteTel,veiculo:v});
+}
+window.solicitarAvaliacao2=solicitarAvaliacao2;window.abrirVeiculoTroca2=abrirVeiculoTroca2;
 async function removerVeiculoTroca(){
   fecharModal('ov-veiculo-troca');
   if(_veiculoTrocaLeadDireto){
@@ -3846,8 +3899,10 @@ function prepararSegundoVeiculoVenda(l){
   const compra=!!l&&l.origem==='Compra';
   document.getElementById('vend-veic2-btn').textContent=compra?'+ Adicionar outro veículo comprado':'+ Adicionar outro veículo vendido';
   document.getElementById('vend-veic2-lbl').textContent=compra?'2º veículo comprado':'2º veículo vendido';
-  document.getElementById('vend-veiculo2').value='';document.getElementById('vend-placa2').value='';
-  definirSegundoVeiculoVenda(false);
+  // Compra com 2o veiculo ja' informado/avaliado: ja' vem aberto e preenchido.
+  const v2c=compra&&l.veiculo2?l.veiculo2:'';
+  document.getElementById('vend-veiculo2').value=v2c;document.getElementById('vend-placa2').value=v2c?(l.veiculo2Placa||''):'';
+  definirSegundoVeiculoVenda(!!v2c);
 }
 function definirSegundoVeiculoVenda(aberto){
   const wrap=document.getElementById('vend-veic2-wrap');if(!wrap)return;
