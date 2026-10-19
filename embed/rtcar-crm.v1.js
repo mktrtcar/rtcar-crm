@@ -4776,7 +4776,7 @@ async function limparColuna2AnosUmaVez(){
     await db.collection('rel_config').doc('limpeza2anos_1910').set({feitoEm:new Date().toISOString(),por:G.user?.n||'',qtd:ok});
     toast(`${ok} cliente(s) da coluna "2 anos" excluído(s). Backup baixado.`,'green',6000);
     renderRelacionamento();
-  }catch(e){console.error('Limpeza 2 anos',e);_lim2anosVerificado=false;}
+  }catch(e){console.error('Limpeza 2 anos',e);toast('Limpeza da coluna 2 anos: '+(e&&e.message||e),'red',8000);}
 }
 async function excluirClienteRel(id){
   if(!confirm('Excluir este cliente? Essa ação não pode ser desfeita — o histórico todo se perde.'))return;
