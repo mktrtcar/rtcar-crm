@@ -1053,6 +1053,7 @@ async function dropLead(novaCol){
   const lead=G.mk.leads.find(l=>l.id===G.mk.dragId);
   if(!lead||lead.st===novaCol)return;
   if(novaCol==='vendido'){abrirModalVendido(G.mk.dragId);return;}
+  if(['perdido','resgate'].includes(novaCol)&&!podeTirarDaVenda(lead,novaCol))return;
   if(novaCol==='perdido'){abrirModalPerda(G.mk.dragId);return;}
   if(novaCol==='resgate'){
     if(lead.optOutContato){toast('Cliente pediu para não ser mais contatado (LGPD)','red');return;}
@@ -3602,8 +3603,38 @@ async function encaminharTodosIA(){
   renderMarketing();
 }
 window.encaminharTodosIA=encaminharTodosIA;
+/* Protecao de negocio ja' vendido (19/10/2026, pedido da Marcela/Aline - caso
+   LEAD-557: um arrasto sem querer tirou uma venda do Maicon da coluna Venda).
+   So' a gestao tira um card de Venda, e com confirmacao. */
+function podeTirarDaVenda(lead,novaCol){
+  if(lead.st!=='vendido'||novaCol==='vendido')return true;
+  if(!isManager()){toast('Só a gestão pode tirar um negócio da coluna Venda','red',5000);return false;}
+  return confirm(`Este negócio já foi VENDIDO${lead.dtVenda?' em '+lead.dtVenda:''}${lead.captador?' por '+String(lead.captador).toUpperCase():''}.\n\nTirar da coluna Venda?`);
+}
+// Desfaz uma saida da coluna Venda feita por engano: volta pra Venda com a
+// data ORIGINAL (dtVenda/vendido_at ficam como estavam - nao passa pelo
+// confirmarVendido, que gravaria a data de hoje) e devolve a origem do canal
+// se o tipo tinha virado Compra/Consignado. So' gestao.
+async function restaurarVendaMk(id){
+  const l=G.mk.leads.find(x=>x.id===id);if(!l||!isManager())return;
+  if(l.st==='vendido'||!l.dtVenda||!l.vendido_at){toast('Este lead não tem uma venda para restaurar','red');return;}
+  const canal=(l.origemCanal&&!['Compra','Consignado'].includes(l.origemCanal))?l.origemCanal:'';
+  const mudaOrigem=canal&&['Compra','Consignado'].includes(l.origem);
+  if(!confirm(`Restaurar ${id} para VENDA com a data original (${l.dtVenda})?`+(mudaOrigem?`\nA origem volta de "${l.origem}" para "${canal}".`:'')))return;
+  const campos={st:'vendido',convertido:true};
+  if(mudaOrigem)campos.origem=canal;
+  const agora=new Date().toISOString();
+  ['negociacao','encantamento','visita','resgate','atendimento'].forEach(c=>{if(l[c+'_at']&&!l[c+'_end']&&l[c+'_at']>l.vendido_at)campos[c+'_end']=agora;});
+  Object.assign(l,campos);
+  await salvarCamposMk(id,campos);
+  await regHistMk(l,'↩ Restaurado para Venda','Saída da coluna Venda foi engano — mantida a venda original de '+l.dtVenda+(mudaOrigem?'; origem volta para '+canal+' (tipo de negociação: Venda)':''),G.user?.n||'','green');
+  toast('Venda restaurada ('+l.dtVenda+')');
+  abrirDetailLead(id);renderMarketing();
+}
+window.restaurarVendaMk=restaurarVendaMk;
 async function moverLead(id,novaCol,tipoNegOk){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  if(!tipoNegOk&&!podeTirarDaVenda(lead,novaCol))return;
   if(lead.st==='encantamento'&&['agendamento','negociacao'].includes(novaCol)){
     const feitas=[lead.encVideoTecnico,lead.encVideoLoja,lead.encTelefone].filter(Boolean).length;
     if(feitas<2){toast('Complete pelo menos 2 das 3 etapas do Encantamento antes de avançar','red',4000);return;}
@@ -3831,7 +3862,7 @@ function abrirDetailLead(id){
         ${lead.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px;white-space:pre-wrap">${lead.obs}</div>`:''}
       </div>
       <div class="d-section"><div class="d-section-title">Dashboard</div>
-        <div class="col-select">${movBtns}${btnVend}${btnPerd}${btnRetomou}${btnOptOut}</div>
+        <div class="col-select">${movBtns}${btnVend}${btnPerd}${btnRetomou}${btnOptOut}${(isManager()&&lead.st!=='vendido'&&lead.dtVenda&&lead.vendido_at)?`<button class="col-btn" onclick="restaurarVendaMk('${id}')" style="border-color:var(--green);color:var(--green)" title="Volta para Venda com a data original da venda">↩ Restaurar venda (${lead.dtVenda})</button>`:''}</div>
       </div>
       <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
     </div>
