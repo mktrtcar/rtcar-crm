@@ -3841,7 +3841,7 @@ function abrirDetailLead(id){
       ${lead.st==='vendido'?`<span class="tag-conv"><i class="ti ti-check"></i> Vendido ${lead.dtVenda||''}</span>${isMaster()?`<input type="date" title="Corrigir data da venda (só Master)" value="${lead.dtVenda?brParaISO(lead.dtVenda):''}" onchange="editarDataVendaMk('${id}',this.value)" style="font-size:11px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f)">`:''}`:''}
       ${lead.vendaRecuperada?`<span class="tag-conv" style="background:var(--purplel);color:var(--purple)"><i class="ti ti-refresh"></i> Venda recuperada</span>`:''}
       ${lead.optOutContato?`<span class="tag-conv" style="background:var(--bg3);color:var(--tx3)"><i class="ti ti-bell-off"></i> Não contatar (LGPD)</span>`:''}
-      <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
+      <button class="mod-close" onclick="fecharDetail()" title="Fechar" style="font-size:18px;font-weight:700;color:var(--tx2)">✕</button>
     </div>
     <div class="detail-body">
       <h3 style="font-size:18px;font-weight:700;margin-bottom:12px">${lead.clienteNome||'—'}</h3>
@@ -5002,7 +5002,7 @@ function abrirDetailCliente(id){
     <div class="detail-head">
       <span style="font-size:22px">${col.emoji}</span>
       <h3>${c.clienteNome||'—'}</h3>
-      <button class="mod-close" onclick="fecharDetail()"><i class="ti ti-x"></i></button>
+      <button class="mod-close" onclick="fecharDetail()" title="Fechar" style="font-size:18px;font-weight:700;color:var(--tx2)">✕</button>
     </div>
     <div class="detail-body">
       ${col.msg?`<div class="milestone-box"><span class="m-emoji">${col.emoji}</span><div class="m-title">${col.label} — ${col.acolabel}</div><div class="m-desc">${col.acao}</div><button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="copiarMsg('${id}')"><i class="ti ti-copy"></i> Copiar mensagem WhatsApp</button></div>`:''}
