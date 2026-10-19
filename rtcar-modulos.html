@@ -4430,6 +4430,7 @@ async function initRelacionamento(){
 }
 function renderRelacionamento(){
   if(G.modulo!=='relacionamento')return;
+  limparColuna2AnosUmaVez();
   const tb=document.getElementById('tb');const view=G.rel.view;
   // Mesma correcao do CRM (ver renderMarketing): reconstruir a tela
   // inteira enquanto a pessoa esta digitando dentro de um campo de data
@@ -5240,6 +5241,31 @@ async function salvarCliente(){
     fecharModal('ov-cliente');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-cli-txt').textContent=G.rel.editandoId?'Salvar Alterações':'Salvar';}
+}
+/* Limpeza unica da coluna "2 anos" (19/10/2026, pedido da Aline: a importacao
+   dessa coluna saiu errada; a Milena vai importar de novo). So' a coluna "2 anos"
+   (convite enviado) - "2 anos enviado", "Agendado" e "Retirado" nao sao tocados.
+   Pergunta uma vez pra gestao, baixa um backup completo (JSON) antes de apagar e
+   marca rel_config/limpeza2anos_1910 pra nao perguntar de novo em lugar nenhum. */
+let _lim2anosVerificado=false;
+async function limparColuna2AnosUmaVez(){
+  if(_lim2anosVerificado||G.rel.modoDemo||!isManager()||!(G.rel.clientes||[]).length)return;
+  _lim2anosVerificado=true;
+  try{
+    const marca=await db.collection('rel_config').doc('limpeza2anos_1910').get();
+    if(marca.exists)return;
+    const alvo=G.rel.clientes.filter(c=>colAtualRel(c).id==='d2anos_enviado');
+    if(!alvo.length)return;
+    if(!confirm(`Excluir os ${alvo.length} clientes da coluna "2 ANOS"?\n\nSó essa coluna ("2 anos enviado", "Agendado" e "Retirado" ficam como estão). Antes de apagar, uma cópia completa é baixada no seu computador.`))return;
+    const blob=new Blob([JSON.stringify(alvo,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup_relacionamento_2anos_'+hoje().replace(/\//g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();
+    let ok=0;
+    for(const c of alvo){try{await db.collection('clientes_rel').doc(c.id).delete();ok++;}catch(e){console.error(e);}}
+    const ids=new Set(alvo.map(c=>c.id));G.rel.clientes=G.rel.clientes.filter(c=>!ids.has(c.id));
+    await db.collection('rel_config').doc('limpeza2anos_1910').set({feitoEm:new Date().toISOString(),por:G.user?.n||'',qtd:ok});
+    toast(`${ok} cliente(s) da coluna "2 anos" excluído(s). Backup baixado.`,'green',6000);
+    renderRelacionamento();
+  }catch(e){console.error('Limpeza 2 anos',e);_lim2anosVerificado=false;}
 }
 async function excluirClienteRel(id){
   if(!confirm('Excluir este cliente? Essa ação não pode ser desfeita — o histórico todo se perde.'))return;
