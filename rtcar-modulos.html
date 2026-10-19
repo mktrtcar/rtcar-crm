@@ -1501,6 +1501,7 @@ function renderKanbanMk(cnt){
               ?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`
               :`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Só libera depois que o cliente comparecer na loja (botão ✅ Compareceu no Agendamento)"><i class="ti ti-lock"></i> Solicitar Avaliação</button>`):''}
             ${(COLS_PERMITE_TROCA.includes(col.id)&&((l.origem==='Compra'&&l.veiculo2)||l.veiculoTroca2||(l.veiculoTroca&&l.origem!=='Compra')))?`<button class="card-btn card-btn-label" style="${l.agendamentoStatus==='compareceu'?'color:var(--red)':'opacity:.45;cursor:not-allowed'}" onclick="solicitarAvaliacao2('${l.id}',event)" title="Avaliação do 2º veículo do cliente"><i class="ti ti-clipboard-check"></i> ${(l.veiculoTroca2||(l.origem==='Compra'&&l.veiculo2))?'Avaliação 2º veículo'+(l.avaliacao2SolicitadaEm?' ✓':''):'+ 2º veículo (avaliação)'}</button>`:''}
+            ${col.id==='negociacao'?botaoAbordarEm(l):''}
             ${['negociacao','agendamento'].includes(col.id)?(l.origem==='Compra'&&!l.avaliacaoSolicitadaEm
               ?`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Só libera depois de Solicitar Avaliação"><i class="ti ti-lock"></i> Termo de Compra</button>`
               :`<button class="card-btn card-btn-label" style="color:var(--green)" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Confirma o fechamento e abre o Termo no sistema principal"><i class="ti ti-file-text"></i> ${l.origem==='Compra'?'Termo de Compra':(ehConsignado(l)?'Termo de Consignado':'Termo de Venda')}</button>`):''}
@@ -4130,6 +4131,41 @@ function corrigirLead557UmaVez(){
   G._fix557=true;
   if(l.st==='negociacao'&&l.dtVenda&&l.vendido_at&&(l.historico||[]).some(h=>/Tipo de negocia/.test(h.acao||h.a||'')))restaurarVendaMk('LEAD-557',true).catch(e=>console.error(e));
 }
+/* "Abordar em" (19/10/2026, pedido da Aline): na Negociacao o vendedor marca a
+   data em que vai retomar o contato com o cliente. No dia (ou atrasado) o botao
+   fica vermelho. Fica em lead.abordarEm (AAAA-MM-DD) + historico. */
+function botaoAbordarEm(l){
+  const d=l.abordarEm||'';
+  if(!d)return `<button class="card-btn card-btn-label" onclick="abrirAbordarEm('${l.id}',event)" title="Agendar a data do próximo contato">📅 Abordar em</button>`;
+  const hojeISO=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const venceu=d<=hojeISO;
+  const estilo=venceu?'background:var(--red);color:#fff;font-weight:700':'background:#e8f0fb;color:#1e4d8c;font-weight:600';
+  return `<button class="card-btn card-btn-label" style="${estilo}" onclick="abrirAbordarEm('${l.id}',event)" title="${venceu?'Dia de abordar o cliente!':'Próximo contato agendado'}">📅 Abordar em ${isoParaBR(d)}</button>`;
+}
+function abrirAbordarEm(id,e){
+  if(e)e.stopPropagation();
+  const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
+  let ov=document.getElementById('ov-abordar');
+  if(!ov){ov=document.createElement('div');ov.id='ov-abordar';ov.className='ov hidden';
+    const pai=document.getElementById('ov-vendido');if(pai&&pai.parentNode)pai.parentNode.appendChild(ov);else document.body.appendChild(ov);}
+  ov.innerHTML=`<div class="mod" style="max-width:380px"><div class="mod-head"><h3>📅 Abordar em</h3><button class="mod-close" onclick="fecharModal('ov-abordar')" style="font-size:18px;font-weight:700;color:var(--tx2)">✕</button></div>
+    <div class="mod-body"><p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Data do próximo contato com <strong>${l.clienteNome||'o cliente'}</strong>:</p>
+    <div class="field"><input type="date" id="abordar-data" value="${l.abordarEm||''}"></div></div>
+    <div class="mod-foot">${l.abordarEm?`<button class="btn btn-outline" style="margin-right:auto;color:var(--red)" onclick="salvarAbordarEm('${id}',true)">Limpar</button>`:''}<button class="btn btn-outline" onclick="fecharModal('ov-abordar')">Cancelar</button><button class="btn btn-red" onclick="salvarAbordarEm('${id}')">Salvar</button></div></div>`;
+  ov.classList.remove('hidden');
+}
+async function salvarAbordarEm(id,limpar){
+  const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
+  const d=limpar?'':(document.getElementById('abordar-data').value||'');
+  if(!limpar&&!d){toast('Escolha a data','red');return;}
+  fecharModal('ov-abordar');
+  l.abordarEm=d;await salvarCamposMk(id,{abordarEm:d});
+  await regHistMk(l,d?'📅 Abordar em '+isoParaBR(d):'📅 Data de abordagem removida','',G.user?.n||'','blue');
+  toast(d?'Abordar em '+isoParaBR(d):'Data removida');
+  if(G.mk.detailId===id)abrirDetailLead(id);
+  renderMarketing();
+}
+window.abrirAbordarEm=abrirAbordarEm;window.salvarAbordarEm=salvarAbordarEm;
 async function moverLead(id,novaCol,tipoNegOk){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   if(!tipoNegOk&&!podeTirarDaVenda(lead,novaCol))return;
