@@ -3649,9 +3649,9 @@ function botaoAbordarEm(l){
   const d=l.abordarEm||'';
   if(!d)return `<button class="card-btn card-btn-label" onclick="abrirAbordarEm('${l.id}',event)" title="Agendar a data do próximo contato">📅 Abordar em</button>`;
   const hojeISO=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
-  const venceu=d<hojeISO; // vermelho so' DEPOIS da data escolhida; antes e no dia fica normal (branco)
+  const venceu=d<=hojeISO; // vermelho NO DIA escolhido e depois; antes fica normal (branco)
   const estilo=venceu?'background:var(--red);color:#fff;font-weight:700':'';
-  return `<button class="card-btn card-btn-label" style="${estilo}" onclick="abrirAbordarEm('${l.id}',event)" title="${venceu?'Passou da data de abordar o cliente!':'Próximo contato agendado'}">📅 Abordar em ${isoParaBR(d)}</button>`;
+  return `<button class="card-btn card-btn-label" style="${estilo}" onclick="abrirAbordarEm('${l.id}',event)" title="${venceu?'Dia de abordar o cliente!':'Próximo contato agendado'}">📅 Abordar em ${isoParaBR(d)}</button>`;
 }
 function abrirAbordarEm(id,e){
   if(e)e.stopPropagation();
