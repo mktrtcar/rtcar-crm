@@ -116,7 +116,7 @@ async function criarLeadLitoral(p,emailId){
     tx.set(refSeq,{leadSeq:seq},{merge:true});
     tx.set(db.collection('leads').doc(novoId),{
       id:novoId,dt:dataBR(agora),dtISO:agora.toISOString().slice(0,10),_criadoEm:agora.toISOString(),
-      st:'ia',by:'',captador:'',uid:'',origem:'LitoralCar',
+      st:'ia',by:'',captador:'',uid:'',origem:'Litoral Car',
       clienteNome:p.nome,clienteTel:p.telefone,clienteTelNorm:telNorm,clienteEmail:p.email,
       veiculo:'',valor:'',obs,convertido:false,dtVenda:'',motivoPerda:'',
       historico:[{dt:dataBR(agora)+' '+horaBR(agora),icone:'blue',acao:'Lead criado',obs:'Via LitoralCar (e-mail de proposta)',by:'LitoralCar'}],
