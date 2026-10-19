@@ -252,3 +252,4 @@ Object.assign(exports,require('./migrar-site'));
 Object.assign(exports,require('./vincular-estoque'));
 Object.assign(exports,require('./historico-hora'));
 Object.assign(exports,require('./aviso-fotos'));
+Object.assign(exports,require('./webmotors'));
