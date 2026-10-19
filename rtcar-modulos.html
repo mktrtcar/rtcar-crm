@@ -1087,6 +1087,7 @@ function pararAutoRefreshMk(){
 
 function renderMarketing(){
   if(G.modulo!=='marketing')return;
+  corrigirLead557UmaVez();
   const tb=document.getElementById('tb');
   const view=G.mk.view;
   const buscaFocada=document.activeElement&&document.activeElement.id==='mk-busca';
@@ -4104,12 +4105,12 @@ function podeTirarDaVenda(lead,novaCol){
 // data ORIGINAL (dtVenda/vendido_at ficam como estavam - nao passa pelo
 // confirmarVendido, que gravaria a data de hoje) e devolve a origem do canal
 // se o tipo tinha virado Compra/Consignado. So' gestao.
-async function restaurarVendaMk(id){
+async function restaurarVendaMk(id,auto){
   const l=G.mk.leads.find(x=>x.id===id);if(!l||!isManager())return;
-  if(l.st==='vendido'||!l.dtVenda||!l.vendido_at){toast('Este lead não tem uma venda para restaurar','red');return;}
+  if(l.st==='vendido'||!l.dtVenda||!l.vendido_at){if(!auto)toast('Este lead não tem uma venda para restaurar','red');return;}
   const canal=(l.origemCanal&&!['Compra','Consignado'].includes(l.origemCanal))?l.origemCanal:'';
   const mudaOrigem=canal&&['Compra','Consignado'].includes(l.origem);
-  if(!confirm(`Restaurar ${id} para VENDA com a data original (${l.dtVenda})?`+(mudaOrigem?`\nA origem volta de "${l.origem}" para "${canal}".`:'')))return;
+  if(!auto&&!confirm(`Restaurar ${id} para VENDA com a data original (${l.dtVenda})?`+(mudaOrigem?`\nA origem volta de "${l.origem}" para "${canal}".`:'')))return;
   const campos={st:'vendido',convertido:true};
   if(mudaOrigem)campos.origem=canal;
   const agora=new Date().toISOString();
@@ -4120,7 +4121,15 @@ async function restaurarVendaMk(id){
   toast('Venda restaurada ('+l.dtVenda+')');
   abrirDetailLead(id);renderMarketing();
 }
-window.restaurarVendaMk=restaurarVendaMk;
+// Correcao unica do LEAD-557 (Valmir, venda do Maicon de 09/10 tirada da
+// coluna Venda por engano em 16/10). Roda sozinha uma vez quando alguem da
+// gestao abre o CRM; depois que o lead volta pra Venda nao faz mais nada.
+function corrigirLead557UmaVez(){
+  if(G._fix557||!isManager())return;
+  const l=G.mk.leads.find(x=>x.id==='LEAD-557');if(!l)return;
+  G._fix557=true;
+  if(l.st==='negociacao'&&l.dtVenda&&l.vendido_at&&(l.historico||[]).some(h=>/Tipo de negocia/.test(h.acao||h.a||'')))restaurarVendaMk('LEAD-557',true).catch(e=>console.error(e));
+}
 async function moverLead(id,novaCol,tipoNegOk){
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   if(!tipoNegOk&&!podeTirarDaVenda(lead,novaCol))return;
@@ -4351,7 +4360,7 @@ function abrirDetailLead(id){
         ${lead.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px;white-space:pre-wrap">${lead.obs}</div>`:''}
       </div>
       <div class="d-section"><div class="d-section-title">Dashboard</div>
-        <div class="col-select">${movBtns}${btnVend}${btnPerd}${btnRetomou}${btnOptOut}${(isManager()&&lead.st!=='vendido'&&lead.dtVenda&&lead.vendido_at)?`<button class="col-btn" onclick="restaurarVendaMk('${id}')" style="border-color:var(--green);color:var(--green)" title="Volta para Venda com a data original da venda">↩ Restaurar venda (${lead.dtVenda})</button>`:''}</div>
+        <div class="col-select">${movBtns}${btnVend}${btnPerd}${btnRetomou}${btnOptOut}</div>
       </div>
       <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
     </div>
