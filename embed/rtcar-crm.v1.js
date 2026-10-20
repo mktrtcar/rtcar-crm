@@ -250,6 +250,16 @@ function labelDias(d){if(d<30)return`${d}d`;if(d<365)return`${Math.floor(d/30)}m
 function aniversarioMes(dtNasc){if(!dtNasc)return false;return parseInt(dtNasc.split('-')[1])===new Date().getMonth()+1;}
 function mascaraTel(el){let v=el.value.replace(/\D/g,'');el.value=(v.length<=10?v.replace(/(\d{2})(\d{4})(\d+)/,'($1) $2-$3'):v.replace(/(\d{2})(\d{5})(\d+)/,'($1) $2-$3')).substring(0,15);}
 function fecharModal(id){document.getElementById(id).classList.add('hidden');}
+/* Painel lateral do card: volta a fechar clicando fora (20/10/2026, pedido da
+   Aline), mas so' num clique de verdade no fundo - se o botao do mouse foi
+   apertado DENTRO do painel (ex: selecionando uma palavra e arrastando pra
+   esquerda) e solto fora, nao fecha (motivo da mudanca de 16/10). */
+function armarFecharDetailFora(){
+  const ov=document.getElementById('detail-ov');if(!ov||ov._armado)return;ov._armado=true;
+  let desceuNoFundo=false;
+  ov.addEventListener('mousedown',e=>{desceuNoFundo=(e.target===ov);});
+  ov.addEventListener('click',e=>{if(desceuNoFundo&&e.target===ov)fecharDetail();desceuNoFundo=false;});
+}
 function fecharDetail(){document.getElementById('detail-ov').classList.add('hidden');document.getElementById('detail-pnl').classList.add('hidden');G.mk.detailId=null;G.rel.detailId=null;}
 function toast(msg,tipo='green',ms=3000){
   const el=document.getElementById('toast');el.textContent=msg;
@@ -496,6 +506,7 @@ function atualizarAlertaCard(el){
     st.textContent='#rtcar-crm-root .lcard.lcard-alerta{background:#e8431e;border-left-color:#a32c10!important;box-shadow:0 0 0 2px #a32c10}#rtcar-crm-root .lcard.lcard-alerta .card-id,#rtcar-crm-root .lcard.lcard-alerta .card-nome,#rtcar-crm-root .lcard.lcard-alerta .card-sub,#rtcar-crm-root .lcard.lcard-alerta .card-sub .ti,#rtcar-crm-root .lcard.lcard-alerta .live-timer{color:#fff!important}';
     document.head.appendChild(st);
   }
+  if(el.dataset.alertaAbordar){el.classList.toggle('lcard-alerta',el.dataset.alertaAbordar<=hojeISOlocal());return;}
   if(el.dataset.alertaData){el.classList.toggle('lcard-alerta',el.dataset.alertaData<hojeISOlocal());return;}
   el.classList.toggle('lcard-alerta',Date.now()-new Date(el.dataset.alertaDesde)>(+el.dataset.alertaLimite||LIMITE_ALERTA_CARD_MS));
 }
@@ -959,6 +970,10 @@ function renderKanbanMk(cnt){
       // 07/10/2026: limite por coluna (LIMITES_ALERTA_COL); Agendamento so' pela data.
       if(col.id==='agendamento'){
         if(l.agendamentoData&&!l.agendamentoStatus){c.dataset.alertaData=l.agendamentoData;atualizarAlertaCard(c);}
+      }else if(col.id==='negociacao'&&l.abordarEm){
+        // Com "Abordar em" marcado o vendedor ja combinou a data do retorno: o card
+        // so' fica vermelho a partir dessa data, nao pelas 4h sem acao (20/10/2026).
+        c.dataset.alertaAbordar=l.abordarEm;atualizarAlertaCard(c);
       }else if(LIMITES_ALERTA_COL[col.id]&&timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;c.dataset.alertaLimite=LIMITES_ALERTA_COL[col.id];atualizarAlertaCard(c);}
       const timerInline=col.timer&&timerStart&&!timerEnd?
         `<span class="live-timer" data-start="${timerStart}" style="color:#e8431e;font-weight:700;font-size:11px;letter-spacing:0.5px">calculando...</span>`:
@@ -3874,7 +3889,7 @@ function abrirDetailLead(id){
   const timerEtapaHtml=lead.st==='vendido'?null:timerStartEtapa&&!timerEndEtapa?
     `<span class="live-timer" data-start="${timerStartEtapa}" style="color:#e8431e;font-weight:700">calculando...</span>`:
     (timerStartEtapa&&timerEndEtapa?`${calcElapsed(timerStartEtapa,timerEndEtapa)}`:null);
-  document.getElementById('detail-ov').classList.remove('hidden');
+  armarFecharDetailFora();document.getElementById('detail-ov').classList.remove('hidden');
   const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
   const hist=(lead.historico||[]).slice().reverse();
   // A assistente se chamava Eloá e hoje é Eva; entradas antigas ficaram
@@ -5059,7 +5074,7 @@ async function salvarCamposRel(id,campos){
 function abrirDetailCliente(id){
   G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
   const col=colAtualRel(c);const dias=diasDesdeCompra(c.dtCompra);const aniv=aniversarioMes(c.dtNascimento);
-  document.getElementById('detail-ov').classList.remove('hidden');
+  armarFecharDetailFora();document.getElementById('detail-ov').classList.remove('hidden');
   const pnl=document.getElementById('detail-pnl');pnl.classList.remove('hidden');
   const hist=(c.historico||[]).slice().reverse();
   const histHtml=hist.length?hist.map(h=>`<div class="hist-item"><div class="hist-dot" style="background:${col.bg};font-size:16px">${h.emoji||'📝'}</div><div class="hist-info"><div class="hist-acao">${h.acao}</div>${h.obs?`<div class="hist-obs">${h.obs}</div>`:''}<div class="hist-meta">${h.dt} · ${h.by||'Sistema'}</div></div></div>`).join(''):'<div style="color:var(--tx3);font-size:12px">Nenhuma interação.</div>';
