@@ -31,7 +31,7 @@ const path = require('path');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const P = require('pino')({ level: 'silent' });
 const qrcode = require('qrcode');
-const { fbList: fbListRaw, fbGet, fbUpdate: fbUpdateRaw } = require('./firestore');
+const { fbList: fbListRaw, fbGet, fbUpdate: fbUpdateRaw, criarComSequencia } = require('./firestore');
 
 /* Cota de leitura do Firestore estourada (02/10/2026: "429 Quota exceeded"
    até em leitura de 1 documento, mesmo com o robô parado). Cada ciclo de 20s
@@ -704,13 +704,17 @@ async function responderComIA(jid, leadId, mensagemCliente, meuTurno) {
     // acima) — então a mensagem de transferência já pode citar isso, em vez
     // de ficar genérica mesmo quando a foto está sendo mandada.
     const vaiMandarFoto = !ehPerdido && !!dadosVeiculo?.fotos?.length;
-    const mensagens = ehPerdido
+    const mensagensBase = ehPerdido
       ? rotulo === 'perdido_comprou'
         ? [`Que ótima notícia${primeiroNome ? ', ' + primeiroNome : ''}! Parabéns pela compra 😊 Obrigada por avisar — qualquer coisa que precisar no futuro, é só chamar!`]
         : [`Sem problema${primeiroNome ? ', ' + primeiroNome : ''}! Fico à disposição se mudar de ideia ou se surgir interesse mais pra frente 😊`]
       : vaiMandarFoto
         ? [`Certo${primeiroNome ? ', ' + primeiroNome : ''}! Vou te mandar as fotos agora e já te conectar com um consultor da nossa equipe, que te passa todos os detalhes 😊`]
         : [`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou te conectar agora com um consultor da nossa equipe, que já te passa todos os detalhes 😊`];
+    // Cliente que chamou primeiro (anúncio/WhatsApp direto) nunca recebeu a saudação da Eva - começa com um olá.
+    const mensagens = lead.contatoEntrante && !conversa.length
+      ? [`Olá${primeiroNome ? ', ' + primeiroNome : ''}! 😊 Aqui é a Eva, da RT Car. Obrigada pelo contato!`, ...mensagensBase]
+      : mensagensBase;
 
     let completou;
     let fotosEnviadas = false;
@@ -1254,6 +1258,113 @@ let primeiroBootFeito = false; // start() roda de novo a cada reconexão (connec
 // trava, o retry de reconstruirTelParaLeadId (e o próprio rebuild) repetia a cada reconexão, e com a
 // conexão instável caindo a cada poucos segundos isso virou um consumo extra de CPU/memória sem necessidade
 // (achado em 30/09/2026, processo com 2 dias no ar chegando a 293% de CPU). Só precisa rodar uma vez.
+/* Cliente que chama PRIMEIRO no WhatsApp da Eva (20/10/2026, pedido da Aline:
+   os anuncios da Meta vao mandar o botao "Enviar mensagem" pro numero da Eva,
+   e hoje ela ignorava quem ela nao tinha cumprimentado - o lead ficava sem
+   resposta e precisava ser cadastrado a mao no CRM).
+   - grupo, status, canal e numero da propria equipe: ignora;
+   - telefone que ja tem lead ABERTO no CRM: nao duplica - se o lead esta na
+     I.A., a Eva responde normalmente; se ja esta com vendedor, so' registra no
+     historico e avisa o vendedor;
+   - telefone novo: cria o lead na coluna I.A. (origem Facebook/Instagram
+     quando a mensagem veio de um anuncio, senao "Telefone"), ja marcado como
+     abordado (o ciclo normal nao manda saudacao de novo) e responde na hora
+     pelo mesmo caminho de sempre (modo simples: ola + encaminha pro rodizio).
+   Leads que chegam pelo Autoconf/portais nao passam por aqui - continuam
+   exatamente como antes (saudacao pela Eva no ciclo de 20s). */
+const contatosNovosEmAndamento = new Set();
+const ultimoAvisoVendedor = new Map(); // leadId -> ms (no maximo 1 aviso a cada 6h por lead)
+function telefonesDaEquipe() {
+  const set = new Set(Object.values(WHATSAPP_VENDEDORES).map((j) => chaveTel(j.split('@')[0])));
+  if (NOTIFICACAO_PESSOAL) set.add(chaveTel(NOTIFICACAO_PESSOAL.split('@')[0]));
+  return set;
+}
+function dadosDoAnuncio(msg) {
+  for (const v of Object.values(msg.message || {})) {
+    const ad = v && typeof v === 'object' && v.contextInfo && v.contextInfo.externalAdReply;
+    if (ad && (ad.sourceType === 'ad' || ad.sourceId || ad.sourceUrl)) return ad;
+  }
+  return null;
+}
+function formatarTelBR(digitos) {
+  let d = String(digitos || '').replace(/\D/g, '');
+  if (d.startsWith('55') && d.length >= 12) d = d.slice(2);
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return d;
+}
+async function tratarContatoNovo(msg, jid, jidTel, chave) {
+  if (!chave || /@(g\.us|broadcast|newsletter)$/.test(jid) || jid === 'status@broadcast') return;
+  if (!/@s\.whatsapp\.net$/.test(jidTel)) { console.log(`[contato novo] ${jid} sem telefone visível (LID) — ignorado.`); return; }
+  if (telefonesDaEquipe().has(chave)) return;
+  const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+  const ehAudio = !!msg.message.audioMessage;
+  if (!texto && !ehAudio) return; // figurinha, reação, foto sem legenda: não abre lead
+  if (contatosNovosEmAndamento.has(chave)) return;
+  contatosNovosEmAndamento.add(chave);
+  try {
+    const leads = await fbList('leads');
+    const aberto = leads.find((l) => chaveTel(l.clienteTel) === chave && !['vendido', 'perdido'].includes(l.st));
+    if (aberto && aberto.st === 'ia') {
+      // Lead de portal que chamou no WhatsApp antes da saudacao da Eva sair: marca como abordado
+      // (o ciclo nao manda a saudacao depois) e responde com o ola, igual contato novo.
+      if (!aberto.eloaEnviadoEm) { await fbUpdate('leads', aberto.id, { eloaEnviadoEm: new Date().toISOString(), contatoEntrante: true, conversaEloa: aberto.conversaEloa || [] }); }
+      telParaLeadId.set(chave, aberto.id);
+    } else if (aberto) {
+      const historico = [...(aberto.historico || []), { dt: agoraDt(), icone: 'gold', acao: '📩 Cliente chamou no WhatsApp da Eva', obs: texto || '(áudio)', by: 'Eva' }];
+      await fbUpdate('leads', aberto.id, { historico });
+      const ult = ultimoAvisoVendedor.get(aberto.id) || 0;
+      if (aberto.captador && Date.now() - ult > 6 * 3600 * 1000) {
+        ultimoAvisoVendedor.set(aberto.id, Date.now());
+        const jv = WHATSAPP_VENDEDORES[aberto.captador];
+        if (jv && sock) await sock.sendMessage(jv, { text: `📩 ${aberto.clienteNome || aberto.id} (${aberto.id}) mandou mensagem no WhatsApp da Eva: "${(texto || '(áudio)').slice(0, 300)}". Ele já é seu lead — responda o cliente pelo seu WhatsApp.` });
+      }
+      console.log(`[contato novo] ${aberto.id} já está com vendedor — registrado e avisado.`);
+      return;
+    } else {
+      const ad = dadosDoAnuncio(msg);
+      const urlAd = String((ad && (ad.sourceUrl || ad.mediaUrl)) || '');
+      const origem = ad ? (/instagram/i.test(urlAd) ? 'Instagram' : 'Facebook') : 'Telefone';
+      const tituloAd = ad ? [ad.title, ad.body].filter(Boolean).join(' — ') : '';
+      const veiculoAd = (tituloAd && buscarVeiculoNoTexto(tituloAd)) || (texto && buscarVeiculoNoTexto(texto)) || null;
+      const agora = new Date();
+      const digitos = jidTel.split('@')[0];
+      const novoId = await criarComSequencia('leads_config', 'mk', 'leadSeq', 'leads', (seq) => {
+        const id = `LEAD-${String(seq).padStart(3, '0')}`;
+        return { id, dados: {
+          id, dt: hoje(), dtISO: agora.toISOString().slice(0, 10), _criadoEm: agora.toISOString(),
+          st: 'ia', by: '', captador: '', uid: '', origem,
+          clienteNome: (msg.pushName || '').trim(), clienteTel: formatarTelBR(digitos), clienteTelNorm: chave, clienteEmail: '',
+          veiculo: veiculoAd ? [veiculoAd.b, veiculoAd.m].filter(Boolean).join(' ') : '',
+          valor: '', obs: ad ? `Veio do anúncio: ${tituloAd || urlAd}${urlAd ? ' (' + urlAd + ')' : ''}` : 'Cliente chamou direto no WhatsApp da Eva.',
+          convertido: false, dtVenda: '', motivoPerda: '',
+          historico: [{ dt: agoraDt(), icone: 'blue', acao: 'Lead criado', obs: `Cliente chamou primeiro no WhatsApp da Eva${ad ? ' (anúncio ' + origem + ')' : ''}: "${(texto || '(áudio)').slice(0, 300)}"`, by: 'Eva' }],
+          pendente_at: '', pendente_end: '', atendimento_at: '', atendimento_end: '', notificacaoVendedorEm: '',
+          contatoEntrante: true, eloaEnviadoEm: agora.toISOString(), ultimaMensagemEm: agora.toISOString(), followUpStep: 0, conversaEloa: [],
+        } };
+      });
+      leadsCache.dados = null;
+      telParaLeadId.set(chave, novoId);
+      console.log(`✅ Contato novo virou lead: ${novoId} (${origem}) — ${msg.pushName || digitos}`);
+    }
+  } finally {
+    contatosNovosEmAndamento.delete(chave);
+  }
+  // Responde pelo caminho normal (mesmo que o cliente que respondeu a saudação).
+  const leadId = telParaLeadId.get(chave);
+  if (!leadId) return;
+  const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;
+  turnoPorLead.set(leadId, meuTurno);
+  if (texto) return processarMensagemSequencial(leadId, () => responderComIA(jid, leadId, texto, meuTurno));
+  return processarMensagemSequencial(leadId, async () => {
+    try {
+      const buffer = await downloadMediaMessage(msg, 'buffer', {});
+      const t = await transcreverAudio(buffer, msg.message.audioMessage.mimetype);
+      if (t && !/áudio incompreensível/i.test(t)) await responderComIA(jid, leadId, `[Áudio transcrito] ${t}`, meuTurno);
+    } catch (e) { console.error(`Erro ao transcrever áudio de ${leadId}:`, e.message); }
+  });
+}
+
 async function start() {
   if (!primeiroBootFeito) {
     primeiroBootFeito = true;
@@ -1312,7 +1423,7 @@ async function start() {
     const jidTel = msg.key.remoteJidAlt || msg.key.remoteJid;
     const chave = chaveTel(jidTel.split('@')[0]);
     const leadId = telParaLeadId.get(chave);
-    if (!leadId) return; // não é um número que a Eloá cumprimentou
+    if (!leadId) { tratarContatoNovo(msg, jid, jidTel, chave).catch((e) => console.error('Erro no contato novo:', e.message)); return; }
     const texto = msg.message.conversation || msg.message.extendedTextMessage?.text;
     if (texto) {
       const meuTurno = (turnoPorLead.get(leadId) || 0) + 1;

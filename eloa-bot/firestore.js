@@ -98,4 +98,31 @@ async function fbUpdate(col, id, data) {
   if (!r.ok) throw new Error(await r.text());
 }
 
-module.exports = { fbList, fbGet, fbUpdate, FB, FB_URL };
+/* Cria um documento novo reservando o proximo numero de uma sequencia, tudo
+   num commit so (19/10/2026 - lead que chama primeiro no WhatsApp da Eva).
+   Usa a updateTime do doc da sequencia como trava: se outro processo (ex: o
+   webhook do Autoconf) pegou o mesmo numero no meio, o commit falha e tenta
+   de novo com o numero seguinte - nunca dois leads com o mesmo ID. */
+async function criarComSequencia(colSeq, idSeq, campoSeq, colDoc, montar, tentativas = 5) {
+  const base = `projects/${FB.projectId}/databases/(default)/documents`;
+  for (let i = 0; i < tentativas; i++) {
+    const r = await fbFetch(`${FB_URL}/${colSeq}/${idSeq}`);
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    const atual = fromFF(j.fields)[campoSeq] || 0;
+    const seq = atual + 1;
+    const { id, dados } = montar(seq);
+    const body = { writes: [
+      { update: { name: `${base}/${colSeq}/${idSeq}`, fields: toFF({ [campoSeq]: seq }) }, updateMask: { fieldPaths: [campoSeq] }, currentDocument: { updateTime: j.updateTime } },
+      { update: { name: `${base}/${colDoc}/${id}`, fields: toFF(dados) }, currentDocument: { exists: false } },
+    ] };
+    const c = await fbFetch(`https://firestore.googleapis.com/v1/${base}:commit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (c.ok) return id;
+    const erro = await c.text();
+    if (!/FAILED_PRECONDITION|ALREADY_EXISTS|ABORTED/.test(erro)) throw new Error(erro);
+    await new Promise((res) => setTimeout(res, 300 + Math.random() * 700));
+  }
+  throw new Error("Nao consegui reservar o numero do lead depois de varias tentativas.");
+}
+
+module.exports = { fbList, fbGet, fbUpdate, criarComSequencia, FB, FB_URL };
