@@ -584,7 +584,7 @@ const CAMPOS_TIMER_COL={ia:['_criadoEm',null],atendimento:['atendimento_at','ate
 const ORIGENS_MK={
   marketing:['Facebook','Instagram','Google + Site','Telefone','Mercado Livre','iCarros','Na Pista','WebMotors','Litoral Car','Mobiauto','OLX','Estética','Relacionamento'],
   compra:['Compra'],
-  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','Recompra','BV','Repasse','Consignado']
+  outros:['Passante','Loja','Evento Externo','My Business','Outra','Carteira','Prospecção','Indicação','Recompra','BV','Repasse','Consignado'] // Consignado/Compra continuam aqui so' pra contagens - no cadastro sao escolhidos em 'Tipo de negociacao' (20/10/2026)
 };
 const TODAS_ORIGENS=[...ORIGENS_MK.marketing,...ORIGENS_MK.compra,...ORIGENS_MK.outros];
 function tipoOrigem(o){if(ORIGENS_MK.marketing.includes(o))return'marketing';if(ORIGENS_MK.compra.includes(o))return'compra';return'outros';}
@@ -877,7 +877,7 @@ function popularSelects(){
   if(selVendCli){selVendCli.innerHTML='<option value="">Selecione...</option>'+VENDEDORES_ATIVOS.map(v=>`<option value="${v}">${v}</option>`).join('');}
   // quando origem=Compra, auto-seleciona Milena
   const selOrigem=document.getElementById('f-origem');
-  if(selOrigem) selOrigem.onchange=function(){if(this.value==='Compra'&&selCap&&!selCap.value)selCap.value='Milena';atualizarCamposOrigemLead();};
+  if(selOrigem) selOrigem.onchange=function(){atualizarCamposOrigemLead();};
 }
 
 /* ---- NAVEGAÇÃO ENTRE MÓDULOS ---- */
@@ -2829,7 +2829,7 @@ function abrirModalLead(id=null,etapa=null){
   document.getElementById('btn-salvar-lead-txt').textContent=id?'Salvar Alterações':'Salvar Lead';
   document.getElementById('f-nome').value=l?.clienteNome||'';document.getElementById('f-tel').value=l?.clienteTel||'';
   document.getElementById('f-email').value=l?.clienteEmail||'';document.getElementById('f-origem').value=l?.origem||'';
-  document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';garantirCampoVeiculo2(l);
+  document.getElementById('f-captador').value=l?.captador||l?.by||G.user?.n||'';document.getElementById('f-veiculo').value=l?.veiculo||'';prepararTipoLead(l);garantirCampoVeiculo2(l);
 
   document.getElementById('f-veiculo-placa').value=l?.veiculoPlaca||'';
   // RT Cred (resgate BV) cadastra o lead ja em Atendimento - o trabalho dela
@@ -2853,7 +2853,8 @@ function abrirModalLead(id=null,etapa=null){
 // veiculo de troca (achado real: Toyota Cross SDB-7C40 fechado sem
 // avaliacao porque esse caminho nao existia - pedido da Aline, 30/09/2026).
 function atualizarCamposOrigemLead(){
-  const origem=document.getElementById('f-origem').value;
+  const selTipo=document.getElementById('f-tipo-neg');
+  const origem=selTipo?(selTipo.value==='compra'?'Compra':selTipo.value==='consignacao'?'Consignado':document.getElementById('f-origem').value):document.getElementById('f-origem').value;
   const ehCompra=origem==='Compra';
   document.getElementById('lbl-veiculo-interesse').textContent=ehCompra?'Veículo do cliente (a ser comprado)':'Veículo de interesse';
   document.getElementById('btn-buscar-estoque').style.display=ehCompra?'none':'';
@@ -3573,8 +3574,16 @@ if(!window._lcSugFechamento){window._lcSugFechamento=true;
 window.leadClienteEscolher=leadClienteEscolher;
 
 async function salvarLead(){
-  const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim(),origem=document.getElementById('f-origem').value;
-  if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}if(!origem){toast('Selecione a origem','red');return;}
+  const nome=document.getElementById('f-nome').value.trim(),tel=document.getElementById('f-tel').value.trim();
+  // Origem = canal; Compra/Consignacao vem do "Tipo de negociacao" (20/10/2026,
+  // pedido da Aline). Internamente o lead de Compra continua com origem "Compra"
+  // (tudo que depende disso segue igual) e o canal fica em origemCanal.
+  const canalForm=document.getElementById('f-origem').value;
+  const tipoNegForm=(document.getElementById('f-tipo-neg')||{}).value||'venda';
+  if(!nome){toast('Informe o nome','red');return;}if(!tel){toast('Informe o telefone','red');return;}
+  if(!canalForm||(canalForm==='__semcanal'&&tipoNegForm==='venda')){toast('Selecione a origem','red');return;}
+  const origem=tipoNegForm==='compra'?'Compra':tipoNegForm==='consignacao'?'Consignado':canalForm;
+  const origemCanalForm=(tipoNegForm!=='venda'&&canalForm!=='__semcanal')?canalForm:undefined;
   // "Compra" e "BV" sao canais de proposito diferente (troca/resgate) - o
   // MESMO cliente pode legitimamente ter mais de um lead aberto ao mesmo
   // tempo, um de cada tipo (ex: Luciano vendeu um carro com o Maicon E
@@ -3609,7 +3618,7 @@ async function salvarLead(){
   const stEscolhido=document.getElementById('f-etapa').value||'aguardando';
   const agora=new Date().toISOString();
   const leadExistente=G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):null;
-  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),clienteCidade:document.getElementById('f-cliente-cidade').value.trim(),clienteUF:document.getElementById('f-cliente-uf').value.trim(),origem,captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculo2:(document.getElementById('f-veiculo2')||{value:''}).value.trim(),
+  const data={clienteNome:nome,clienteTel:tel,clienteEmail:document.getElementById('f-email').value.trim(),clienteCidade:document.getElementById('f-cliente-cidade').value.trim(),clienteUF:document.getElementById('f-cliente-uf').value.trim(),origem,...(origemCanalForm!==undefined?{origemCanal:origemCanalForm}:{}),...(tipoNegForm!=='venda'?{tipoNegDefinido:true}:{}),captador:captador||G.user?.n||'',by:G.user?.n||'',uid:G.user?.id||'',veiculo:document.getElementById('f-veiculo').value.trim(),veiculo2:(document.getElementById('f-veiculo2')||{value:''}).value.trim(),
 veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroca:_veiculoTrocaAtual||null,valor:document.getElementById('f-valor').value.trim(),st:stEscolhido,dtISO,dt:isoParaBR(dtISO),obs:document.getElementById('f-obs').value.trim()};
   // Cronometro das colunas com timer (Atendimento/Agendamento): sem isso, um
   // lead criado ou movido manualmente pra essas etapas nunca teria a contagem
@@ -3936,6 +3945,27 @@ async function criarLeadExtraVenda(lead,veiculo2,placa2){
   await regHistMk(extra,'🔗 Criado como 2º veículo do '+lead.id,'Mesma negociação, cliente '+extra.clienteNome+'.',G.user?.n||'','green');
   await regHistMk(lead,'🔗 2º veículo registrado como '+id,veiculo2+(placa2?' — placa '+placa2:''),G.user?.n||'','green');
   return extra;
+}
+/* Tipo de negociacao no cadastro do lead (20/10/2026, pedido da Aline): "Compra"
+   e "Consignado" sairam da lista de Origem - a origem e' so' o canal e o tipo
+   e' escolhido aqui. Lead antigo com origem Compra/Consignado sem canal salvo
+   aparece como "(canal nao informado)" e continua funcionando igual. */
+function prepararTipoLead(l){
+  const sel=document.getElementById('f-origem');if(!sel)return;
+  [...sel.querySelectorAll('option')].forEach(o=>{if(['Compra','Consignado','__semcanal'].includes(o.value||o.textContent))o.remove();});
+  let wrap=document.getElementById('f-tipo-neg-wrap');
+  if(!wrap){
+    wrap=document.createElement('div');wrap.className='field';wrap.id='f-tipo-neg-wrap';
+    wrap.innerHTML='<label>Tipo de negociação</label><select id="f-tipo-neg"><option value="venda">Venda</option><option value="compra">Compra</option><option value="consignacao">Consignação</option></select>';
+    (sel.closest('.field-row')||sel.closest('.field')).after(wrap);
+    document.getElementById('f-tipo-neg').onchange=function(){const cap=document.getElementById('f-captador');if(this.value==='compra'&&cap&&!cap.value)cap.value='Milena';atualizarCamposOrigemLead();};
+  }
+  const tipo=l?tipoNegociacaoAtual(l):'venda';
+  document.getElementById('f-tipo-neg').value=tipo;
+  let canal=l?l.origem||'':'';
+  if(l&&['Compra','Consignado'].includes(l.origem))canal=(l.origemCanal&&!['Compra','Consignado'].includes(l.origemCanal))?l.origemCanal:'__semcanal';
+  if(canal==='__semcanal'){const o=document.createElement('option');o.value='__semcanal';o.textContent='(canal não informado)';sel.appendChild(o);}
+  sel.value=canal;
 }
 function garantirCampoVeiculo2(l){
   let wrap=document.getElementById('f-veiculo2-wrap');
