@@ -3091,7 +3091,7 @@ if(!window._lcSugFechamento){window._lcSugFechamento=true;
   let _ovDesceuEm=null;
   document.addEventListener('mousedown',e=>{_ovDesceuEm=e.target;},true);
   document.addEventListener('click',e=>{const t=e.target;
-    if(t&&t.classList&&t.classList.contains('ov')&&t.id&&t.id.startsWith('ov-')&&_ovDesceuEm===t)fecharModal(t.id);
+    if(t&&t.classList&&t.classList.contains('ov')&&t.id&&t.id.startsWith('ov-')&&!['ov-lead','ov-cliente'].includes(t.id)&&_ovDesceuEm===t)fecharModal(t.id); // cadastro/edicao de lead e cliente: so' pelo X/Salvar/Cancelar (pedido da Aline, 21/10)
     else if(t&&t.id==='detail-ov'&&_ovDesceuEm===t)fecharDetail();
     _ovDesceuEm=null;});
   // Tudo em MAIUSCULO na hora que a pessoa digita (16/10/2026, pedido da
