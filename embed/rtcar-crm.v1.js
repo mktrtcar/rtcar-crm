@@ -1202,8 +1202,7 @@ function abrirRelatorioCanal(){
       </div>
       <div class="mod-foot"><button class="btn btn-outline" onclick="fecharModal('ov-rel-canal')">Fechar</button><button class="btn btn-red" onclick="gerarRelatorioCanal()"><i class="ti ti-download"></i> Baixar planilha</button></div>
     </div>`;
-    (document.getElementById('ov-an')||{}).parentNode?.appendChild(ov)||document.body.appendChild(ov);
-    if(!ov.parentNode)document.body.appendChild(ov);
+    const paiRc=document.getElementById('ov-vendido');if(paiRc&&paiRc.parentNode)paiRc.parentNode.appendChild(ov);else document.body.appendChild(ov);
   }
   document.getElementById('rc-de').value=G.mk.filtroDataInicio||hojeISOlocal(-6);
   document.getElementById('rc-ate').value=G.mk.filtroDataFim||hojeISOlocal(0);
@@ -3085,6 +3084,16 @@ if(!window._lcSugFechamento){window._lcSugFechamento=true;
     if(!t.closest('#lead-cliente-sug')&&t.id!=='f-nome'&&t.id!=='f-tel')ocultarSugestaoCliente();
     if(t.tagName==='INPUT'&&t.closest('#rtcar-crm-root')&&!t.hasAttribute('autocomplete'))t.setAttribute('autocomplete','off');});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')ocultarSugestaoCliente();});
+  // Qualquer janela do CRM fecha clicando fora (21/10/2026, pedido da Aline) - mas
+  // so' quando o botao do mouse desceu E subiu no fundo escuro: selecionar texto
+  // dentro da janela e soltar o mouse fora NAO fecha (motivo da trava de 16/10).
+  // So' janelas do CRM (id comecando com "ov-"); as do sistema principal nao.
+  let _ovDesceuEm=null;
+  document.addEventListener('mousedown',e=>{_ovDesceuEm=e.target;},true);
+  document.addEventListener('click',e=>{const t=e.target;
+    if(t&&t.classList&&t.classList.contains('ov')&&t.id&&t.id.startsWith('ov-')&&_ovDesceuEm===t)fecharModal(t.id);
+    else if(t&&t.id==='detail-ov'&&_ovDesceuEm===t)fecharDetail();
+    _ovDesceuEm=null;});
   // Tudo em MAIUSCULO na hora que a pessoa digita (16/10/2026, pedido da
   // Aline - os cadastros ficavam misturados). So' o que e' digitado/colado
   // agora; o que ja' esta' salvo nao muda. Fora: e-mail, senha, links e
