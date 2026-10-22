@@ -900,16 +900,18 @@ function podeVerModulo(mod){
 }
 function mkLeadsFiltrados(){
   let ls=[...G.mk.leads];
+  // Quem cadastrou (by) so' ve o lead se ele ainda nao tem vendedor: lead
+  // TRANSFERIDO sai da tela de quem cadastrou (22/10/2026, caso Ezequiel -> Janderson).
   // CONTROLE DE ACESSO: vendedor vê só seus leads (inclui os "replicados"
   // pra ele - lead que continua do dono original mas tambem conta/aparece
   // pra um segundo vendedor, pedido da Aline 08/09/2026).
-  if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n||l.captadorReplicado===G.user.n);
+  if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n);
   // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
-  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n||l.captadorReplicado===G.user.n);
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n);
   // CONTROLE DE ACESSO: RT Cred (resgate BV) ve so os leads que ela mesma
   // cadastrou - mesmo mecanismo da coordenadora, agora pro canal BV
   // (pedido da Aline, 08/09/2026).
-  if(G.user?.r==='rtcred')ls=ls.filter(l=>l.captador===G.user.n||l.by===G.user.n||l.captadorReplicado===G.user.n);
+  if(G.user?.r==='rtcred')ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n);
   if(G.mk.busca){
     const b=G.mk.busca.toLowerCase();
     const bDigits=G.mk.busca.replace(/\D/g,'');
@@ -920,7 +922,7 @@ function mkLeadsFiltrados(){
   if(G.mk.filtro==='perdidos')ls=ls.filter(l=>l.st==='perdido');
   if(G.mk.filtroOrigem)ls=ls.filter(l=>l.origem===G.mk.filtroOrigem);
   // filtro de captador só disponível para master/manager
-  if((isManager()||isAssistente())&&G.mk.filtroCaptador)ls=ls.filter(l=>l.captador===G.mk.filtroCaptador||l.by===G.mk.filtroCaptador);
+  if((isManager()||isAssistente())&&G.mk.filtroCaptador)ls=ls.filter(l=>l.captador===G.mk.filtroCaptador||(!l.captador&&l.by===G.mk.filtroCaptador));
   if(G.mk.filtroDataInicio){const di=new Date(G.mk.filtroDataInicio+'T00:00:00');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')>=di;});}
   if(G.mk.filtroDataFim){const df=new Date(G.mk.filtroDataFim+'T23:59:59');ls=ls.filter(l=>{if(!l.dtISO)return true;return new Date(l.dtISO+'T00:00:00')<=df;});}
   ls.sort((a,b)=>ordemDiaMes(a.dtISO)-ordemDiaMes(b.dtISO));
@@ -3183,7 +3185,7 @@ veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroc
 // e o mes contou errado). Tirada da lista de quem pode ser escolhido como
 // vendedor/captador (dropdown, Transferir, Replicar) - ver tambem a trava
 // em salvarLead().
-const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara','Ezequiel'];
+const VENDEDORES_ATIVOS=['Marcela','Rafael','Milena','Janderson','Maicon','Rubens','Jean','Victor','Guilmara']; // Ezequiel (vendedor) saiu - 22/10/2026
 // Popup de "Transferir/Replicar/Vendedor" abre pra baixo por padrao - no
 // ultimo card de cada coluna (perto do fim da tela) isso cortava a lista,
 // escondendo os ultimos nomes. Agora mede se cabe embaixo e, se nao couber,
