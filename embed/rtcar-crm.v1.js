@@ -915,7 +915,7 @@ function mkLeadsFiltrados(){
   if(G.mk.busca){
     const b=G.mk.busca.toLowerCase();
     const bDigits=G.mk.busca.replace(/\D/g,'');
-    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.veiculo||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(l.clienteTel||'').replace(/\D/g,'').includes(bDigits)));
+    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||[l.veiculo,l.veiculo2,l.obs,l.veiculoTroca&&[l.veiculoTroca.marca,l.veiculoTroca.modelo].join(' ')].filter(Boolean).join(' ').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(l.clienteTel||'').replace(/\D/g,'').includes(bDigits)));
   }
   if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
   if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');
