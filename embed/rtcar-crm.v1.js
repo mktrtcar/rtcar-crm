@@ -852,6 +852,9 @@ function avisoLeadsSemWhatsapp(cnt){
     `<div style="color:var(--tx3);margin-top:6px">Depois de falar, use "Encaminhar (rodízio)" no card ou mova o lead para Atendimento.</div>`;
   cnt.insertBefore(div,cnt.firstChild);
 }
+// Busca por telefone: com 8+ digitos compara pelos ULTIMOS 8 - acha com ou sem o
+// 9 e com ou sem DDD (23/10/2026, caso LEAD-624 buscado com um 9 a menos).
+function telBateBusca(tel,bDigits){const d=String(tel||'').replace(/\D/g,'');if(!bDigits)return false;if(d.includes(bDigits))return true;return bDigits.length>=8&&d.slice(-8)===bDigits.slice(-8);}
 function isSeller(){return G.user?.r==='seller';}
 // Perfil "assistente" (Jaqueline, 08/10/2026): ve todos os leads e lanca vendas/compras
 // em nome de outros vendedores, mas nao exclui nem transfere lead, nao entra no
@@ -914,7 +917,7 @@ function mkLeadsFiltrados(){
   if(G.mk.busca){
     const b=G.mk.busca.toLowerCase();
     const bDigits=G.mk.busca.replace(/\D/g,'');
-    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||[l.veiculo,l.veiculo2,l.obs,l.veiculoTroca&&[l.veiculoTroca.marca,l.veiculoTroca.modelo].join(' ')].filter(Boolean).join(' ').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(l.clienteTel||'').replace(/\D/g,'').includes(bDigits)));
+    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||[l.veiculo,l.veiculo2,l.obs,l.veiculoTroca&&[l.veiculoTroca.marca,l.veiculoTroca.modelo].join(' ')].filter(Boolean).join(' ').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&telBateBusca(l.clienteTel,bDigits)));
   }
   if(G.mk.filtro==='abertos')ls=ls.filter(l=>!['vendido','perdido'].includes(l.st));
   if(G.mk.filtro==='vendidos')ls=ls.filter(l=>l.st==='vendido');
@@ -4099,7 +4102,7 @@ function colAtualRel(c){
 }
 function relClisFiltrados(){
   let ls=[...G.rel.clientes];
-  if(G.rel.busca){const b=G.rel.busca.toLowerCase();const bDigits=G.rel.busca.replace(/\D/g,'');ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(c.clienteTel||'').replace(/\D/g,'').includes(bDigits)));}
+  if(G.rel.busca){const b=G.rel.busca.toLowerCase();const bDigits=G.rel.busca.replace(/\D/g,'');ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b)||(bDigits.length>0&&telBateBusca(c.clienteTel,bDigits)));}
   if(G.rel.filtroDataInicio){const di=new Date(G.rel.filtroDataInicio+'T00:00:00');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')>=di;});}
   if(G.rel.filtroDataFim){const df=new Date(G.rel.filtroDataFim+'T23:59:59');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')<=df;});}
   ls.sort((a,b)=>diasDesdeCompra(b.dtCompra)-diasDesdeCompra(a.dtCompra));
@@ -5937,7 +5940,7 @@ function iaLeadsFiltrados(){
   if(G.ia.busca){
     const b=G.ia.busca.toLowerCase();
     const bDigits=G.ia.busca.replace(/\D/g,'');
-    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&(l.clienteTel||'').replace(/\D/g,'').includes(bDigits)));
+    ls=ls.filter(l=>(l.clienteNome||'').toLowerCase().includes(b)||(l.id||'').toLowerCase().includes(b)||(bDigits.length>0&&telBateBusca(l.clienteTel,bDigits)));
   }
   return ls.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
 }
