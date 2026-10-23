@@ -134,7 +134,6 @@ function normalizarOrigemLead(l){
 
 /* COLUNAS RELACIONAMENTO */
 const COLS_REL=[
-  {id:'nome',label:'Nome',emoji:'📋',desc:'Cliente cadastrado',acao:'Preparar para primeiro contato pós-venda',acolabel:'Novo cliente',cor:'#4a4a4a',bg:'#f0f0f0'},
   {id:'d7',label:'7 dias',emoji:'💬',desc:'7 dias após a compra',acao:'Enviar mensagem pedindo feedback da experiência de compra',acolabel:'Pedir feedback',cor:'#1e4d8c',bg:'#e8f0fb',
    msg:'Olá, [NOME]! 😊 Já faz 7 dias que você levou seu [VEICULO] aqui da RT Car. Como está sendo a experiência? Tem alguma dúvida ou feedback para nos dar? Estamos felizes em ajudar! 🚗'},
   {id:'d90',label:'90 dias',emoji:'🔧',desc:'90 dias após a compra',acao:'Avisar fim da garantia motor/câmbio + bateria estendida por mais 3 meses',acolabel:'Avisar garantia',cor:'#b8860b',bg:'#faf6e8',
@@ -3553,7 +3552,8 @@ async function confirmarVendido(){
   await salvarCamposMk(id,camposVenda);
   if(novoVend&&novoVend!==captadorAnterior)await regHistMk(lead,'🔁 Vendedor da venda','De '+(captadorAnterior||'—')+' para '+novoVend,G.user?.n||'','blue');
   await regHistMk(lead,lead.vendaRecuperada?'🎉 Vendido (venda recuperada)':'🎉 Vendido',(repasse?'🔁 Repasse — ':'')+(obs||'Negócio fechado!'),G.user?.n||'','green');
-  await vincularClienteRelacionamento(lead);
+  // 23/10/2026: o cliente entra no Relacionamento (coluna "7 dias") quando o Termo de
+  // Venda e' APROVADO no sistema principal (funcao relacionamentoTermoAprovado), nao mais aqui.
   let leadExtra=null;
   if(v2aberto){
     leadExtra=await criarLeadExtraVenda(lead,veiculo2,placa2);
@@ -4037,6 +4037,7 @@ async function initRelacionamento(){
 function renderRelacionamento(){
   if(G.modulo!=='relacionamento')return;
   limparColuna2AnosUmaVez();
+  moverColunaNomeUmaVez();
   const tb=document.getElementById('tb');const view=G.rel.view;
   // Mesma correcao do CRM (ver renderMarketing): reconstruir a tela
   // inteira enquanto a pessoa esta digitando dentro de um campo de data
@@ -4072,6 +4073,7 @@ function renderRelacionamento(){
     <div class="tb-filters-inline">
       <select id="rel-export-col" class="select-sm" style="min-width:160px"><option value="">📤 Exportar coluna...</option>${COLS_REL.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}</select>
       <button class="btn btn-outline btn-sm" onclick="exportarClientesCSV()"><i class="ti ti-download"></i> Exportar</button>
+      ${G.user?.r==='master'?`<button class="btn btn-outline btn-sm" onclick="importarHistoricoVendas()" title="Importa o histórico de vendas do sistema antigo (Sances) — base das entradas automáticas de 1 e 2 anos">📚 Importar histórico de vendas</button>`:''}
     </div>
     <div class="tb-search"><i class="ti ti-search"></i><input type="text" id="rel-busca" placeholder="Buscar cliente..." value="${G.rel.busca}" oninput="__G().rel.busca=this.value;renderRelacionamento()"></div>
     <button class="btn btn-red btn-sm" onclick="abrirModalCliente()"><i class="ti ti-plus"></i> Novo Cliente</button>
@@ -4832,7 +4834,7 @@ function abrirModalCliente(id=null,etapa=null){
   document.getElementById('rc-resp').value=c?.responsavel||c?.by||G.user?.n||'';document.getElementById('rc-veiculo').value=c?.veiculo||'';
   document.getElementById('rc-vendedor').value=c?.vendedor||'';
   document.getElementById('rc-dtcompra').value=c?.dtCompra||new Date().toISOString().split('T')[0];
-  document.getElementById('rc-valor').value=c?.valor||'';document.getElementById('rc-etapa').value=c?.st||etapa||'nome';
+  document.getElementById('rc-valor').value=c?.valor||'';const opNome=document.querySelector('#rc-etapa option[value="nome"]');if(opNome)opNome.remove();document.getElementById('rc-etapa').value=(c?.st&&c.st!=='nome'?c.st:'')||etapa||'d7';
   document.getElementById('rc-obs').value=c?.obs||'';
   document.getElementById('ov-cliente').classList.remove('hidden');setTimeout(()=>document.getElementById('rc-nome').focus(),50);
 }
@@ -4853,6 +4855,14 @@ async function salvarCliente(){
    (convite enviado) - "2 anos enviado", "Agendado" e "Retirado" nao sao tocados.
    Pergunta uma vez pra gestao, baixa um backup completo (JSON) antes de apagar e
    marca rel_config/limpeza2anos_1910 pra nao perguntar de novo em lugar nenhum. */
+let _movNomeVerificado=false;
+async function moverColunaNomeUmaVez(){
+  if(_movNomeVerificado||G.rel.modoDemo||!isManager()||!(G.rel.clientes||[]).length)return;
+  const alvo=G.rel.clientes.filter(c=>c.st==='nome');_movNomeVerificado=true;if(!alvo.length)return;
+  // Coluna "Nome" saiu (23/10/2026, pedido da Aline): quem estava nela vai pra "7 dias".
+  for(const c of alvo){c.st='d7';try{await db.collection('clientes_rel').doc(c.id).update({st:'d7'});}catch(e){console.error(e);}}
+  toast(`${alvo.length} cliente(s) da antiga coluna "Nome" foram para "7 dias"`,'green',5000);renderRelacionamento();
+}
 let _lim2anosVerificado=false;
 async function limparColuna2AnosUmaVez(){
   if(_lim2anosVerificado||G.rel.modoDemo||!isManager()||!(G.rel.clientes||[]).length)return;
@@ -4873,6 +4883,36 @@ async function limparColuna2AnosUmaVez(){
     renderRelacionamento();
   }catch(e){console.error('Limpeza 2 anos',e);toast('Limpeza da coluna 2 anos: '+(e&&e.message||e),'red',8000);}
 }
+/* Importa o historico de vendas do sistema antigo (Sances) pra vendas_historico
+   (23/10/2026). Le a planilha exportada do Sances (colunas CLIENTE, TELEFONE,
+   MODELO, PLA/CHA, FAB/MOD, VENDA, TIPO, VENDEDOR) e grava 1 documento por
+   venda; importar de novo a mesma planilha nao duplica (o ID e' fixo por venda).
+   E' a base que a entrada automatica de 1 ano / 2 anos (todo dia 1o) usa. */
+function importarHistoricoVendas(){
+  if(G.user?.r!=='master')return;
+  const inp=document.createElement('input');inp.type='file';inp.accept='.xls,.xlsx,.csv';
+  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;
+    try{
+      const X=await carregarXlsx();const wb=X.read(new Uint8Array(await f.arrayBuffer()),{type:'array'});
+      const linhas=X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const cab=(linhas[0]||[]).map(h=>String(h).trim().toUpperCase());
+      const col=n=>cab.indexOf(n);const iC=col('CLIENTE'),iT=col('TELEFONE'),iM=col('MODELO'),iP=col('PLA/CHA'),iF=col('FAB/MOD'),iV=col('VENDA'),iTp=col('TIPO'),iVd=col('VENDEDOR');
+      if(iC<0||iV<0){toast('Planilha sem as colunas CLIENTE e VENDA — é a exportação do Sances?','red',6000);return;}
+      const dataISO=v=>{if(typeof v==='number'){const d=X.SSF.parse_date_code(v);return d?`${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`:'';}const m=String(v).match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:'';};
+      const docs=[];
+      linhas.slice(1).forEach(r=>{if(!r[iC])return;const dv=dataISO(r[iV]);if(!dv)return;const bruto=String(r[iC]).trim();const mm=bruto.match(/^(\d+)\s*-\s*(.*)$/);
+        const placa=String(r[iP]||'').trim().toUpperCase();const id=('SANCES-'+(mm?mm[1]:'X')+'-'+(placa.replace(/[^A-Z0-9]/g,'')||'SEMPLACA')+'-'+dv).slice(0,140);
+        docs.push({id,dados:{fonte:'Sances',codigoCliente:mm?mm[1]:'',cliente:(mm?mm[2]:bruto).trim(),telefone:String(r[iT]||'').trim(),modelo:String(r[iM]||'').trim(),placa,fabMod:String(r[iF]||'').trim(),dataVenda:dv,mes:dv.slice(0,7),tipo:String(r[iTp]||'').trim(),vendedor:String(r[iVd]||'').trim(),importadoEm:new Date().toISOString(),importadoPor:G.user?.n||''}});});
+      if(!docs.length){toast('Nenhuma venda encontrada na planilha','red');return;}
+      const meses=docs.map(d=>d.dados.mes).sort();
+      if(!confirm(`Importar ${docs.length} vendas do Sances (${meses[0]} a ${meses[meses.length-1]})?\n\nIsso não cria nenhum card agora: vira a base das entradas automáticas de 1 ano e 2 anos (todo dia 1º).`))return;
+      for(let i=0;i<docs.length;i+=400){const b=db.batch();docs.slice(i,i+400).forEach(d=>b.set(db.collection('vendas_historico').doc(d.id),d.dados,{merge:true}));await b.commit();}
+      toast(`✅ ${docs.length} vendas do Sances importadas.`,'green',6000);
+    }catch(e){console.error(e);toast('Erro ao importar: '+(e.message||e),'red',8000);}
+  };
+  inp.click();
+}
+window.importarHistoricoVendas=importarHistoricoVendas;
 async function excluirClienteRel(id){
   if(!confirm('Excluir este cliente? Essa ação não pode ser desfeita — o histórico todo se perde.'))return;
   G.rel.clientes=G.rel.clientes.filter(x=>x.id!==id);
