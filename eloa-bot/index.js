@@ -260,6 +260,8 @@ function buscarVeiculoNoHistorico(mensagemAtual, conversa) {
 async function buscarDadosCompletos(lead, mensagemAtual, conversa = []) {
   const item = buscarVeiculoNoHistorico(mensagemAtual, conversa) || buscarVeiculoEstoque(lead.veiculo);
   if (!item) return null;
+  // Item do estoque do sistema ja vem com fotos e ficha - so' o formato antigo (site do Autoconf) precisa abrir a pagina.
+  if (item.fonte === 'sistema') return { ...item, fotos: item.fotos?.length ? item.fotos : (item.foto ? [item.foto] : []) };
   const reais = await buscarDadosReais(item.pagina);
   return { ...item, ...reais, fotos: reais?.fotos?.length ? reais.fotos : (item.foto ? [item.foto] : []) };
 }
@@ -1210,7 +1212,7 @@ async function transcreverAudio(buffer, mimetype) {
    vez ao iniciar e depois a cada 24h. ESTOQUE_RTCAR é const (a mesma
    referência é usada em todas as funções de busca de veículo), então
    atualiza o CONTEÚDO do array no lugar em vez de reatribuir. */
-const INTERVALO_ATUALIZAR_ESTOQUE_MS = 24 * 60 * 60 * 1000; // 24h
+const INTERVALO_ATUALIZAR_ESTOQUE_MS = 10 * 60 * 1000; // 10 min (estoque do sistema - 23/10/2026; antes 24h lendo o site do Autoconf)
 async function cicloAtualizarEstoque() {
   try {
     const fs2 = require('fs');

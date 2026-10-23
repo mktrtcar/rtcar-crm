@@ -67,8 +67,46 @@ async function buscarEstoqueCompleto() {
   return todos;
 }
 
+/* 23/10/2026 (pedido da Aline): a Eva passa a ler o estoque do PROPRIO sistema
+   (colecao site_veiculos - o mesmo catalogo do site novo, ligado sozinho ao
+   estoque do sistema principal: carro novo entra, vendido/repasse sai) em vez
+   do site do Autoconf. Isso deixa o estoque dela atualizado em minutos (nao
+   mais 1x por dia) e tira a dependencia do Autoconf, que vai ser cancelado.
+   Cada item ja traz fotos e ficha (ano, km, cambio, cor, opcionais), entao a
+   Eva nao precisa mais abrir a pagina do carro pra buscar isso. Preco NUNCA
+   entra aqui (a Eva nao passa preco). O site do Autoconf continua so' como
+   reserva, se a leitura do sistema falhar. */
+const { fbList } = require('./firestore');
+const SITE_BASE = (process.env.SITE_URL || 'https://rtcar-site.web.app').replace(/\/$/, '');
+async function buscarEstoqueSistema() {
+  const docs = await fbList('site_veiculos');
+  return docs
+    .filter((v) => !v.oculto && (v.marca || v.modelo))
+    .map((v) => {
+      const id = String(v._docName || '').split('/').pop() || v.id;
+      const fotos = Array.isArray(v.fotos) ? v.fotos.filter(Boolean) : [];
+      return {
+        pagina: `${SITE_BASE}/#/carro/${id}`,
+        foto: fotos[0] || '',
+        fotos,
+        b: String(v.marca || '').trim(),
+        m: String(v.modelo || '').trim(),
+        versao: v.versao || '',
+        ano: v.ano || null,
+        km: v.km || null,
+        cambio: v.cambio || null,
+        cor: v.cor || null,
+        potencia: v.potencia || null,
+        opcionais: Array.isArray(v.opcionais) ? v.opcionais : [],
+        fonte: 'sistema',
+      };
+    });
+}
+
 async function atualizarEstoque() {
-  const veiculos = await buscarEstoqueCompleto();
+  let veiculos = [];
+  try { veiculos = await buscarEstoqueSistema(); } catch (e) { console.error('Estoque do sistema indisponível, usando o site do Autoconf como reserva:', e.message); }
+  if (veiculos.length < 5) veiculos = await buscarEstoqueCompleto();
   // Protecao: nunca sobrescreve com um resultado vazio ou suspeito pequeno
   // demais (ex: site fora do ar, ou mudou de estrutura e a regex parou de
   // casar) - mantem o estoque.json anterior intacto nesses casos.
@@ -80,7 +118,7 @@ async function atualizarEstoque() {
   return veiculos.length;
 }
 
-module.exports = { atualizarEstoque, buscarEstoqueCompleto };
+module.exports = { atualizarEstoque, buscarEstoqueCompleto, buscarEstoqueSistema };
 
 if (require.main === module) {
   atualizarEstoque()
