@@ -231,26 +231,26 @@ footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,25
     <a href="#/estoque" class="logo"><img src="logo.png" alt="RT Car"></a>
     <nav>
       <a href="#/estoque" class="navlink">Veículos</a>
-      <a href="https://wa.me/554791238422" target="_blank" class="navlink">Venda seu carro</a>
-      <a href="https://wa.me/554791238422" target="_blank" class="navlink">Financie</a>
+      <a href="https://wa.me/554799938679?text=Ol%C3%A1!%20Quero%20avaliar%20meu%20carro%20para%20venda." target="_blank" class="navlink">Venda seu carro</a>
+      <a href="https://wa.me/554792812847?text=Ol%C3%A1!%20Vi%20no%20site%20da%20RT%20Car%20e%20quero%20simular%20um%20financiamento." target="_blank" class="navlink">Financie</a>
       <a href="#/sobre" class="navlink">Sobre</a>
       <a href="tel:+554733508667" class="navlink" style="opacity:.7">📞 (47) 3350-8667</a>
-      <a href="https://wa.me/554791238422" target="_blank" class="whats-btn">💬 WhatsApp</a>
+      <a href="https://wa.me/554792812847?text=Ol%C3%A1!%20Vi%20no%20site%20da%20RT%20Car." target="_blank" class="whats-btn">💬 WhatsApp</a>
     </nav>
   </div>
 </header>
 
 <div id="app"></div>
 
-<a class="whats-float" href="https://wa.me/554791238422" target="_blank" title="Fale no WhatsApp">💬</a>
+<a class="whats-float" href="https://wa.me/554792812847?text=Ol%C3%A1!%20Vi%20no%20site%20da%20RT%20Car." target="_blank" title="Fale no WhatsApp">💬</a>
 
 <footer>
   <div class="f-logo"><img src="logo.png" alt="RT Car"></div>
   <div class="f-line">Otto Renaux, 135, Centro 1, Brusque/SC — CEP 88351300</div>
-  <div class="f-line">(47) 3350-8667 · (47) 9123-8422 · contato@rtcar.com.br</div>
+  <div class="f-line">(47) 3350-8667 · WhatsApp (47) 9281-2847 · contato@rtcar.com.br</div>
   <div class="f-line">CNPJ: 43.510.524/0001-35</div>
   <div class="f-social"><a href="https://www.instagram.com/rtcar.brusque" target="_blank" title="Instagram">📷</a></div>
-  <div class="f-copy">© 2026 RT Car. Todos os direitos reservados.</div>
+  <div class="f-copy">© 2026 RT Car. Todos os direitos reservados. · <a href="/privacidade" style="color:inherit">Política de Privacidade</a></div>
 </footer>
 
 <script>
@@ -301,9 +301,12 @@ function parsePreco(x){
 // puxou do sistema ou aplicou promocao) - esses casos ficam em
 // camposBloqueados. Preco que veio sozinho da ligacao com o sistema fica
 // guardado mas escondido ate ela decidir.
+// 23/10/2026 (pedido da Aline): todos os carros mostram o preco; so' some
+// quando o carro esta marcado "Ocultar preço" no admin (precoOculto).
 function precoDefinido(v){
+  if(v.precoOculto) return 0;
   if(parsePreco(v.precoPor)) return parsePreco(v.precoPor);
-  return (v.camposBloqueados||[]).includes('preco') ? parsePreco(v.preco) : 0;
+  return parsePreco(v.preco);
 }
 function fmtPreco(v){
   const por = precoDefinido(v);
@@ -419,7 +422,7 @@ const DEPOIMENTOS = [
 ];
 const INFORMACOES = [
   { titulo: 'Venda seu carro', texto: 'Solicite a avaliação do seu carro online, no conforto da sua casa.', botao: 'Avalie agora →', whatsapp: 'Olá! Quero avaliar meu carro para venda.', numero: '554799938679' },
-  { titulo: 'Financie seu sonho', texto: 'Trabalhamos com as principais financeiras, isso garante melhores taxas para você!', botao: 'Faça uma simulação →', whatsapp: 'Olá! Quero fazer uma simulação de financiamento.', numero: '554791238422' },
+  { titulo: 'Financie seu sonho', texto: 'Trabalhamos com as principais financeiras, isso garante melhores taxas para você!', botao: 'Faça uma simulação →', whatsapp: 'Olá! Quero fazer uma simulação de financiamento.', numero: '554792812847' },
 ];
 let DESTAQUES = [];
 
@@ -428,7 +431,7 @@ function ctasHtml(){
     ${INFORMACOES.map(c=>`<div class="cta-card">
       <h3>${c.titulo}</h3>
       <p>${c.texto}</p>
-      <a class="cta-btn" href="https://wa.me/${c.numero||'554791238422'}?text=${encodeURIComponent(c.whatsapp||'')}" target="_blank">${c.botao}</a>
+      <a class="cta-btn" href="https://wa.me/${c.numero||'554792812847'}?text=${encodeURIComponent(c.whatsapp||'')}" target="_blank">${c.botao}</a>
     </div>`).join('')}
   </div>`;
 }
@@ -560,7 +563,7 @@ function renderSobre(){
       <p>A loja oferece automóveis de diversas marcas, semi-novos e zero quilômetro, nacionais e importados. Todos criteriosamente testados e avaliados, característica que a revenda traz consigo até hoje e a diferencia no mercado. E é assim que a RT Car Veículos solidificou a sua marca, com uma conduta ética e respeito a seus clientes, parceiros e fornecedores.</p>
       <div class="sobre-contato">
         <div>Vendemos e compramos carros seminovos com transparência, segurança e o conforto que você merece.</div>
-        <div>💬 Whatsapp: <a href="https://wa.me/554791238422" target="_blank">(47) 9123-8422</a></div>
+        <div>💬 Whatsapp: <a href="https://wa.me/554792812847?text=Ol%C3%A1!%20Vi%20no%20site%20da%20RT%20Car." target="_blank">(47) 9281-2847</a></div>
         <div>📞 Ou ligue agora: <a href="tel:+554733508667">(47) 3350-8667</a></div>
       </div>
     </div>
@@ -635,7 +638,7 @@ function renderDetalhe(id){
   if(!v){ document.getElementById('app').innerHTML = '<div class="wrap"><div class="vazio">Veículo não encontrado.</div></div>'; return; }
   const fotos = v.fotos.length ? v.fotos.map((_,i)=>i+1) : null;
   const kmFmt = v.km ? Number(v.km).toLocaleString('pt-BR') + ' km' : '—';
-  const msgWhats = encodeURIComponent(`Olá! Tenho interesse no ${v.marca} ${v.modelo} - ${v.versao} (${v.url})`);
+  const msgWhats = encodeURIComponent(`Olá! Vi no site da RT Car e tenho interesse no ${v.marca} ${v.modelo}${v.versao?" "+v.versao:""}${v.ano?" "+v.ano:""} (${location.origin}/#/carro/${v.id})`);
   document.getElementById('app').innerHTML = `
     <div class="wrap">
     <a class="voltar" href="#/estoque">← Voltar para o estoque</a>
@@ -686,7 +689,7 @@ function renderDetalhe(id){
             <h2>${v.versao||''}</h2>
           </div>
           <div class="det-preco">${fmtPreco(v)}</div>
-          <a class="btn-whats" href="https://wa.me/554791238422?text=${msgWhats}" target="_blank">💬 Chamar no WhatsApp</a>
+          <a class="btn-whats" href="https://wa.me/554792812847?text=${msgWhats}" target="_blank">💬 Chamar no WhatsApp</a>
           <div class="det-trust">
             <div>✅ Veículo com procedência verificada</div>
             <div>🛡️ Garantia da loja incluída</div>

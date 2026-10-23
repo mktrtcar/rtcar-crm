@@ -156,6 +156,7 @@ h2{font-size:15px;margin-bottom:10px}
         <div class="field"><label>Preço (R$)</label><input id="ed-preco" onchange="salvarCampo('preco',this.value)"></div>
         <div class="field"><label>Preço anterior "de" (opcional)</label><input id="ed-precoDe" placeholder="Aparece riscado" onchange="salvarCampo('precoDe',this.value)"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px;font-size:13px;cursor:pointer"><input type="checkbox" id="ed-precoOculto" style="width:auto" onchange="salvarCampo('precoOculto',this.checked)"> 🙈 Ocultar preço no site (aparece "Consulte o preço")</label>
       <div class="field"><label>Ano</label><input id="ed-ano" placeholder="2022/2022" onchange="salvarCampo('ano',this.value)"></div>
       <div class="field-row">
         <div class="field"><label>KM</label><input id="ed-km" onchange="salvarCampo('km',this.value)"></div>
@@ -607,6 +608,7 @@ function abrirVeiculo(id){
     document.getElementById('ed-'+campo).value = veiculoAtual[campo] || '';
   });
   document.getElementById('ed-oculto').checked = !!veiculoAtual.oculto;
+  document.getElementById('ed-precoOculto').checked = !!veiculoAtual.precoOculto;
   renderOpcionais();
   renderFotosVeiculo();
 }

@@ -1326,7 +1326,7 @@ async function tratarContatoNovo(msg, jid, jidTel, chave) {
     } else {
       const ad = dadosDoAnuncio(msg);
       const urlAd = String((ad && (ad.sourceUrl || ad.mediaUrl)) || '');
-      const origem = ad ? (/instagram/i.test(urlAd) ? 'Instagram' : 'Facebook') : 'Telefone';
+      const origem = ad ? (/instagram/i.test(urlAd) ? 'Instagram' : 'Facebook') : (/vi no site/i.test(texto) ? 'Google + Site' : 'Telefone'); // mensagem pronta do botao do site
       const tituloAd = ad ? [ad.title, ad.body].filter(Boolean).join(' — ') : '';
       const veiculoAd = (tituloAd && buscarVeiculoNoTexto(tituloAd)) || (texto && buscarVeiculoNoTexto(texto)) || null;
       const agora = new Date();

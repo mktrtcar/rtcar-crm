@@ -24,6 +24,12 @@ const STATUS_RELEVANTES=['disponivel','em_preparacao'];
 // Preco NAO e' copiado sozinho (02/10/2026, pedido da Aline): preco so' aparece
 // no site quando ela puxa/aplica pelo admin (aba "Preco e KM").
 const MAPA_CAMPOS={marca:'marca',modelo:'modelo',versao:'versao'};
+// 23/10/2026 (pedido da Aline): o site passa a mostrar o preco de todos (com
+// opcao "Ocultar preço" no admin) - entao o carro do sistema ja chega com ano,
+// km, cor e preco. Campo editado a mao no admin (camposBloqueados) nao e' tocado.
+const MARCAS_FIX={'GM - CHEVROLET':'Chevrolet','VW - VOLKSWAGEN':'Volkswagen','VW':'Volkswagen','GM':'Chevrolet','MERCEDES-BENZ':'Mercedes','MERCEDES':'Mercedes','CAOA CHERY/CHERY':'Chery','LAND ROVER':'Land Rover','HARLEY DAVISON':'Harley','HARLEY DAVIDSON':'Harley','KIA':'Kia Motors'};
+function tituloMarca(m){const u=String(m||'').trim().toUpperCase();if(MARCAS_FIX[u])return MARCAS_FIX[u];return u.toLowerCase().replace(/(^|[\s\/-])([a-zà-ú])/g,(x,a,b)=>a+b.toUpperCase());}
+function modeloLimpo(m){return String(m||'').replace(/^(VW|GM)\s*-\s*\S+\s*/i,'').trim();}
 
 async function apagarDocSite(docSnap){
   const prefixo=`https://storage.googleapis.com/${bucket.name}/`;
@@ -57,6 +63,10 @@ exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-e
   Object.entries(MAPA_CAMPOS).forEach(([origem,destino])=>{
     if(!camposBloqueados.includes(destino)&&depois[origem]!==undefined)dados[destino]=depois[origem];
   });
+  if(dados.marca)dados.marca=tituloMarca(dados.marca);
+  if(dados.modelo)dados.modelo=modeloLimpo(dados.modelo);
+  const extras={ano:[depois.anoFabricacao,depois.anoModelo].filter(Boolean).join('/'),km:depois.km?String(depois.km):'',cor:depois.cor||'',preco:depois.preco||''};
+  Object.entries(extras).forEach(([k,v])=>{if(v&&!camposBloqueados.includes(k))dados[k]=v;});
   dados.origemEstoquePrincipal=true;
   dados.sincronizadoEstoqueEm=new Date().toISOString();
 
