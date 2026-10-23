@@ -79,28 +79,42 @@ async function buscarEstoqueCompleto() {
 const { fbList } = require('./firestore');
 const SITE_BASE = (process.env.SITE_URL || 'https://rtcar-site.web.app').replace(/\/$/, '');
 async function buscarEstoqueSistema() {
-  const docs = await fbList('site_veiculos');
-  return docs
-    .filter((v) => !v.oculto && (v.marca || v.modelo))
-    .map((v) => {
-      const id = String(v._docName || '').split('/').pop() || v.id;
-      const fotos = Array.isArray(v.fotos) ? v.fotos.filter(Boolean) : [];
-      return {
-        pagina: `${SITE_BASE}/#/carro/${id}`,
-        foto: fotos[0] || '',
-        fotos,
-        b: String(v.marca || '').trim(),
-        m: String(v.modelo || '').trim(),
-        versao: v.versao || '',
-        ano: v.ano || null,
-        km: v.km || null,
-        cambio: v.cambio || null,
-        cor: v.cor || null,
-        potencia: v.potencia || null,
-        opcionais: Array.isArray(v.opcionais) ? v.opcionais : [],
-        fonte: 'sistema',
-      };
-    });
+  // So' os carros ATIVOS do estoque do sistema (disponivel / em preparacao) -
+  // o catalogo do site ainda tem as copias antigas do Autoconf (vendidos e
+  // duplicados). Carro do sistema sem foto pega as fotos da copia do Autoconf
+  // do MESMO carro (mesma marca + modelo + ano, km parecido).
+  const [docs, estoque] = await Promise.all([fbList('site_veiculos'), fbList('rtcar_estoque_publico')]);
+  const idDe = (d) => String(d._docName || '').split('/').pop() || d.id;
+  const ativos = new Set(estoque.filter((e) => ['disponivel', 'em_preparacao'].includes(e.status)).map(idDe));
+  const visiveis = docs.filter((v) => !v.oculto);
+  const ligado = (v) => (v.origemEstoquePrincipal && ativos.has(idDe(v))) || (v.placaSistema && ativos.has(String(v.placaSistema)));
+  const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+  const kmNum = (k) => Number(String(k || '').replace(/\D/g, '')) || 0;
+  const copias = visiveis.filter((v) => !ligado(v) && Array.isArray(v.fotos) && v.fotos.length);
+  const vistos = new Set();
+  return visiveis.filter(ligado).map((v) => {
+    const id = idDe(v);
+    let fotos = Array.isArray(v.fotos) ? v.fotos.filter(Boolean) : [];
+    if (!fotos.length) {
+      const par = copias.find((c) => norm(c.marca) === norm(v.marca) && norm(c.modelo).startsWith(norm(v.modelo).slice(0, 4)) && (!v.ano || !c.ano || String(c.ano).slice(-4) === String(v.ano).slice(-4)) && (!kmNum(v.km) || !kmNum(c.km) || Math.abs(kmNum(c.km) - kmNum(v.km)) <= 6000));
+      if (par) fotos = par.fotos.filter(Boolean);
+    }
+    return {
+      pagina: `${SITE_BASE}/#/carro/${id}`,
+      foto: fotos[0] || '',
+      fotos,
+      b: String(v.marca || '').trim(),
+      m: String(v.modelo || '').trim(),
+      versao: v.versao || '',
+      ano: v.ano || null,
+      km: v.km || null,
+      cambio: v.cambio || null,
+      cor: v.cor || null,
+      potencia: v.potencia || null,
+      opcionais: Array.isArray(v.opcionais) ? v.opcionais : [],
+      fonte: 'sistema',
+    };
+  }).filter((x) => { if (vistos.has(x.pagina)) return false; vistos.add(x.pagina); return true; });
 }
 
 async function atualizarEstoque() {
