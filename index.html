@@ -3659,7 +3659,10 @@ veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroc
   // acontecido (27/08/2026).
   if(stEscolhido==='vendido'&&!(leadExistente&&leadExistente.dtVenda))data.dtVenda=hoje();
   try{
-    if(G.mk.editandoId){Object.assign(G.mk.leads.find(l=>l.id===G.mk.editandoId),data);await salvarCamposMk(G.mk.editandoId,data);toast('Lead atualizado!');}
+    if(G.mk.editandoId){const leadEd=G.mk.leads.find(l=>l.id===G.mk.editandoId);Object.assign(leadEd,data);await salvarCamposMk(G.mk.editandoId,data);
+      // Editar o lead conta como acao do vendedor: zera o cronometro da etapa e o card
+      // sai do vermelho (23/10/2026, caso LEAD-1014 - antes so' as acoes do card contavam).
+      await regHistMk(leadEd,'✏️ Lead atualizado','',G.user?.n||'','blue');toast('Lead atualizado!');}
     else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,G.user?.n||data.captador||'');toast(`Lead ${id} criado!`);}
     // Cadastrou/editou ja' na etapa Negociacao: pergunta o tipo na hora (16/10/2026, pedido da Aline).
     const alvoNeg=stEscolhido==='negociacao'?(G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):G.mk.leads[G.mk.leads.length-1]):null;
