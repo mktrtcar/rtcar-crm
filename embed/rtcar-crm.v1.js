@@ -4100,11 +4100,12 @@ function ordemDiaMes(dtISO){
 function colAtualRel(c){
   return COLS_REL.find(col=>col.baseId?(col.baseId===c.st&&(c[col.campo]==='realizada')===col.valorAtivo):col.id===c.st)||COLS_REL[0];
 }
-function relClisFiltrados(){
+function relClisFiltrados(op){
   let ls=[...G.rel.clientes];
   if(G.rel.busca){const b=G.rel.busca.toLowerCase();const bDigits=G.rel.busca.replace(/\D/g,'');ls=ls.filter(c=>(c.clienteNome||'').toLowerCase().includes(b)||(c.veiculo||'').toLowerCase().includes(b)||(c.id||'').toLowerCase().includes(b)||(bDigits.length>0&&telBateBusca(c.clienteTel,bDigits)));}
-  if(G.rel.filtroDataInicio){const di=new Date(G.rel.filtroDataInicio+'T00:00:00');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')>=di;});}
-  if(G.rel.filtroDataFim){const df=new Date(G.rel.filtroDataFim+'T23:59:59');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')<=df;});}
+  const semData=!!(op&&op.semData);
+  if(!semData&&G.rel.filtroDataInicio){const di=new Date(G.rel.filtroDataInicio+'T00:00:00');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')>=di;});}
+  if(!semData&&G.rel.filtroDataFim){const df=new Date(G.rel.filtroDataFim+'T23:59:59');ls=ls.filter(c=>{if(!c.dtCompra)return true;return new Date(c.dtCompra+'T00:00:00')<=df;});}
   ls.sort((a,b)=>diasDesdeCompra(b.dtCompra)-diasDesdeCompra(a.dtCompra));
   return ls;
 }
@@ -4630,8 +4631,18 @@ function renderListaRel(cnt){
 /* DASHBOARD RELACIONAMENTO */
 function renderDashboardRel(cnt){
   cnt.style.cssText='flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px';
-  const clis=relClisFiltrados();
+  // 26/10/2026 (pedido da Aline): as etapas mostram TODOS os clientes (so' a
+  // busca vale). O filtro de datas passa a valer para as ACOES feitas no
+  // periodo (visitas, vitrificacoes, NPS, indicacoes) - sem datas = mes atual.
+  const clis=relClisFiltrados({semData:true});
   const total=clis.length;
+  const hjISO=new Date().toISOString().split('T')[0];
+  const comFiltroData=!!(G.rel.filtroDataInicio||G.rel.filtroDataFim);
+  const perIni=G.rel.filtroDataInicio||(comFiltroData?'0000-01-01':hjISO.slice(0,8)+'01');
+  const perFim=G.rel.filtroDataFim||(comFiltroData?'9999-12-31':hjISO.slice(0,8)+'31');
+  const noPeriodo=d=>!!d&&String(d).slice(0,10)>=perIni&&String(d).slice(0,10)<=perFim;
+  const tituloPeriodo=comFiltroData?`No período${G.rel.filtroDataInicio?' de '+isoParaBR(G.rel.filtroDataInicio):''}${G.rel.filtroDataFim?' até '+isoParaBR(G.rel.filtroDataFim):''}`:'Este mês';
+  const sufixoPer=comFiltroData?' no período':' no mês';
 
   // Por etapa
   const porEtapa={};COLS_REL.forEach(c=>{porEtapa[c.id]=0;});
@@ -4639,10 +4650,10 @@ function renderDashboardRel(cnt){
 
   // Métricas de acompanhamento por etapa
   const d7total=clis.filter(c=>c.st==='d7').length;
-  const d7env=clis.filter(c=>c.d7Enviado).length;
-  const d7rec=clis.filter(c=>c.d7Recebido).length;
+  const d7env=clis.filter(c=>c.st==='d7'&&c.d7Enviado).length;
+  const d7rec=clis.filter(c=>c.st==='d7'&&c.d7Recebido).length;
   const d90total=clis.filter(c=>c.st==='d90').length;
-  const d90env=clis.filter(c=>c.d90Enviado).length;
+  const d90env=clis.filter(c=>c.st==='d90'&&c.d90Enviado).length;
 
   // Visitas
   const v1real=clis.filter(c=>c.visita1ano==='realizada').length;
@@ -4705,16 +4716,13 @@ function renderDashboardRel(cnt){
   const recompras=clis.filter(c=>c.recompra==='sim').length;
 
   // Métricas do mês (Milena)
-  function dentroDoMes(dataISO){
-    if(!dataISO)return false;
-    const d=new Date(dataISO+'T12:00:00'),hj=new Date();
-    return d.getMonth()===hj.getMonth()&&d.getFullYear()===hj.getFullYear();
-  }
+  function dentroDoMes(dataISO){return noPeriodo(dataISO);}
   function contarMes(campo){return clis.filter(c=>c[campo]==='sim'&&dentroDoMes(c[campo+'Data'])).length;}
   const visitas1anoMes=clis.filter(c=>c.visita1ano==='realizada'&&dentroDoMes(c.visita1anoData)).length;
   const vitrificacoesMes=clis.filter(c=>c.visita2anos==='realizada'&&dentroDoMes(c.visita2anosData)).length;
-  const indicacoesMes=contarMes('indicacao1ano')+contarMes('indicacao2anos')+contarMes('indicacaoGeral');
-  const npsMes=contarMes('feedback1ano')+contarMes('feedback2anos')+contarMes('feedbackGeral');
+  // Indicacoes e NPS vem das colunas do Jornada (onde a equipe registra de fato)
+  const indicacoesMes=G.rel.indicacoes.filter(n=>dentroDoMes(n.dt)).length;
+  const npsMes=G.rel.nps.filter(n=>dentroDoMes(n.dt)).length;
 
   // Contagem diária/mensal das colunas NPS e Indicações (Aline)
   function dentroDoDia(dataISO){if(!dataISO)return false;return dataISO===new Date().toISOString().split('T')[0];}
@@ -4729,7 +4737,7 @@ function renderDashboardRel(cnt){
     <!-- KPIs do mês (Milena) -->
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
       <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-calendar-stats" style="color:var(--purple)"></i> Este mês
+        <i class="ti ti-calendar-stats" style="color:var(--purple)"></i> ${tituloPeriodo}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
         ${kpiCard(visitas1anoMes,'🎁 Visitas 1 ano','#6b3db8','#f3e8fb')}
@@ -4746,18 +4754,18 @@ function renderDashboardRel(cnt){
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
         ${kpiCard(npsHoje,'📊 NPS pedidos hoje','#0b7ba8','#e8f8fb')}
-        ${kpiCard(npsMesRegistrado,'📊 NPS pedidos no mês','#0b7ba8','#e8f8fb')}
+        ${kpiCard(npsMesRegistrado,'📊 NPS pedidos'+sufixoPer,'#0b7ba8','#e8f8fb')}
         ${kpiCard(indHoje,'🎯 Indicações hoje','#c2185b','#fde8f0')}
-        ${kpiCard(indMesRegistrado,'🎯 Indicações no mês','#c2185b','#fde8f0')}
-        ${kpiCard(indCompareceuMes,'✅ Compareceram no mês','#1a6b3c','#e8f5ee')}
-        ${kpiCard(indNaoCompareceuMes,'❌ Não compareceram no mês','#e8431e','#fff0ec')}
+        ${kpiCard(indMesRegistrado,'🎯 Indicações'+sufixoPer,'#c2185b','#fde8f0')}
+        ${kpiCard(indCompareceuMes,'✅ Compareceram'+sufixoPer,'#1a6b3c','#e8f5ee')}
+        ${kpiCard(indNaoCompareceuMes,'❌ Não compareceram'+sufixoPer,'#e8431e','#fff0ec')}
       </div>
     </div>
 
     <!-- KPIs totais -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
       ${kpiCard(total,'Total de Clientes','var(--red)','')}
-      ${COLS_REL.filter(c=>!['aniversario','d3anos','d4anos'].includes(c.id)).map(c=>kpiCard(porEtapa[c.id]||0,c.emoji+' '+c.label,c.cor,c.bg)).join('')}
+      ${COLS_REL.filter(c=>!['aniversario','d4anos'].includes(c.id)).map(c=>kpiCard(porEtapa[c.id]||0,c.emoji+' '+c.label,c.cor,c.bg)).join('')}
       ${kpiCard(anivProximos.length,'🎂 Aniv. 30 dias','#b8860b','#fff8e1')}
       ${kpiCard(recompras,'🔁 Recompras','var(--purple)','var(--purplel)')}
     </div>
