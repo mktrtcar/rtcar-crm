@@ -111,6 +111,8 @@ function ehRepasse(l){return l.origem==='Repasse'||!!l.repasse;}
 function ehConsignado(l){return l.origem==='Consignado';}
 // 26/10/2026 (pedido da Aline): no Consignado o carro e' do proprio cliente,
 // igual na Compra - precisa de veiculo + placa e de Avaliacao antes do termo.
+// Avaliacao: com o cliente na loja (Compareceu) ou negocio ja fechado (Venda).
+function liberaAvaliacao(l){return !!l&&(l.agendamentoStatus==='compareceu'||l.st==='vendido');}
 function veiculoEhDoCliente(l){return !!l&&(l.origem==='Compra'||l.origem==='Consignado');}
 
 // Normaliza a grafia de "origem": o Autoconf manda o nome do canal como
@@ -1033,10 +1035,10 @@ function renderKanbanMk(cnt){
               const tituloBtn=l.origem==='Compra'?'Informar/editar o veículo sendo comprado':(ehConsignado(l)?'Informar/editar o veículo consignado':'Informar/editar o veículo de troca');
               return `<button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirVeiculoTroca('${l.id}')" title="${tituloBtn}"><i class="ti ti-car"></i> ${l.veiculoTroca?[l.veiculoTroca.marca,l.veiculoTroca.modelo].filter(Boolean).join(' ')||rotuloVazio:rotuloVazio}</button>`;
             })():''}
-            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||veiculoEhDoCliente(l)))?(l.agendamentoStatus==='compareceu'
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&(l.veiculoTroca||veiculoEhDoCliente(l)))?(liberaAvaliacao(l)
               ?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Abrir avaliação desse veículo no sistema principal"><i class="ti ti-clipboard-check"></i> Solicitar Avaliação</button>`
               :`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="solicitarAvaliacaoTroca('${l.id}',event)" title="Só libera depois que o cliente comparecer na loja (botão ✅ Compareceu no Agendamento)"><i class="ti ti-lock"></i> Solicitar Avaliação</button>`):''}
-            ${(COLS_PERMITE_TROCA.includes(col.id)&&((veiculoEhDoCliente(l)&&l.veiculo2)||l.veiculoTroca2||(l.veiculoTroca&&!veiculoEhDoCliente(l))))?`<button class="card-btn card-btn-label" style="${l.agendamentoStatus==='compareceu'?'color:var(--red)':'opacity:.45;cursor:not-allowed'}" onclick="solicitarAvaliacao2('${l.id}',event)" title="Avaliação do 2º veículo do cliente"><i class="ti ti-clipboard-check"></i> ${(l.veiculoTroca2||(veiculoEhDoCliente(l)&&l.veiculo2))?'Avaliação 2º veículo'+(l.avaliacao2SolicitadaEm?' ✓':''):'+ 2º veículo (avaliação)'}</button>`:''}
+            ${(COLS_PERMITE_TROCA.includes(col.id)&&((veiculoEhDoCliente(l)&&l.veiculo2)||l.veiculoTroca2||(l.veiculoTroca&&!veiculoEhDoCliente(l))))?`<button class="card-btn card-btn-label" style="${liberaAvaliacao(l)?'color:var(--red)':'opacity:.45;cursor:not-allowed'}" onclick="solicitarAvaliacao2('${l.id}',event)" title="Avaliação do 2º veículo do cliente"><i class="ti ti-clipboard-check"></i> ${(l.veiculoTroca2||(veiculoEhDoCliente(l)&&l.veiculo2))?'Avaliação 2º veículo'+(l.avaliacao2SolicitadaEm?' ✓':''):'+ 2º veículo (avaliação)'}</button>`:''}
             ${['encantamento','negociacao'].includes(col.id)?botaoAbordarEm(l):''}
             ${['negociacao','agendamento'].includes(col.id)?(veiculoEhDoCliente(l)&&!l.avaliacaoSolicitadaEm
               ?`<button class="card-btn card-btn-label" style="opacity:.45;cursor:not-allowed" onclick="event.stopPropagation();abrirModalVendido('${l.id}')" title="Só libera depois de Solicitar Avaliação"><i class="ti ti-lock"></i> ${l.origem==='Compra'?'Termo de Compra':'Termo de Consignado'}</button>`
@@ -2510,7 +2512,7 @@ function solicitarAvaliacaoTroca(id,e){
   // Avaliacao so pode ser criada com o cliente na loja - o vendedor precisa
   // ter clicado "✅ Compareceu" no Agendamento antes (pedido da Aline,
   // 05/10/2026).
-  if(lead.agendamentoStatus!=='compareceu'){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
+  if(!liberaAvaliacao(lead)){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
   const veiculoParaAvaliacao=lead.veiculoTroca||(veiculoEhDoCliente(lead)&&lead.veiculo&&lead.veiculoPlaca?veiculoCompraParaAvaliacao(lead):null);
   // Compra sem veiculo/placa ainda: o botao aparece mesmo assim (pedido da
   // Aline, 05/10/2026 - a Milena nao achava o botao) e abre direto o
@@ -2568,7 +2570,7 @@ function abrirVeiculoTroca2(id){
 function solicitarAvaliacao2(id,e){
   if(e)e.stopPropagation();
   const l=G.mk.leads.find(x=>x.id===id);if(!l)return;
-  if(l.agendamentoStatus!=='compareceu'){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
+  if(!liberaAvaliacao(l)){toast('A avaliação só pode ser criada depois que o cliente comparecer — marque ✅ Compareceu no Agendamento','red',5000);return;}
   const v=veiculo2DoLead(l);
   if(!v||!v.placa){_avaliacao2AposVeiculo=id;toast('Informe o 2º veículo (com a placa) — a avaliação abre em seguida','blue',6000);abrirVeiculoTroca2(id);return;}
   if(!l.avaliacao2SolicitadaEm){
