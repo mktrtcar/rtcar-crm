@@ -1463,7 +1463,10 @@ function renderKanbanMk(cnt){
       // 07/10/2026: limite por coluna (LIMITES_ALERTA_COL); Agendamento so' pela data.
       if(col.id==='agendamento'){
         if(l.agendamentoData&&!l.agendamentoStatus){c.dataset.alertaData=l.agendamentoData;atualizarAlertaCard(c);}
-      }else if(['encantamento','negociacao'].includes(col.id)&&l.abordarEm){
+      // 26/10/2026 (Aline/Milena): no dia do "Abordar em" o card fica vermelho
+      // ate' o vendedor registrar uma acao nesse dia (o cronometro da etapa zera a
+      // cada acao) - depois volta pra regra normal das horas sem acao.
+      }else if(['encantamento','negociacao'].includes(col.id)&&l.abordarEm&&!(l.abordarEm<=hojeISOlocal()&&timerStart&&isoLocalDe(timerStart)>=l.abordarEm)){
         // Com "Abordar em" marcado o vendedor ja combinou a data do retorno: o card
         // so' fica vermelho a partir dessa data, nao pelas 4h sem acao (20/10/2026).
         c.dataset.alertaAbordar=l.abordarEm;atualizarAlertaCard(c);
@@ -1785,6 +1788,7 @@ window.gerarRelatorioCanal=gerarRelatorioCanal;
 // (UTC) o "dia" virava 3h antes da meia-noite local de verdade, fazendo o
 // painel "Hoje" mostrar tudo zerado no fim da tarde/noite (bug encontrado
 // e corrigido a pedido da Aline, 27/08/2026).
+function isoLocalDe(v){const d=new Date(v);if(isNaN(d))return'';return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function hojeISOlocal(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 // Primeira resposta HUMANA (nao I.A./Autoconf) registrada no historico do
 // lead - o momento em que um vendedor de fato respondeu, nao quando o lead
