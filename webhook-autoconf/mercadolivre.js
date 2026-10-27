@@ -149,6 +149,48 @@ async function sincronizarML(){
   return{novos,res};
 }
 
+/* WhatsApp dos anuncios (27/10/2026, pedido da Aline): os anuncios publicados
+   pelo Autoconf saiam com o WhatsApp da Milena (47 99993-8679) - o cliente que
+   clicava em WhatsApp no ML caia no celular dela. Troca pelo da Eva em todos os
+   anuncios ativos. So' mexe no campo de telefone que tem o numero antigo (o
+   seller_contact tem phone e phone2 - nao dependemos de saber qual e' o do
+   WhatsApp). Roda sob demanda (gestor) e todo dia como vigia. */
+const WHATS_ANTIGO='99938679';
+const EVA={area_code:'47',phone:'992812847'};
+async function corrigirContatoAnuncios(simular){
+  const c=await obterToken();const token=c.accessToken;
+  const ids=[];let offset=0,total=0;
+  do{const j=await apiML(`/users/${c.userId}/items/search?status=active&offset=${offset}&limit=50`,token);total=(j.paging&&j.paging.total)||0;ids.push(...(j.results||[]));offset+=50;}while(offset<total&&offset<1000);
+  const res=[];
+  for(const id of ids){
+    const it=await apiML(`/items/${id}?attributes=id,title,seller_contact`,token);
+    const sc={...(it.seller_contact||{})};let mudou=false;
+    for(const [ac,ph] of [['area_code','phone'],['area_code2','phone2']]){
+      const num=String(sc[ac]||'')+String(sc[ph]||'');
+      if(num.replace(/\D/g,'').endsWith(WHATS_ANTIGO)){sc[ac]=EVA.area_code;sc[ph]=EVA.phone;mudou=true;}
+    }
+    if(!mudou){res.push({id,ok:'já estava certo'});continue;}
+    if(simular){res.push({id,titulo:it.title,antes:it.seller_contact,depois:sc});continue;}
+    const r=await fetch(`${API}/items/${id}`,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({seller_contact:sc})});
+    const j=await r.json().catch(()=>({}));
+    res.push({id,titulo:it.title,trocado:r.ok,erro:r.ok?undefined:JSON.stringify(j).slice(0,300)});
+  }
+  await refConfig().set({contatoCorrigidoEm:new Date().toISOString(),contatoResultado:`${res.filter(x=>x.trocado).length} trocado(s) de ${ids.length}`},{merge:true});
+  return{total:ids.length,res};
+}
+const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br'];
+exports.mercadoLivreCorrigirContato=onRequest({region:'southamerica-east1',timeoutSeconds:540,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    res.json(await corrigirContatoAnuncios(req.query.simular==='1'));
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+exports.mercadoLivreVigiaContato=onSchedule({region:'southamerica-east1',schedule:'0 7 * * *',timeZone:'America/Sao_Paulo',timeoutSeconds:540},async()=>{
+  try{await corrigirContatoAnuncios(false);}catch(e){console.error('ML vigia contato:',e);}
+});
+
 // Aviso do ML (topico VIS Leads): o ML exige resposta em menos de 500 ms, entao
 // so' grava o aviso e responde; a sincronizacao roda no gatilho abaixo.
 exports.mercadolivrenotificacao=onRequest({region:'southamerica-east1'},async(req,res)=>{
