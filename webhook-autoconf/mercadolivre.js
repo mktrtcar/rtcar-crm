@@ -157,13 +157,23 @@ async function sincronizarML(){
    WhatsApp). Roda sob demanda (gestor) e todo dia como vigia. */
 const WHATS_ANTIGO='99938679';
 const EVA={area_code:'47',phone:'992812847'};
-async function corrigirContatoAnuncios(simular){
+// A busca /users/$ID/items/search devolve 403 pro nosso app (27/10/2026) - os
+// codigos dos anuncios podem vir prontos (idsInformados) ou salvos do ultimo
+// envio (leads_config/ml_oauth.idsAnuncios), que o vigia diario reaproveita.
+async function corrigirContatoAnuncios(simular,idsInformados){
   const c=await obterToken();const token=c.accessToken;
-  const ids=[];let offset=0,total=0;
-  do{const j=await apiML(`/users/${c.userId}/items/search?status=active&offset=${offset}&limit=50`,token);total=(j.paging&&j.paging.total)||0;ids.push(...(j.results||[]));offset+=50;}while(offset<total&&offset<1000);
+  let ids=(idsInformados&&idsInformados.length)?idsInformados:(c.idsAnuncios||[]);
+  if(!ids.length){
+    let offset=0,total=0;
+    do{const j=await apiML(`/users/${c.userId}/items/search?status=active&offset=${offset}&limit=50`,token);total=(j.paging&&j.paging.total)||0;ids.push(...(j.results||[]));offset+=50;}while(offset<total&&offset<1000);
+  }
+  ids=[...new Set(ids.map(x=>String(x).replace(/[^A-Z0-9]/gi,'').toUpperCase()).filter(x=>/^MLB\d+$/.test(x)))];
+  if(idsInformados&&idsInformados.length&&!simular)await refConfig().set({idsAnuncios:ids},{merge:true});
   const res=[];
   for(const id of ids){
-    const it=await apiML(`/items/${id}?attributes=id,title,seller_contact`,token);
+    let it;
+    try{it=await apiML(`/items/${id}?attributes=id,title,seller_contact,status`,token);}catch(e){res.push({id,erro:String(e.message).slice(0,200)});continue;}
+    if(it.status&&it.status!=='active'){res.push({id,ok:'não está ativo ('+it.status+')'});continue;}
     const sc={...(it.seller_contact||{})};let mudou=false;
     for(const [ac,ph] of [['area_code','phone'],['area_code2','phone2']]){
       const num=String(sc[ac]||'')+String(sc[ph]||'');
@@ -184,7 +194,8 @@ exports.mercadoLivreCorrigirContato=onRequest({region:'southamerica-east1',timeo
     const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
     const dec=await admin.auth().verifyIdToken(tk);
     if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
-    res.json(await corrigirContatoAnuncios(req.query.simular==='1'));
+    const corpo=(req.body&&typeof req.body==='object')?req.body:{};
+    res.json(await corrigirContatoAnuncios(req.query.simular==='1'||corpo.simular===true,Array.isArray(corpo.ids)?corpo.ids:[]));
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
 exports.mercadoLivreVigiaContato=onSchedule({region:'southamerica-east1',schedule:'0 7 * * *',timeZone:'America/Sao_Paulo',timeoutSeconds:540},async()=>{
