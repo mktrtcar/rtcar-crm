@@ -18,7 +18,7 @@ const db = admin.firestore();
    lead no CRM - pra comparar alguns dias com o que o Autoconf entrega. Quando
    conferido, ligar leads_config/ml_oauth.criarLeads=true e desligar o ML no
    Autoconf. */
-const REDIRECT_URI='https://southamerica-east1-rtcarprograma.cloudfunctions.net/mercadoLivreOAuthCallback';
+const REDIRECT_URI='https://southamerica-east1-rtcarprograma.cloudfunctions.net/mercadolivreoauth';
 const API='https://api.mercadolibre.com';
 const RODIZIO=['Janderson','Maicon','Victor'];
 const refConfig=()=>db.collection('leads_config').doc('ml_oauth');
@@ -43,7 +43,7 @@ function telBR(tel){
 }
 const TIPO_CONTATO={whatsapp:'clicou no WhatsApp',call:'clicou em ligar',question:'fez uma pergunta',credit:'simulou crédito',contact_request:'pediu contato',visit_request:'pediu visita',reservation:'fez uma reserva'};
 
-exports.mercadoLivreOAuthCallback=onRequest({region:'southamerica-east1'},async(req,res)=>{
+exports.mercadolivreoauth=onRequest({region:'southamerica-east1'},async(req,res)=>{
   try{
     if(req.query.error){res.status(400).send(`<h2>Autorização recusada</h2><p>${String(req.query.error)}</p>`);return;}
     const code=req.query.code;
@@ -151,7 +151,7 @@ async function sincronizarML(){
 
 // Aviso do ML (topico VIS Leads): o ML exige resposta em menos de 500 ms, entao
 // so' grava o aviso e responde; a sincronizacao roda no gatilho abaixo.
-exports.mercadoLivreNotificacao=onRequest({region:'southamerica-east1'},async(req,res)=>{
+exports.mercadolivrenotificacao=onRequest({region:'southamerica-east1'},async(req,res)=>{
   try{await db.collection('ml_notificacoes').add({recebidaEm:new Date().toISOString(),corpo:req.body||{}});}
   catch(e){console.error('ML notificacao:',e);}
   res.status(200).send('ok');
