@@ -121,6 +121,13 @@ async function catalogoSite(){
   return _catalogoSiteCache;
 }
 function normalizarTextoLitoral(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();}
+// Marca do sistema vem como "VW - VOLKSWAGEN", "GM - CHEVROLET", "MERCEDES-BENZ";
+// no site/Autoconf, "VolksWagen", "Chevrolet", "Mercedes". Basta uma palavra em comum.
+function mesmaMarca(a,b){
+  const pa=normalizarTextoLitoral(a).split(/[^A-Z0-9]+/).filter(p=>p.length>1);
+  const pb=new Set(normalizarTextoLitoral(b).split(/[^A-Z0-9]+/).filter(p=>p.length>1));
+  return pa.some(p=>pb.has(p));
+}
 
 /* Fallback ao vivo: o catalogo estatico (catalogoSite) so tem 55 carros de
    uma extracao unica em 07/09 - muita coisa do estoque atual nao esta la
@@ -219,23 +226,58 @@ async function fotosDaPaginaAutoconf(pagina){
     return[];
   }
 }
+// Km do carro principal da pagina do Autoconf ("... KM: 114443 km." no texto
+// de apresentacao) - a pagina tambem lista km de OUTROS carros (relacionados),
+// por isso nao serve pegar qualquer "NNN km".
+async function kmDaPaginaAutoconf(pagina){
+  try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),8000);
+    try{
+      const r=await fetch(pagina,{headers:{'User-Agent':'Mozilla/5.0'},signal:controller.signal});
+      if(!r.ok)return 0;
+      const m=(await r.text()).match(/KM:\s*([\d.]+)\s*km/i);
+      return m?parseKm(m[1]):0;
+    }finally{clearTimeout(timeout);}
+  }catch(e){
+    return 0;
+  }
+}
+/* 29/10/2026 (achado pela Aline): pegava o PRIMEIRO carro do Autoconf com a
+   mesma marca+modelo - um Onix 2016 sem foto ia sair com as fotos do Onix
+   Hatch 2025. Agora so' aceita se o km da pagina bater com o do sistema
+   (mesma tolerancia do catalogo do site); sem km pra comparar, nao arrisca. */
 async function fotosAoVivoAutoconf(v){
   const catalogo=await buscarCatalogoAoVivo();
   const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
-  if(!marcaAlvo||!modeloAlvo)return[];
-  const candidato=catalogo.find(c=>{
+  const kmAlvo=parseKm(v.km);
+  if(!marcaAlvo||!modeloAlvo||!kmAlvo)return[];
+  const candidatos=catalogo.filter(c=>{
     const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
-    return marcaC===marcaAlvo&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
+    return mesmaMarca(marcaC,marcaAlvo)&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
   });
-  if(!candidato)return[];
-  return fotosDaPaginaAutoconf(candidato.pagina);
+  for(const c of candidatos){
+    const kmC=await kmDaPaginaAutoconf(c.pagina);
+    if(kmC&&Math.abs(kmC-kmAlvo)<=6000)return fotosDaPaginaAutoconf(c.pagina);
+  }
+  return[];
 }
 
+// Imagem padrao "Em preparação" (arte da Aline, 29/10/2026) - usada quando
+// nao ha nenhuma foto DO PROPRIO carro; trocada pelas fotos reais no proximo
+// "Atualizar publicados" depois que elas forem anexadas no admin do site.
+const FOTO_EM_PREPARACAO='https://rtcar-site.web.app/fotos/em-preparacao.jpg';
+
 async function fotosParaVeiculo(v){
+  const fotos=await fotosDoProprioVeiculo(v);
+  return fotos.length?fotos:[FOTO_EM_PREPARACAO];
+}
+async function fotosDoProprioVeiculo(v){
   const catalogo=await catalogoSite();
-  // 1) Vinculo feito pela Aline no admin do site (placaReal do carro do sistema)
+  // 1) Mesmo carro no site: criado pelo sistema (id = placa), vinculado no
+  // admin (placaSistema) ou com placaReal informada.
   const placaAlvo=limparPlaca(v.placa);
-  const vinculado=catalogo.find(c=>c.placaReal&&limparPlaca(c.placaReal)===placaAlvo&&(c.fotos||[]).length);
+  const vinculado=catalogo.find(c=>(c.fotos||[]).length&&(limparPlaca(c.id)===placaAlvo||limparPlaca(c.placaSistema)===placaAlvo||limparPlaca(c.placaReal)===placaAlvo));
   if(vinculado)return vinculado.fotos;
   // 2) Aproximacao marca+modelo - so' aceita se o km bate de perto (ate 6.000
   // km de diferenca), pra nunca pegar foto de OUTRO carro do mesmo modelo.
@@ -245,10 +287,9 @@ async function fotosParaVeiculo(v){
   const candidatos=catalogo.filter(c=>{
     if(!(c.fotos||[]).length)return false;
     const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
-    // Marca pela 1a palavra: "Kia" x "Kia Motors", "Mercedes" x "Mercedes Benz".
-    if(!(marcaC.split(' ')[0]===marcaAlvo.split(' ')[0]&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC))))return false;
+    if(!(mesmaMarca(marcaC,marcaAlvo)&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC))))return false;
     const kmC=parseKm(c.km);
-    return !kmAlvo||!kmC||Math.abs(kmC-kmAlvo)<=6000;
+    return kmAlvo&&kmC&&Math.abs(kmC-kmAlvo)<=6000;
   });
   if(!candidatos.length)return fotosAoVivoAutoconf(v);
   candidatos.sort((a,b)=>Math.abs(parseKm(a.km)-kmAlvo)-Math.abs(parseKm(b.km)-kmAlvo));
