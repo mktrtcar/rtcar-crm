@@ -145,7 +145,8 @@ const AUTOCONF_CACHE_TTL_MS=15*60*1000;
 let _catalogoAoVivoCache=null,_catalogoAoVivoQuando=0;
 function extrairCardsAutoconf(html){
   const veiculos=[];
-  const regex=/<div class="card card-car\s*">[\s\S]*?<a href="(https:\/\/rtcar\.com\.br\/carros\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<span[^>]*>([^<]+)<\/span><\/h3>/g;
+  // /carros/ e /motos/ (29/10/2026: as Harleys ficam em /motos/ no Autoconf)
+  const regex=/<div class="card card-car\s*">[\s\S]*?<a href="(https:\/\/rtcar\.com\.br\/(?:carros|motos)\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<span[^>]*>([^<]+)<\/span><\/h3>/g;
   let m;
   while((m=regex.exec(html)))veiculos.push({pagina:m[1],marca:m[2].trim(),modelo:m[3].trim()});
   return veiculos;
@@ -258,13 +259,19 @@ async function paginaAoVivoAutoconf(v){
   const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
   const kmAlvo=parseKm(v.km);
   if(!marcaAlvo||!modeloAlvo||!kmAlvo)return null;
-  const candidatos=catalogo.filter(c=>{
-    const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
-    return mesmaMarca(marcaC,marcaAlvo)&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
-  });
-  for(const c of candidatos){
+  const daMarca=catalogo.filter(c=>mesmaMarca(normalizarTextoLitoral(c.marca),marcaAlvo));
+  const mesmoModelo=c=>{const modeloC=normalizarTextoLitoral(c.modelo);return modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC);};
+  for(const c of daMarca.filter(mesmoModelo)){
     const kmC=await kmDaPaginaAutoconf(c.pagina);
     if(kmC&&Math.abs(kmC-kmAlvo)<=6000)return c.pagina;
+  }
+  // 29/10/2026: modelo cadastrado diferente nos dois lados (Harley XR 1200X
+  // esta' no sistema como modelo "DAVISON") - aceita a mesma marca so' com km
+  // quase igual (ate 500 km), e nunca pra carro de km baixo (0 km).
+  if(kmAlvo<1000)return null;
+  for(const c of daMarca.filter(c=>!mesmoModelo(c))){
+    const kmC=await kmDaPaginaAutoconf(c.pagina);
+    if(kmC&&Math.abs(kmC-kmAlvo)<=500)return c.pagina;
   }
   return null;
 }
@@ -530,7 +537,7 @@ async function apagarFotosAntigas(bucket,docId,antigas,novas){
   const base=`https://storage.googleapis.com/${bucket.name}/`;
   for(const url of antigas)if(url.startsWith(`${base}veiculos/${docId}/`)&&!novas.includes(url))await bucket.file(url.slice(base.length)).delete().catch(()=>{});
 }
-const ehPaginaAutoconf=u=>/^https:\/\/(www\.)?rtcar\.com\.br\/carros\//.test(String(u||''));
+const ehPaginaAutoconf=u=>/^https:\/\/(www\.)?rtcar\.com\.br\/(carros|motos)\//.test(String(u||''));
 
 exports.sitePuxarFotosAutoconf=onSchedule({region:'southamerica-east1',schedule:'every 30 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:540,memory:'512MiB'},async()=>{
   const bucket=admin.storage().bucket();
