@@ -1,4 +1,5 @@
 const {onRequest} = require('firebase-functions/v2/https');
+const {onSchedule} = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 if(!admin.apps.length)admin.initializeApp();
 const db = admin.firestore();
@@ -489,5 +490,40 @@ exports.litoralcarDespublicarEstoque=onRequest({region:'southamerica-east1',cors
   }catch(e){
     console.error(e);
     res.status(e.status||500).json({erro:e.message||String(e)});
+  }
+});
+
+/* Fotos do site (29/10/2026, pedido da Aline - "a Tiguan tem foto no
+   Autoconf"): carro que entra no site pelo estoque do sistema chega sem foto
+   (vincularEstoquePrincipalAoSite). Enquanto as fotos ainda forem subidas no
+   Autoconf, essa rotina copia pro nosso Storage as fotos DO MESMO carro (mesma
+   busca por marca+modelo+km usada na LitoralCar) de quem ainda esta sem foto.
+   Nunca mexe em carro com foto, nem em quem teve as fotos editadas no admin
+   (fotosBloqueadas). */
+exports.sitePuxarFotosAutoconf=onSchedule({region:'southamerica-east1',schedule:'every 30 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:540,memory:'512MiB'},async()=>{
+  const bucket=admin.storage().bucket();
+  const snap=await db.collection('site_veiculos').where('origemEstoquePrincipal','==',true).get();
+  const semFoto=snap.docs.filter(d=>{const v=d.data();return !v.oculto&&!v.fotosBloqueadas&&!(v.fotos||[]).length;});
+  for(const d of semFoto){
+    const est=await db.collection('rtcar_estoque_publico').doc(d.id).get();
+    if(!est.exists)continue;
+    const urls=await fotosAoVivoAutoconf({...est.data(),placa:d.id});
+    if(!urls.length)continue;
+    const fotos=[];
+    for(const url of urls){
+      try{
+        const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0'}});
+        if(!r.ok)continue;
+        const caminho=`veiculos/${d.id}/${fotos.length+1}.jpg`;
+        await bucket.file(caminho).save(Buffer.from(await r.arrayBuffer()),{metadata:{contentType:'image/jpeg'},public:true});
+        fotos.push(`https://storage.googleapis.com/${bucket.name}/${caminho}`);
+      }catch(e){
+        console.error(`sitePuxarFotosAutoconf ${d.id}: erro baixando ${url}`,e);
+      }
+    }
+    if(fotos.length){
+      await d.ref.set({fotos,fotosDoAutoconfEm:new Date().toISOString()},{merge:true});
+      console.log(`sitePuxarFotosAutoconf ${d.id}: ${fotos.length} foto(s)`);
+    }
   }
 });
