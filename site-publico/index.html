@@ -129,6 +129,7 @@ nav a.navlink:hover{opacity:1;color:var(--red2)}
 .card-foto img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
 .card:hover .card-foto img{transform:scale(1.05)}
 .card-badge{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;box-shadow:0 3px 10px rgba(232,67,30,.35)}
+.badge-prep{position:absolute;top:10px;right:10px;z-index:2;background:rgba(15,14,13,.82);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.6px;padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.25)}
 .card-prep{width:100%;height:100%;background:linear-gradient(135deg,#232120,#161513);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#6b6660}
 .card-prep .ti{font-size:28px;opacity:.7}
 .card-prep span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#8a8580}
@@ -327,12 +328,16 @@ function fotoUrl(id, n){ const v=ESTOQUE.find(x=>x.id===id); return (v&&v.fotos&
 
 // 29/10/2026 (pedido da Aline): carro sem foto mostra a arte "Em preparação".
 const FOTO_PREP = "/fotos/em-preparacao.jpg";
+function emPreparacao(v){ return v.statusSistema === 'em_preparacao'; }
 function cardFoto(v){
   const badge = v.precoDe ? `<div class="card-badge">OPORTUNIDADE</div>` : '';
   if(!v.fotos.length){
     return `<img src="${FOTO_PREP}" alt="${v.marca} ${v.modelo} - em preparação" loading="lazy">`;
   }
-  return `${badge}<img src="${fotoUrl(v.id,1)}" alt="${v.marca} ${v.modelo}" loading="lazy">`;
+  // Contrato do feed 1.2 (29/10/2026): carro "em preparação" no sistema aparece
+  // com essa etiqueta (sem foto, a arte já diz isso).
+  const prep = emPreparacao(v) ? `<div class="badge-prep">EM PREPARAÇÃO</div>` : '';
+  return `${badge}${prep}<img src="${fotoUrl(v.id,1)}" alt="${v.marca} ${v.modelo}" loading="lazy">`;
 }
 
 function cardHtml(v){
@@ -650,6 +655,7 @@ function renderDetalhe(id){
       <div>
         <div class="galeria-principal" id="galeria-principal" style="position:relative">
           ${fotos ? `<img src="${fotoUrl(v.id,1)}" id="foto-grande">` : `<img src="${FOTO_PREP}" id="foto-grande" alt="Em preparação">`}
+          ${fotos && emPreparacao(v) ? `<div class="badge-prep">EM PREPARAÇÃO</div>` : ''}
         </div>
         ${modoAdmin ? `<div class="galeria-thumbs" style="margin-top:6px">
           ${fotos ? fotos.map(n=>`<div style="position:relative;display:inline-block">

@@ -43,13 +43,18 @@ exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-e
   const depois=event.data?.after?.exists?event.data.after.data():null;
   const placa=event.params.placa;
   const ref=db.collection('site_veiculos').doc(placa);
-  if(!depois||!STATUS_RELEVANTES.includes(depois.status)){
-    // Veiculo excluido no sistema principal, ou vendido/repasse - apaga de
-    // verdade do site (doc + fotos no Storage), pedido da Aline,
-    // 01/10/2026: carro vendido nao deve continuar aparecendo. So' apaga se
-    // o veiculo realmente veio dessa automacao (origemEstoquePrincipal) ou foi
-    // vinculado a esse carro do sistema (placaSistema, vinculo feito pela Aline
-    // no admin) - nunca mexe num carro cadastrado manualmente sem vinculo.
+  // Contrato do feed 1.2 (29/10/2026): delete de documento NAO e' venda - e'
+  // placa corrigida/preenchida (o app apaga o doc antigo e cria outro com o
+  // mesmo evId). Nao mexe no site aqui: a criacao do doc novo migra o carro
+  // (aplicarSistemaNoSite) e a passada de 30 min oculta o que sumiu de vez.
+  if(!depois)return;
+  if(!STATUS_RELEVANTES.includes(depois.status)){
+    // Vendido/repasse - apaga de verdade do site (doc + fotos no Storage),
+    // pedido da Aline, 01/10/2026: carro vendido nao deve continuar
+    // aparecendo. So' apaga se o veiculo realmente veio dessa automacao
+    // (origemEstoquePrincipal) ou foi vinculado a esse carro do sistema
+    // (placaSistema, vinculo feito pela Aline no admin) - nunca mexe num carro
+    // cadastrado manualmente sem vinculo.
     const snap=await ref.get();
     if(snap.exists&&snap.data().origemEstoquePrincipal)await apagarDocSite(snap);
     const vinculados=await db.collection('site_veiculos').where('placaSistema','==',placa).get();
@@ -81,6 +86,11 @@ function dadosDoSistema(depois,camposBloqueados,atual){
   const extras={ano:[depois.anoFabricacao,depois.anoModelo].filter(Boolean).join('/'),km:String(depois.km||'').replace(/\D/g,''),cor:atual?.cor?'':String(depois.cor||'').trim()};
   Object.entries(extras).forEach(([k,v])=>{if(v&&!camposBloqueados.includes(k))dados[k]=v;});
   if(!camposBloqueados.includes('preco'))dados.preco=precoDoSistema(depois.preco);
+  // Contrato 1.2: evId (identidade fixa do carro), status do sistema (etiqueta
+  // "EM PREPARAÇÃO" no site) e alerta de preco <= FIPE (aviso no admin).
+  if(depois.evId)dados.evId=depois.evId;
+  dados.statusSistema=depois.status||'';
+  if(depois.precoAbaixoFipe!==undefined)dados.precoAbaixoFipe=!!depois.precoAbaixoFipe;
   return dados;
 }
 const mudou=(atual,dados)=>Object.entries(dados).some(([k,v])=>String(atual?.[k]??'')!==String(v??''));
@@ -88,9 +98,31 @@ const mudou=(atual,dados)=>Object.entries(dados).some(([k,v])=>String(atual?.[k]
 async function aplicarSistemaNoSite(placa,depois){
   const ref=db.collection('site_veiculos').doc(placa);
   const existenteSnap=await ref.get();
-  const existente=existenteSnap.exists?existenteSnap.data():null;
+  let existente=existenteSnap.exists?existenteSnap.data():null;
+
+  // Placa mudou no sistema (mesmo evId, doc com outra chave): leva o carro do
+  // site inteiro (fotos, edicoes, oculto) pra chave nova em vez de criar um
+  // carro novo sem foto, e aponta as copias do Autoconf pra placa nova.
+  if(!existente&&depois.evId){
+    const antigos=await db.collection('site_veiculos').where('evId','==',depois.evId).get();
+    const antigo=antigos.docs.find(d=>d.id!==placa&&d.data().origemEstoquePrincipal);
+    if(antigo){
+      existente={...antigo.data()};
+      if(existente.ocultoPorSaida){existente.oculto=false;existente.ocultoPorSaida=false;}
+      existente.migradoDe=antigo.id;
+      await ref.set(existente);
+      const copias=await db.collection('site_veiculos').where('placaSistema','==',antigo.id).get();
+      for(const c of copias.docs)await c.ref.set({placaSistema:placa},{merge:true});
+      const escondidos=await db.collection('site_veiculos').where('ocultoPorVinculo','==',antigo.id).get();
+      for(const c of escondidos.docs)if(c.id!==placa)await c.ref.set({ocultoPorVinculo:placa},{merge:true});
+      await antigo.ref.delete(); // so' o doc - as fotos sao as mesmas URLs, agora no doc novo
+    }
+  }
+
   const dados=dadosDoSistema(depois,existente?.camposBloqueados||[],existente);
   dados.origemEstoquePrincipal=true;
+  // Carro que a passada de 30 min tinha ocultado por ter sumido do sistema e voltou.
+  if(existente?.ocultoPorSaida){dados.oculto=false;dados.ocultoPorSaida=false;}
 
   if(!existente){
     // Veiculo novo: comeca visivel, sem foto (site mostra "Em preparacao"
@@ -123,4 +155,18 @@ async function aplicarSistemaNoSite(placa,depois){
 exports.siteSincronizarComSistema=onSchedule({region:'southamerica-east1',schedule:'every 30 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:300},async()=>{
   const snap=await db.collection('rtcar_estoque_publico').where('status','in',STATUS_RELEVANTES).get();
   for(const d of snap.docs)await aplicarSistemaNoSite(d.id,d.data());
+
+  // Carro do sistema que esta' no site mas nao existe mais no feed (nem com
+  // outra placa, pelo evId) - foi excluido no sistema. Oculta (nao apaga):
+  // se voltar, aparece de novo sozinho.
+  const ativosId=new Set(snap.docs.map(d=>d.id));
+  const ativosEv=new Set(snap.docs.map(d=>d.data().evId).filter(Boolean));
+  const site=await db.collection('site_veiculos').where('origemEstoquePrincipal','==',true).get();
+  for(const d of site.docs){
+    const v=d.data();
+    if(v.oculto||ativosId.has(d.id)||(v.evId&&ativosEv.has(v.evId)))continue;
+    const noFeed=await db.collection('rtcar_estoque_publico').doc(d.id).get();
+    if(noFeed.exists)continue; // vendido/repasse: o gatilho ja' cuida
+    await d.ref.set({oculto:true,ocultoPorSaida:true,saiuDoSistemaEm:new Date().toISOString()},{merge:true});
+  }
 });
