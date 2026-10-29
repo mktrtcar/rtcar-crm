@@ -305,6 +305,8 @@ function parsePreco(x){
 // quando o carro esta marcado "Ocultar preço" no admin (precoOculto).
 function precoDefinido(v){
   if(v.precoOculto) return 0;
+  // 29/10/2026: R$ 1 no sistema = preco ainda nao definido -> "Consulte o preço".
+  if(parsePreco(v.precoPor) <= 1 && parsePreco(v.preco) <= 1) return 0;
   if(parsePreco(v.precoPor)) return parsePreco(v.precoPor);
   return parsePreco(v.preco);
 }

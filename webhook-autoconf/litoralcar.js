@@ -382,7 +382,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       const valor=parseValorBR(v.preco);
       if(!cor){resultados.push({placa:v.placa,ok:false,erro:`Cor "${v.cor}" não reconhecida pela LitoralCar`});continue;}
       if(!ano){resultados.push({placa:v.placa,ok:false,erro:'Ano ausente/inválido'});continue;}
-      if(!valor){resultados.push({placa:v.placa,ok:false,erro:'Preço ausente/inválido'});continue;}
+      if(!valor||valor<=1){resultados.push({placa:v.placa,ok:false,erro:valor===1?'Preço ainda não definido (R$ 1 no sistema)':'Preço ausente/inválido'});continue;}
       if(!v.categoria||!v.combustivel){resultados.push({placa:v.placa,ok:false,erro:'Categoria ou combustível não informado'});continue;}
 
       const fotos=await fotosParaVeiculo(v);

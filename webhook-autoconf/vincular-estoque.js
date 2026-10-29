@@ -1,4 +1,5 @@
 const {onDocumentWritten} = require('firebase-functions/v2/firestore');
+const {onSchedule} = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 if(!admin.apps.length)admin.initializeApp();
 const db = admin.firestore();
@@ -55,20 +56,41 @@ exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-e
     for(const d of vinculados.docs)await apagarDocSite(d);
     return;
   }
-  const existenteSnap=await ref.get();
-  const existente=existenteSnap.exists?existenteSnap.data():null;
-  const camposBloqueados=existente?.camposBloqueados||[];
+  await aplicarSistemaNoSite(placa,depois);
+});
 
+/* 29/10/2026 (pedido da Aline): preco R$ 1 (ou 0/vazio) no sistema = carro
+   ainda sem preco final -> site mostra "Consulte o preço". Qualquer outro
+   valor vai pro site como esta' no sistema. */
+function precoDoSistema(p){
+  if(typeof p==='number')return p>1?p:'';
+  let s=String(p??'').replace(/[^\d.,]/g,'');
+  if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');
+  const n=parseFloat(s);
+  return n>1?n:'';
+}
+function dadosDoSistema(depois,camposBloqueados,atual){
   const dados={};
   Object.entries(MAPA_CAMPOS).forEach(([origem,destino])=>{
     if(!camposBloqueados.includes(destino)&&depois[origem]!==undefined)dados[destino]=depois[origem];
   });
   if(dados.marca)dados.marca=tituloMarca(dados.marca);
   if(dados.modelo)dados.modelo=modeloLimpo(dados.modelo);
-  const extras={ano:[depois.anoFabricacao,depois.anoModelo].filter(Boolean).join('/'),km:depois.km?String(depois.km):'',cor:depois.cor||'',preco:depois.preco||''};
+  // cor so' preenche quando o site ainda nao tem (nao troca "Branco" por "BRANCA").
+  const extras={ano:[depois.anoFabricacao,depois.anoModelo].filter(Boolean).join('/'),km:String(depois.km||'').replace(/\D/g,''),cor:atual?.cor?'':String(depois.cor||'').trim()};
   Object.entries(extras).forEach(([k,v])=>{if(v&&!camposBloqueados.includes(k))dados[k]=v;});
+  if(!camposBloqueados.includes('preco'))dados.preco=precoDoSistema(depois.preco);
+  return dados;
+}
+const mudou=(atual,dados)=>Object.entries(dados).some(([k,v])=>String(atual?.[k]??'')!==String(v??''));
+
+async function aplicarSistemaNoSite(placa,depois){
+  const ref=db.collection('site_veiculos').doc(placa);
+  const existenteSnap=await ref.get();
+  const existente=existenteSnap.exists?existenteSnap.data():null;
+  const dados=dadosDoSistema(depois,existente?.camposBloqueados||[],existente);
   dados.origemEstoquePrincipal=true;
-  dados.sincronizadoEstoqueEm=new Date().toISOString();
 
   if(!existente){
     // Veiculo novo: comeca visivel, sem foto (site mostra "Em preparacao"
@@ -79,5 +101,26 @@ exports.vincularEstoquePrincipalAoSite=onDocumentWritten({region:'southamerica-e
     dados.camposBloqueados=[];
     dados.fotosBloqueadas=false;
   }
-  await ref.set(dados,{merge:true});
+  if(!existente||mudou(existente,dados)){
+    dados.sincronizadoEstoqueEm=new Date().toISOString();
+    await ref.set(dados,{merge:true});
+  }
+
+  // 29/10/2026: a copia que veio do Autoconf (placaSistema) e' a que aparece
+  // no site no lugar desse doc - recebe o mesmo preco/km/ano/cor do sistema
+  // (marca/modelo/versao e fotos dela continuam como estao).
+  const vinculados=await db.collection('site_veiculos').where('placaSistema','==',placa).get();
+  for(const d of vinculados.docs){
+    const atual=d.data();
+    const dc=dadosDoSistema(depois,atual.camposBloqueados||[],atual);
+    delete dc.marca;delete dc.modelo;delete dc.versao;
+    if(mudou(atual,dc)){dc.sincronizadoEstoqueEm=new Date().toISOString();await d.ref.set(dc,{merge:true});}
+  }
+}
+
+// Passada geral a cada 30 min: acerta os carros que ja estavam no site antes
+// dessa regra (o gatilho acima so' roda quando o carro muda no sistema).
+exports.siteSincronizarComSistema=onSchedule({region:'southamerica-east1',schedule:'every 30 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:300},async()=>{
+  const snap=await db.collection('rtcar_estoque_publico').where('status','in',STATUS_RELEVANTES).get();
+  for(const d of snap.docs)await aplicarSistemaNoSite(d.id,d.data());
 });
