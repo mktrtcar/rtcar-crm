@@ -83,6 +83,23 @@ async function fbList(col) {
   } while (pageToken);
   return documentos.map((d) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
 }
+/* 29/10/2026: le' so' os documentos com um campo dentro de uma lista de
+   valores (ex.: status in ['disponivel','em_preparacao']) - pedido do
+   contrato do feed 1.2 (custo): a vitrine guarda ~220 carros, inclusive
+   vendidos, e so' uns 60 interessam. */
+async function fbListWhereIn(col, campo, valores) {
+  const r = await fbFetch(`${FB_URL}:runQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: {
+      from: [{ collectionId: col }],
+      where: { fieldFilter: { field: { fieldPath: campo }, op: 'IN', value: { arrayValue: { values: valores.map(toFV) } } } },
+    } }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return (await r.json()).filter((x) => x.document)
+    .map(({ document: d }) => ({ ...fromFF(d.fields), _docName: d.name, _criadoEm: d.createTime }));
+}
 async function fbGet(col, id) {
   const r = await fbFetch(`${FB_URL}/${col}/${id}`);
   if (!r.ok) throw new Error(await r.text());
@@ -125,4 +142,4 @@ async function criarComSequencia(colSeq, idSeq, campoSeq, colDoc, montar, tentat
   throw new Error("Nao consegui reservar o numero do lead depois de varias tentativas.");
 }
 
-module.exports = { fbList, fbGet, fbUpdate, criarComSequencia, FB, FB_URL };
+module.exports = { fbList, fbListWhereIn, fbGet, fbUpdate, criarComSequencia, FB, FB_URL };

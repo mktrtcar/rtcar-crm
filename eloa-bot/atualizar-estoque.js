@@ -76,14 +76,15 @@ async function buscarEstoqueCompleto() {
    Eva nao precisa mais abrir a pagina do carro pra buscar isso. Preco NUNCA
    entra aqui (a Eva nao passa preco). O site do Autoconf continua so' como
    reserva, se a leitura do sistema falhar. */
-const { fbList } = require('./firestore');
+const { fbList, fbListWhereIn } = require('./firestore');
 const SITE_BASE = (process.env.SITE_URL || 'https://rtcar-site.web.app').replace(/\/$/, '');
 async function buscarEstoqueSistema() {
   // So' os carros ATIVOS do estoque do sistema (disponivel / em preparacao) -
   // o catalogo do site ainda tem as copias antigas do Autoconf (vendidos e
   // duplicados). Carro do sistema sem foto pega as fotos da copia do Autoconf
   // do MESMO carro (mesma marca + modelo + ano, km parecido).
-  const [docs, estoque] = await Promise.all([fbList('site_veiculos'), fbList('rtcar_estoque_publico')]);
+  // So' le' do feed os carros ativos (contrato do feed 1.2, 29/10/2026: custo).
+  const [docs, estoque] = await Promise.all([fbList('site_veiculos'), fbListWhereIn('rtcar_estoque_publico', 'status', ['disponivel', 'em_preparacao'])]);
   const idDe = (d) => String(d._docName || '').split('/').pop() || d.id;
   const ativos = new Set(estoque.filter((e) => ['disponivel', 'em_preparacao'].includes(e.status)).map(idDe));
   const visiveis = docs.filter((v) => !v.oculto);
