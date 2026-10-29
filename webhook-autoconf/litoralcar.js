@@ -249,19 +249,24 @@ async function kmDaPaginaAutoconf(pagina){
    Hatch 2025. Agora so' aceita se o km da pagina bater com o do sistema
    (mesma tolerancia do catalogo do site); sem km pra comparar, nao arrisca. */
 async function fotosAoVivoAutoconf(v){
+  const pagina=await paginaAoVivoAutoconf(v);
+  return pagina?fotosDaPaginaAutoconf(pagina):[];
+}
+// Pagina do anuncio do MESMO carro no Autoconf (marca+modelo e km ate 6.000 de diferenca).
+async function paginaAoVivoAutoconf(v){
   const catalogo=await buscarCatalogoAoVivo();
   const marcaAlvo=normalizarTextoLitoral(v.marca),modeloAlvo=normalizarTextoLitoral(v.modelo);
   const kmAlvo=parseKm(v.km);
-  if(!marcaAlvo||!modeloAlvo||!kmAlvo)return[];
+  if(!marcaAlvo||!modeloAlvo||!kmAlvo)return null;
   const candidatos=catalogo.filter(c=>{
     const marcaC=normalizarTextoLitoral(c.marca),modeloC=normalizarTextoLitoral(c.modelo);
     return mesmaMarca(marcaC,marcaAlvo)&&(modeloC.includes(modeloAlvo)||modeloAlvo.includes(modeloC));
   });
   for(const c of candidatos){
     const kmC=await kmDaPaginaAutoconf(c.pagina);
-    if(kmC&&Math.abs(kmC-kmAlvo)<=6000)return fotosDaPaginaAutoconf(c.pagina);
+    if(kmC&&Math.abs(kmC-kmAlvo)<=6000)return c.pagina;
   }
-  return[];
+  return null;
 }
 
 // Imagem padrao "Em preparação" (arte da Aline, 29/10/2026) - usada quando
@@ -500,30 +505,54 @@ exports.litoralcarDespublicarEstoque=onRequest({region:'southamerica-east1',cors
    busca por marca+modelo+km usada na LitoralCar) de quem ainda esta sem foto.
    Nunca mexe em carro com foto, nem em quem teve as fotos editadas no admin
    (fotosBloqueadas). */
+/* 29/10/2026 (2a parte, Range Rover 437611): alem de quem esta' sem foto,
+   tambem acompanha os carros cujas fotos VIERAM do Autoconf (copias antigas
+   com "url" do anuncio, ou as que essa rotina mesma trouxe) - se a lista de
+   fotos do anuncio mudar la' (sessao de fotos nova), troca aqui tambem.
+   fotosBloqueadas (editadas no admin) continua sendo intocavel. */
+async function copiarFotosAutoconf(bucket,docId,urls){
+  const lote=Date.now().toString(36);
+  const fotos=[];
+  for(const url of urls){
+    try{
+      const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0'}});
+      if(!r.ok)continue;
+      const caminho=`veiculos/${docId}/ac-${lote}-${fotos.length+1}.jpg`;
+      await bucket.file(caminho).save(Buffer.from(await r.arrayBuffer()),{metadata:{contentType:'image/jpeg'},public:true});
+      fotos.push(`https://storage.googleapis.com/${bucket.name}/${caminho}`);
+    }catch(e){
+      console.error(`sitePuxarFotosAutoconf ${docId}: erro baixando ${url}`,e);
+    }
+  }
+  return fotos;
+}
+async function apagarFotosAntigas(bucket,docId,antigas,novas){
+  const base=`https://storage.googleapis.com/${bucket.name}/`;
+  for(const url of antigas)if(url.startsWith(`${base}veiculos/${docId}/`)&&!novas.includes(url))await bucket.file(url.slice(base.length)).delete().catch(()=>{});
+}
+const ehPaginaAutoconf=u=>/^https:\/\/(www\.)?rtcar\.com\.br\/carros\//.test(String(u||''));
+
 exports.sitePuxarFotosAutoconf=onSchedule({region:'southamerica-east1',schedule:'every 30 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:540,memory:'512MiB'},async()=>{
   const bucket=admin.storage().bucket();
-  const snap=await db.collection('site_veiculos').where('origemEstoquePrincipal','==',true).get();
-  const semFoto=snap.docs.filter(d=>{const v=d.data();return !v.oculto&&!v.fotosBloqueadas&&!(v.fotos||[]).length;});
-  for(const d of semFoto){
-    const est=await db.collection('rtcar_estoque_publico').doc(d.id).get();
-    if(!est.exists)continue;
-    const urls=await fotosAoVivoAutoconf({...est.data(),placa:d.id});
-    if(!urls.length)continue;
-    const fotos=[];
-    for(const url of urls){
-      try{
-        const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0'}});
-        if(!r.ok)continue;
-        const caminho=`veiculos/${d.id}/${fotos.length+1}.jpg`;
-        await bucket.file(caminho).save(Buffer.from(await r.arrayBuffer()),{metadata:{contentType:'image/jpeg'},public:true});
-        fotos.push(`https://storage.googleapis.com/${bucket.name}/${caminho}`);
-      }catch(e){
-        console.error(`sitePuxarFotosAutoconf ${d.id}: erro baixando ${url}`,e);
-      }
+  const snap=await db.collection('site_veiculos').get();
+  for(const d of snap.docs){
+    const v=d.data();
+    if(v.oculto||v.fotosBloqueadas)continue;
+    const semFoto=!(v.fotos||[]).length;
+    let pagina=v.fotosAutoconfPagina||(ehPaginaAutoconf(v.url)?v.url:null);
+    // carro do sistema: acha o anuncio do mesmo carro no Autoconf
+    if(!pagina&&v.origemEstoquePrincipal&&(semFoto||v.fotosDoAutoconfEm)){
+      const est=await db.collection('rtcar_estoque_publico').doc(d.id).get();
+      if(est.exists)pagina=await paginaAoVivoAutoconf({...est.data(),placa:d.id});
     }
-    if(fotos.length){
-      await d.ref.set({fotos,fotosDoAutoconfEm:new Date().toISOString()},{merge:true});
-      console.log(`sitePuxarFotosAutoconf ${d.id}: ${fotos.length} foto(s)`);
-    }
+    if(!pagina)continue;
+    const origem=await fotosDaPaginaAutoconf(pagina);
+    if(!origem.length)continue; // anuncio saiu do ar ou falhou - mantem o que tem
+    if(!semFoto&&JSON.stringify(origem)===JSON.stringify(v.fotosAutoconfOrigem||[]))continue;
+    const fotos=await copiarFotosAutoconf(bucket,d.id,origem);
+    if(fotos.length<Math.min(origem.length,3))continue; // download falhou - tenta na proxima
+    await d.ref.set({fotos,fotosAutoconfOrigem:origem,fotosAutoconfPagina:pagina,fotosDoAutoconfEm:new Date().toISOString()},{merge:true});
+    await apagarFotosAntigas(bucket,d.id,v.fotos||[],fotos);
+    console.log(`sitePuxarFotosAutoconf ${d.id}: ${fotos.length} foto(s) do Autoconf (${semFoto?'estava sem foto':'fotos mudaram la'})`);
   }
 });
