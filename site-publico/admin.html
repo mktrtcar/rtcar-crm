@@ -55,6 +55,8 @@ h2{font-size:15px;margin-bottom:10px}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase}
 .badge-oculto{background:var(--redl);color:var(--red)}
 .badge-ok{background:var(--greenl);color:var(--green)}
+.badge-clique{cursor:pointer;user-select:none}
+.badge-clique:hover{outline:1px solid currentColor}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .tag{background:var(--bg);border:1px solid var(--bdr);border-radius:14px;padding:4px 10px;font-size:11px;display:flex;align-items:center;gap:6px}
 .tag button{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;line-height:1;padding:0}
@@ -291,7 +293,7 @@ async function carregarVeiculos(){
         <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
         <div class="preco">${fmtBRL(v.preco)||'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
       </div>
-      <span class="badge ${v.oculto?'badge-oculto':'badge-ok'}">${v.oculto?'Oculto':'Visível'}</span>
+      <span class="badge badge-clique ${v.oculto?'badge-oculto':'badge-ok'}" title="Clique para ${v.oculto?'mostrar no site':'ocultar do site'}" onclick="event.stopPropagation();alternarOculto('${v.id}',this)">${v.oculto?'Oculto':'Visível'}</span>
       <button class="btn-outline btn-sm" onclick="event.stopPropagation();abrirVeiculo('${v.id}')">Editar</button>
       <button class="btn-outline btn-sm" onclick="event.stopPropagation();excluirVeiculo('${v.id}')">Excluir</button>
     </div>`).join('');
@@ -630,6 +632,23 @@ async function salvarCampo(campo, valor){
   await db.collection('site_veiculos').doc(editandoId).set(dados, { merge: true });
   veiculoAtual[campo] = valor;
   veiculoAtual.camposBloqueados = [...bloqueados];
+  mostrarOk();
+}
+
+// 29/10/2026 (pedido da Aline): trocar Visível/Oculto direto na lista, sem abrir o Editar.
+async function alternarOculto(id, el){
+  const v = veiculosCache.find(x => x.id === id);
+  if (!v) return;
+  // Doc do sistema escondido porque a copia do Autoconf aparece no lugar dele -
+  // mostrar os dois duplicaria o carro no site.
+  if (v.oculto && v.ocultoPorVinculo) { alert('Esse carro já aparece no site pela cópia vinculada do Autoconf. Para escondê-lo, oculte a cópia.'); return; }
+  const novo = !v.oculto;
+  if (!confirm(`${v.marca||''} ${v.modelo||''}\n\n${novo ? 'OCULTAR do site? (some do site, nada é apagado)' : 'MOSTRAR no site de novo?'}`)) return;
+  await db.collection('site_veiculos').doc(id).set({ oculto: novo }, { merge: true });
+  v.oculto = novo;
+  el.className = 'badge badge-clique ' + (novo ? 'badge-oculto' : 'badge-ok');
+  el.textContent = novo ? 'Oculto' : 'Visível';
+  el.title = 'Clique para ' + (novo ? 'mostrar no site' : 'ocultar do site');
   mostrarOk();
 }
 
