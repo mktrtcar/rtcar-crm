@@ -325,10 +325,12 @@ function fmtPreco(v){
 // 01/10/2026, junto com o admin de veiculos).
 function fotoUrl(id, n){ const v=ESTOQUE.find(x=>x.id===id); return (v&&v.fotos&&v.fotos[n-1])||''; }
 
+// 29/10/2026 (pedido da Aline): carro sem foto mostra a arte "Em preparação".
+const FOTO_PREP = "/fotos/em-preparacao.jpg";
 function cardFoto(v){
   const badge = v.precoDe ? `<div class="card-badge">OPORTUNIDADE</div>` : '';
   if(!v.fotos.length){
-    return `<div class="card-prep"><span class="ti">🚗</span><span>Em preparação</span></div>`;
+    return `<img src="${FOTO_PREP}" alt="${v.marca} ${v.modelo} - em preparação" loading="lazy">`;
   }
   return `${badge}<img src="${fotoUrl(v.id,1)}" alt="${v.marca} ${v.modelo}" loading="lazy">`;
 }
@@ -647,7 +649,7 @@ function renderDetalhe(id){
     <div class="detalhe-layout">
       <div>
         <div class="galeria-principal" id="galeria-principal" style="position:relative">
-          ${fotos ? `<img src="${fotoUrl(v.id,1)}" id="foto-grande">` : `<div class="card-prep" style="aspect-ratio:4/3"><span class="ti">🚗</span><span>Em preparação</span></div>`}
+          ${fotos ? `<img src="${fotoUrl(v.id,1)}" id="foto-grande">` : `<img src="${FOTO_PREP}" id="foto-grande" alt="Em preparação">`}
         </div>
         ${modoAdmin ? `<div class="galeria-thumbs" style="margin-top:6px">
           ${fotos ? fotos.map(n=>`<div style="position:relative;display:inline-block">
