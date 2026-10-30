@@ -255,3 +255,4 @@ Object.assign(exports,require('./aviso-fotos'));
 Object.assign(exports,require('./webmotors'));
 Object.assign(exports,require('./relacionamento'));
 Object.assign(exports,require('./mercadolivre'));
+Object.assign(exports,require('./instagram'));

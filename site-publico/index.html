@@ -227,6 +227,18 @@ nav a.navlink.destaque:hover{background:var(--redl);color:#fff}
 .depo-card p{font-size:13px;color:var(--tx2);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
 .depo-card .autor{margin-top:14px;font-size:12.5px;font-weight:700;color:var(--tx)}
 
+/* INSTAGRAM (3 ultimos posts, site_config/instagram) */
+.insta{margin-top:52px}
+.insta-sub{text-align:center;margin:-16px 0 24px;font-size:13px}
+.insta-sub a{color:var(--red2);font-weight:700}
+.insta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media (max-width:700px){.insta-grid{grid-template-columns:1fr 1fr 1fr;gap:6px}}
+.insta-post{position:relative;aspect-ratio:4/5;border-radius:var(--r2);overflow:hidden;background:var(--bg3);border:1px solid var(--bdr);display:block}
+.insta-post img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.insta-post:hover img{transform:scale(1.04)}
+.insta-post .play{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:12px}
+@media (max-width:700px){.insta-post{border-radius:8px}.insta-post .play{width:22px;height:22px;font-size:9px;top:6px;right:6px}}
+
 /* PAGINA SOBRE */
 .sobre-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:30px;box-shadow:var(--shadow);max-width:800px;margin:0 auto}
 .sobre-card h1{font-family:var(--s);font-size:28px;font-weight:400;margin-bottom:18px}
@@ -479,6 +491,21 @@ function ctasHtml(){
   </div>`;
 }
 
+// Preenchido pela rotina siteAtualizarInstagram (a cada 15 min). Sem posts,
+// a secao nao aparece.
+let INSTA = {posts:[], usuario:''};
+function instagramHtml(){
+  if(!INSTA.posts.length) return '';
+  const perfil = `https://www.instagram.com/${INSTA.usuario||'rtcar.brusque'}`;
+  return `<div class="insta">
+    <div class="sec-title">Acompanhe no Instagram</div>
+    <div class="insta-sub"><a href="${perfil}" target="_blank" rel="noopener">@${INSTA.usuario||'rtcar.brusque'}</a></div>
+    <div class="insta-grid">${INSTA.posts.map(p=>`<a class="insta-post" href="${p.link}" target="_blank" rel="noopener" title="${(p.legenda||'').replace(/"/g,'&quot;').slice(0,120)}">
+      <img src="${p.imagem}" alt="Post da RT Car no Instagram" loading="lazy">${p.video?'<span class="play">▶</span>':''}
+    </a>`).join('')}</div>
+  </div>`;
+}
+
 function depoSlidesHtml(){
   const itens = DEPO_CARDS.length
     ? DEPO_CARDS.map(url=>`<img src="${url}" alt="Depoimento de cliente RT Car" loading="lazy">`)
@@ -586,6 +613,7 @@ function renderEstoque(){
       ? `<div class="grid-carros">${lista.map(cardHtml).join('')}</div>`
       : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
     ${ctasHtml()}
+    ${instagramHtml()}
     </div>`;
   const buscaInput = document.getElementById('busca-input');
   buscaInput.oninput = (e)=>{ filtroBusca = e.target.value; };
@@ -816,11 +844,13 @@ async function carregarEstoque(){
 // conteudo padrao que ja existia fixo no codigo.
 async function carregarConfig(){
   try{
-    const [depoSnap,infoSnap,destSnap] = await Promise.all([
+    const [depoSnap,infoSnap,destSnap,instaSnap] = await Promise.all([
       db.collection('site_config').doc('depoimentos').get(),
       db.collection('site_config').doc('informacoes').get(),
       db.collection('site_config').doc('destaques').get(),
+      db.collection('site_config').doc('instagram').get().catch(()=>null),
     ]);
+    if(instaSnap && instaSnap.exists && instaSnap.data().posts) INSTA = {posts:instaSnap.data().posts.slice(0,3), usuario:instaSnap.data().usuario||''};
     if(depoSnap.exists && depoSnap.data().lista) DEPOIMENTOS.splice(0,DEPOIMENTOS.length,...depoSnap.data().lista);
     if(depoSnap.exists && depoSnap.data().titulo) DEPO_TITULO = depoSnap.data().titulo;
     if(depoSnap.exists && depoSnap.data().cards) DEPO_CARDS = depoSnap.data().cards.slice(0,5);
