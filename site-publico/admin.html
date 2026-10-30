@@ -115,14 +115,22 @@ h2{font-size:15px;margin-bottom:10px}
   </div>
 
   <div id="view-banner" class="hidden">
-    <div class="sub">Até 3 fotos, aparecem passando no topo do site público, na ordem de envio.</div>
+    <div class="sub">Até 3 fotos, aparecem passando no topo do site público, ao lado dos depoimentos, na ordem de envio.<br><b>Tamanho ideal: 1640 × 630 px</b> (formato 2,6 : 1). Deixe textos e logos longe das bordas: no celular o banner aparece pequeno.</div>
     <input type="file" id="f-arquivo" accept="image/*" multiple class="hidden">
     <div class="upload-area" id="upload-area">📷 Clique ou arraste fotos aqui pra adicionar ao banner (máx. 3)</div>
     <div class="lista-banner" id="lista-banner"></div>
   </div>
 
   <div id="view-depoimentos" class="hidden">
-    <div class="sub">Até 3 depoimentos, aparecem na seção "O que nossos clientes dizem sobre nós".</div>
+    <div class="card">
+      <div class="field"><label>Título acima dos cards (topo do site)</label><input id="depo-titulo" placeholder="O que nossos clientes dizem sobre nós" onchange="salvarDepoTitulo(this.value)"></div>
+      <div style="font-weight:700;font-size:13px;margin:6px 0">Cards de depoimento (imagem) — até 5</div>
+      <div class="sub" style="margin-bottom:10px">Aparecem passando no topo do site, à esquerda do banner, com setinhas. <b>Tamanho ideal: 808 × 558 px</b> (o mesmo formato do seu card de 404 × 279, em dobro para ficar nítido).</div>
+      <input type="file" id="f-depo-card" accept="image/*" multiple class="hidden">
+      <div class="upload-area" id="upload-area-depo">📷 Clique pra adicionar cards (máx. 5)</div>
+      <div class="lista-banner" id="lista-depo-cards"></div>
+    </div>
+    <div class="sub">Depoimentos em texto: só aparecem enquanto não houver nenhum card de imagem.</div>
     <div id="lista-depoimentos"></div>
     <button class="btn btn-outline btn-sm" id="btn-add-depoimento" onclick="adicionarDepoimento()" style="margin-top:8px">+ Adicionar depoimento</button>
   </div>
@@ -722,13 +730,64 @@ async function salvarFotos(){
   mostrarOk();
 }
 
+/* ---- Topo: titulo + cards de imagem (30/10/2026, pedido da Aline) ----
+   Ficam em site_config/depoimentos (titulo, cards[]) - imagens no Storage em
+   veiculos/_depoimentos/ (mesma pasta que o admin ja tem permissao de gravar). */
+const DEPO_CARDS_MAX = 5;
+let depoCardsCache = [];
+document.getElementById('upload-area-depo').onclick = () => document.getElementById('f-depo-card').click();
+document.getElementById('f-depo-card').onchange = async (e) => {
+  const arquivos = Array.from(e.target.files);
+  if (depoCardsCache.length + arquivos.length > DEPO_CARDS_MAX) {
+    alert(`Máximo de ${DEPO_CARDS_MAX} cards. Hoje tem ${depoCardsCache.length}, exclua algum antes de adicionar mais.`);
+    e.target.value = ''; return;
+  }
+  for (const arquivo of arquivos) {
+    const ref = storage.ref(`veiculos/_depoimentos/${Date.now()}-${arquivo.name}`);
+    await ref.put(arquivo);
+    depoCardsCache.push(await ref.getDownloadURL());
+  }
+  e.target.value = '';
+  await db.collection('site_config').doc('depoimentos').set({ cards: depoCardsCache }, { merge: true });
+  renderDepoCards(); mostrarOk();
+};
+function renderDepoCards(){
+  document.getElementById('upload-area-depo').style.display = depoCardsCache.length >= DEPO_CARDS_MAX ? 'none' : '';
+  document.getElementById('lista-depo-cards').innerHTML = depoCardsCache.map((url,i) => `
+    <div class="banner-item">
+      <img src="${url}">
+      <div class="nome">Card ${i+1}</div>
+      ${i>0 ? `<button class="btn-outline btn-sm" onclick="moverDepoCard(${i},-1)">↑</button>` : ''}
+      <button class="btn-outline btn-sm" onclick="excluirDepoCard(${i})">Excluir</button>
+    </div>`).join('') || '<div style="font-size:12px;color:#8a8580">Nenhum card ainda (o site mostra os depoimentos em texto).</div>';
+}
+async function moverDepoCard(i, d){
+  [depoCardsCache[i], depoCardsCache[i+d]] = [depoCardsCache[i+d], depoCardsCache[i]];
+  await db.collection('site_config').doc('depoimentos').set({ cards: depoCardsCache }, { merge: true });
+  renderDepoCards(); mostrarOk();
+}
+async function excluirDepoCard(i){
+  if (!confirm('Remover esse card do site?')) return;
+  const url = depoCardsCache.splice(i,1)[0];
+  await db.collection('site_config').doc('depoimentos').set({ cards: depoCardsCache }, { merge: true });
+  try { await storage.refFromURL(url).delete(); } catch(e) {}
+  renderDepoCards(); mostrarOk();
+}
+async function salvarDepoTitulo(valor){
+  await db.collection('site_config').doc('depoimentos').set({ titulo: valor.trim() }, { merge: true });
+  mostrarOk();
+}
+
 /* ---- Depoimentos (ate 3) ---- */
 const DEPOIMENTOS_MAX = 3;
 let depoimentosCache = [];
 async function carregarDepoimentos(){
   const snap = await db.collection('site_config').doc('depoimentos').get();
   depoimentosCache = (snap.exists && snap.data().lista) || [];
+  depoCardsCache = (snap.exists && snap.data().cards) || [];
+  document.getElementById('depo-titulo').value = (snap.exists && snap.data().titulo) || '';
   renderDepoimentos();
+  renderDepoCards();
 }
 function renderDepoimentos(){
   const el = document.getElementById('lista-depoimentos');
@@ -752,7 +811,7 @@ function adicionarDepoimento(){
 function editarDepoimento(i, campo, valor){ depoimentosCache[i][campo] = valor; salvarDepoimentos(); }
 function removerDepoimento(i){ depoimentosCache.splice(i,1); renderDepoimentos(); salvarDepoimentos(); }
 async function salvarDepoimentos(){
-  await db.collection('site_config').doc('depoimentos').set({ lista: depoimentosCache });
+  await db.collection('site_config').doc('depoimentos').set({ lista: depoimentosCache }, { merge: true });
   mostrarOk();
 }
 

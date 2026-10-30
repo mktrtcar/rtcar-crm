@@ -45,16 +45,41 @@ nav{display:flex;gap:26px;align-items:center;flex-wrap:wrap;row-gap:10px}
 @media (max-width:700px){nav{gap:14px 18px;justify-content:flex-end}}
 nav a.navlink{font-size:12.5px;font-weight:700;letter-spacing:.8px;opacity:.85;text-transform:uppercase}
 nav a.navlink:hover{opacity:1;color:var(--red2)}
+/* 30/10/2026 (pedido da Aline): Veículos e Venda seu carro em destaque */
+nav a.navlink.destaque{opacity:1;border:1.5px solid var(--red2);padding:6px 13px;border-radius:20px;font-size:12px}
+nav a.navlink.destaque:hover{background:var(--redl);color:#fff}
 .whats-btn{background:linear-gradient(135deg,#2fdc76,#1eb85a);color:#fff;padding:9px 18px;border-radius:24px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(37,211,102,.3)}
 .whats-btn:hover{filter:brightness(1.06)}
 
 /* HERO / CARROSSEL */
-.hero{position:relative;overflow:hidden;background:var(--dark);color:#fff}
-.hero-slides{position:relative;height:min(56vw,460px);min-height:260px}
+/* TOPO (30/10/2026, pedido da Aline): depoimentos em cards a esquerda +
+   banner menor a direita, com margem preta em volta. Banner 2,6:1. */
+.topo{max-width:1180px;margin:24px auto 0;padding:0 20px;display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:center}
+.topo-depo{display:flex;flex-direction:column;gap:12px;min-width:0}
+.topo-depo-tit{font-family:var(--s);font-size:23px;line-height:1.2;text-align:center}
+.depo-car{position:relative}
+.depo-slide{display:none;animation:fadeIn .35s ease}
+.depo-slide.on{display:block}
+.depo-slide img{width:100%;border-radius:14px}
+.depo-slide .depo-card p{-webkit-line-clamp:7}
+.depo-nav{display:flex;align-items:center;justify-content:center;gap:10px}
+.depo-seta{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.depo-seta:hover{background:var(--redl);border-color:var(--red2)}
+.depo-dots{display:flex;gap:6px}
+.depo-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer}
+.depo-dot.on{background:var(--red2)}
+@media (max-width:860px){
+  .topo{grid-template-columns:1fr;margin-top:14px;gap:22px}
+  .topo .hero{order:-1}
+  .topo-depo{max-width:420px;width:100%;margin:0 auto}
+  .topo-depo-tit{font-size:21px}
+}
+.hero{position:relative;overflow:hidden;background:var(--dark);color:#fff;border-radius:16px}
+.hero-slides{position:relative;aspect-ratio:2.6/1}
 .hero-slide{position:absolute;inset:0;opacity:0;transition:opacity .6s ease;background-size:cover;background-position:center}
 .hero-slide.on{opacity:1}
-.hero-slide::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,rgba(15,14,12,.92) 0%,rgba(15,14,12,.78) 32%,rgba(15,14,12,.15) 62%,transparent 78%)}
-.hero-slide.sem-foto::before{background:radial-gradient(ellipse 900px 500px at 15% -10%,#2a2622,var(--dark) 60%)}
+.hero-slide.sem-foto::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,rgba(15,14,12,.92) 0%,rgba(15,14,12,.78) 32%,rgba(15,14,12,.15) 62%,transparent 78%)}
+.hero-slide.sem-foto::before{position:absolute;inset:0;background:radial-gradient(ellipse 900px 500px at 15% -10%,#2a2622,var(--dark) 60%)}
 .hero-slide.sem-foto::after{content:'';position:absolute;right:-10%;bottom:-40%;width:480px;height:480px;background:radial-gradient(circle,rgba(232,67,30,.25),transparent 70%);border-radius:50%}
 .hero-inner{max-width:1180px;margin:0 auto;padding:0 20px;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;z-index:1}
 .hero-tag{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:6px 14px;border-radius:20px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--red2);margin-bottom:18px;width:fit-content}
@@ -231,8 +256,8 @@ footer .f-copy{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,25
   <div class="header-top">
     <a href="#/estoque" class="logo"><img src="logo.png" alt="RT Car"></a>
     <nav>
-      <a href="#/estoque" class="navlink">Veículos</a>
-      <a href="https://wa.me/554799938679?text=Ol%C3%A1!%20Quero%20avaliar%20meu%20carro%20para%20venda." target="_blank" class="navlink">Venda seu carro</a>
+      <a href="#/estoque" class="navlink destaque">Veículos</a>
+      <a href="https://wa.me/554799938679?text=Ol%C3%A1!%20Quero%20avaliar%20meu%20carro%20para%20venda." target="_blank" class="navlink destaque">Venda seu carro</a>
       <a href="https://wa.me/554792812847?text=Ol%C3%A1!%20Vi%20no%20site%20da%20RT%20Car%20e%20quero%20simular%20um%20financiamento." target="_blank" class="navlink">Financie</a>
       <a href="#/sobre" class="navlink">Sobre</a>
       <a href="tel:+554733508667" class="navlink" style="opacity:.7">📞 (47) 3350-8667</a>
@@ -418,6 +443,9 @@ function heroAnterior(){ heroIrPara((heroIndex-1+BANNERS.length) % BANNERS.lengt
 function iniciarCarrossel(){
   if(heroTimer) clearInterval(heroTimer);
   if(BANNERS.length>1) heroTimer = setInterval(heroProx, 5000);
+  if(depoTimer) clearInterval(depoTimer);
+  depoIndex = 0;
+  if(document.querySelectorAll('#depo-car .depo-slide').length>1) depoTimer = setInterval(depoProx, 7000);
 }
 
 // Depoimentos, Informacoes (cards CTA) e Destaques agora sao configuraveis
@@ -434,6 +462,12 @@ const INFORMACOES = [
   { titulo: 'Financie seu sonho', texto: 'Trabalhamos com as principais financeiras, isso garante melhores taxas para você!', botao: 'Faça uma simulação →', whatsapp: 'Olá! Quero fazer uma simulação de financiamento.', numero: '554792812847' },
 ];
 let DESTAQUES = [];
+// Topo (30/10/2026): titulo editavel e ate 5 cards de imagem montados pela
+// Aline (admin > Depoimentos). Sem cards, usa os depoimentos em texto.
+let DEPO_TITULO = 'O que nossos clientes dizem sobre nós';
+let DEPO_CARDS = [];
+let depoIndex = 0;
+let depoTimer = null;
 
 function ctasHtml(){
   return `<div class="ctas">
@@ -445,18 +479,39 @@ function ctasHtml(){
   </div>`;
 }
 
-function depoimentosHtml(){
-  return `<div class="depoimentos">
-    <div class="sec-title">O que nossos clientes dizem sobre nós</div>
-    <div class="depo-grid">
-      ${DEPOIMENTOS.map(d=>`<div class="depo-card">
+function depoSlidesHtml(){
+  const itens = DEPO_CARDS.length
+    ? DEPO_CARDS.map(url=>`<img src="${url}" alt="Depoimento de cliente RT Car" loading="lazy">`)
+    : DEPOIMENTOS.map(d=>`<div class="depo-card">
         <div class="estrelas">${'★'.repeat(d.estrelas||5)}${'☆'.repeat(5-(d.estrelas||5))}</div>
         <p>“${d.texto}”</p>
         <div class="autor">${d.autor}</div>
-      </div>`).join('')}
+      </div>`);
+  return itens;
+}
+function topoHtml(){
+  const itens = depoSlidesHtml();
+  const nav = itens.length>1 ? `<div class="depo-nav">
+      <div class="depo-seta" onclick="depoAnterior()">‹</div>
+      <div class="depo-dots">${itens.map((_,i)=>`<div class="depo-dot${i===0?' on':''}" onclick="depoIrPara(${i})"></div>`).join('')}</div>
+      <div class="depo-seta" onclick="depoProx()">›</div>
+    </div>` : '';
+  return `<div class="topo">
+    <div class="topo-depo">
+      <div class="topo-depo-tit">${DEPO_TITULO}</div>
+      <div class="depo-car" id="depo-car">${itens.map((h,i)=>`<div class="depo-slide${i===0?' on':''}">${h}</div>`).join('')}</div>
+      ${nav}
     </div>
+    ${heroHtml()}
   </div>`;
 }
+function depoIrPara(i){
+  depoIndex = i;
+  document.querySelectorAll('#depo-car .depo-slide').forEach((el,idx)=>el.classList.toggle('on',idx===i));
+  document.querySelectorAll('.depo-dot').forEach((el,idx)=>el.classList.toggle('on',idx===i));
+}
+function depoProx(){ const n=document.querySelectorAll('#depo-car .depo-slide').length; if(n) depoIrPara((depoIndex+1)%n); }
+function depoAnterior(){ const n=document.querySelectorAll('#depo-car .depo-slide').length; if(n) depoIrPara((depoIndex-1+n)%n); }
 
 function marcaCardHtml(m){
   const slug = MARCA_SLUGS[m];
@@ -511,7 +566,7 @@ function ordenarDropdownHtml(){
 function renderEstoque(){
   const lista = veiculosFiltrados();
   document.getElementById('app').innerHTML = `
-    ${heroHtml()}
+    ${topoHtml()}
     <div class="wrap">
     ${marcasStripHtml()}
     <div class="busca-row">
@@ -531,7 +586,6 @@ function renderEstoque(){
       ? `<div class="grid-carros">${lista.map(cardHtml).join('')}</div>`
       : `<div class="vazio">Nenhum veículo encontrado com esse filtro.</div>`}
     ${ctasHtml()}
-    ${depoimentosHtml()}
     </div>`;
   const buscaInput = document.getElementById('busca-input');
   buscaInput.oninput = (e)=>{ filtroBusca = e.target.value; };
@@ -562,6 +616,7 @@ function limparFiltroPainel(){
 
 function renderSobre(){
   if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
+  if(depoTimer){ clearInterval(depoTimer); depoTimer=null; }
   document.getElementById('app').innerHTML = `
     <div class="wrap">
     <a class="voltar" href="#/estoque">← Voltar para o estoque</a>
@@ -643,6 +698,7 @@ async function removerOpcionalDetalhe(id, indice){
 
 function renderDetalhe(id){
   if(heroTimer){ clearInterval(heroTimer); heroTimer=null; }
+  if(depoTimer){ clearInterval(depoTimer); depoTimer=null; }
   const v = ESTOQUE.find(x=>x.id===id);
   if(!v){ document.getElementById('app').innerHTML = '<div class="wrap"><div class="vazio">Veículo não encontrado.</div></div>'; return; }
   const fotos = v.fotos.length ? v.fotos.map((_,i)=>i+1) : null;
@@ -766,6 +822,8 @@ async function carregarConfig(){
       db.collection('site_config').doc('destaques').get(),
     ]);
     if(depoSnap.exists && depoSnap.data().lista) DEPOIMENTOS.splice(0,DEPOIMENTOS.length,...depoSnap.data().lista);
+    if(depoSnap.exists && depoSnap.data().titulo) DEPO_TITULO = depoSnap.data().titulo;
+    if(depoSnap.exists && depoSnap.data().cards) DEPO_CARDS = depoSnap.data().cards.slice(0,5);
     if(infoSnap.exists && infoSnap.data().cards) INFORMACOES.splice(0,INFORMACOES.length,...infoSnap.data().cards);
     if(destSnap.exists && destSnap.data().ids) DESTAQUES.splice(0,DESTAQUES.length,...destSnap.data().ids);
   }catch(e){ console.error('config:', e); }
