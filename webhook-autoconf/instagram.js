@@ -15,31 +15,48 @@ const GRAPH = 'https://graph.facebook.com/v21.0';
 const QTD = 3;
 const USUARIO = process.env.INSTAGRAM_USUARIO || 'rtcar.brusque';
 
-async function graph(caminho, params){
-  const qs = new URLSearchParams({...params, access_token: process.env.INSTAGRAM_TOKEN});
+// Guarda (privado, sem acesso publico) o token da PAGINA RT CAR: tirado do
+// token de usuario de 60 dias do .env via me/accounts, ele nao expira - assim
+// o site continua mostrando o Instagram mesmo depois que o do .env vencer
+// (30/10/2026; no Explorador o token de pagina sai derivado do token curto).
+const ARQ_TOKEN = 'privado/instagram-token-pagina.txt';
+
+async function graph(caminho, params, token){
+  const qs = new URLSearchParams({...params, access_token: token||process.env.INSTAGRAM_TOKEN});
   const r = await fetch(`${GRAPH}/${caminho}?${qs}`);
   const body = await r.json().catch(()=>({}));
   if(!r.ok || body.error) throw new Error(`Graph ${caminho}: ${(body.error&&body.error.message)||r.status}`);
   return body;
 }
 
-// conta do Instagram ligada 'a pagina do Facebook que o token enxerga
-// (ou a fixada em INSTAGRAM_USER_ID, se um dia tiver mais de uma)
-async function contaInstagram(){
-  if(process.env.INSTAGRAM_USER_ID) return {id: process.env.INSTAGRAM_USER_ID};
-  // Token de PAGINA (gerado pelo Explorador da Graph API, 30/10/2026: o token
-  // do usuario do sistema pediu aprovacao de um 2o admin que a BM nao tem) -
-  // aqui "me" e' a propria pagina RT CAR.
-  const pagina = await graph('me', {fields: 'instagram_business_account{id,username}'}).catch(()=>null);
-  if(pagina && pagina.instagram_business_account && pagina.instagram_business_account.username===USUARIO) return pagina.instagram_business_account;
-  // Token de usuario enxerga mais de uma pagina (RT CAR e RT Cred, cada uma
-  // com seu Instagram) - escolhe sempre o @rtcar.brusque (30/10/2026: a
-  // primeira rodada pegou o Instagram da RT Cred).
-  const r = await graph('me/accounts', {fields: 'name,instagram_business_account{id,username}'});
-  const contas = (r.data||[]).map(p=>p.instagram_business_account).filter(Boolean);
-  const conta = contas.find(c=>c.username===USUARIO);
-  if(!conta) throw new Error(`Instagram @${USUARIO} nao aparece nesse token (achei: ${contas.map(c=>c.username).join(', ')||'nenhum'})`);
-  return conta;
+// Instagram da pagina RT CAR + o token a usar nas chamadas
+// (ou a conta fixada em INSTAGRAM_USER_ID, se um dia precisar)
+async function contaInstagram(bucket){
+  if(process.env.INSTAGRAM_USER_ID) return {conta:{id: process.env.INSTAGRAM_USER_ID}, token: process.env.INSTAGRAM_TOKEN};
+  const daPagina = async token => {
+    const p = await graph('me', {fields: 'instagram_business_account{id,username}'}, token).catch(()=>null);
+    const c = p && p.instagram_business_account;
+    return c && c.username===USUARIO ? c : null;
+  };
+  // 1) token de pagina ja' guardado
+  const arq = bucket.file(ARQ_TOKEN);
+  const salvo = await arq.download().then(([b])=>b.toString().trim()).catch(()=>'');
+  if(salvo){ const c = await daPagina(salvo); if(c) return {conta:c, token:salvo}; }
+  // 2) o .env ja' e' token da pagina RT CAR
+  const c = await daPagina(process.env.INSTAGRAM_TOKEN);
+  if(c) return {conta:c, token:process.env.INSTAGRAM_TOKEN};
+  // 3) o .env e' token de usuario: enxerga RT CAR e RT Cred (cada uma com seu
+  //    Instagram) - escolhe sempre o @rtcar.brusque (30/10/2026: a primeira
+  //    rodada pegou o Instagram da RT Cred) e guarda o token da pagina
+  const r = await graph('me/accounts', {fields: 'name,access_token,instagram_business_account{id,username}'});
+  const pags = (r.data||[]).filter(p=>p.instagram_business_account);
+  const pag = pags.find(p=>p.instagram_business_account.username===USUARIO);
+  if(!pag) throw new Error(`Instagram @${USUARIO} nao aparece nesse token (achei: ${pags.map(p=>p.instagram_business_account.username).join(', ')||'nenhum'})`);
+  if(pag.access_token && pag.access_token!==salvo){
+    await arq.save(pag.access_token, {metadata:{contentType:'text/plain'}, resumable:false});
+    console.log('siteAtualizarInstagram: token da pagina RT CAR guardado');
+  }
+  return {conta: pag.instagram_business_account, token: pag.access_token||process.env.INSTAGRAM_TOKEN};
 }
 
 exports.siteAtualizarInstagram = onSchedule({region:'southamerica-east1',schedule:'every 60 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:120},async()=>{
@@ -47,9 +64,9 @@ exports.siteAtualizarInstagram = onSchedule({region:'southamerica-east1',schedul
   const ref = db.collection('site_config').doc('instagram');
   const atual = (await ref.get()).data() || {};
   try{
-    const conta = await contaInstagram();
-    const r = await graph(`${conta.id}/media`, {fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp', limit: QTD});
     const bucket = admin.storage().bucket();
+    const {conta, token} = await contaInstagram(bucket);
+    const r = await graph(`${conta.id}/media`, {fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp', limit: QTD}, token);
     const jaTem = Object.fromEntries((atual.posts||[]).map(p=>[p.id,p]));
     const posts = [];
     for(const m of (r.data||[]).slice(0,QTD)){
