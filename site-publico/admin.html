@@ -300,7 +300,7 @@ async function carregarVeiculos(){
       <div class="info">
         <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
         <div class="preco">${fmtBRL(v.preco)||'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
-        ${v.precoAbaixoFipe && !v.oculto ? `<div style="font-size:13px;font-weight:800;color:var(--red);margin-top:2px">⚠ PREÇO MENOR OU IGUAL À FIPE — confira se está certo</div>` : ''}
+        ${v.precoManual && !v.preco && !v.oculto ? `<div style="font-size:13px;font-weight:800;color:var(--red);margin-top:2px">💲 DEFINA O PREÇO — entrou do sistema sem preço (no site: Consulte o preço)</div>` : ''}
       </div>
       <span class="badge badge-clique ${v.oculto?'badge-oculto':'badge-ok'}" title="Clique para ${v.oculto?'mostrar no site':'ocultar do site'}" onclick="event.stopPropagation();alternarOculto('${v.id}',this)">${v.oculto?'Oculto':'Visível'}</span>
       <button class="btn-outline btn-sm" onclick="event.stopPropagation();abrirVeiculo('${v.id}')">Editar</button>

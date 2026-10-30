@@ -130,8 +130,14 @@ async function aplicarSistemaNoSite(placa,depois){
     dados.oculto=false;
     dados.fotos=[];
     dados.opcionais=[];
-    dados.camposBloqueados=[];
     dados.fotosBloqueadas=false;
+    // 30/10/2026 (pedido da Aline): carro novo entra SEM preco ("Consulte o
+    // preço") - o preco do sistema pode estar errado e ela coloca o preco a
+    // mao no admin. 'preco' travado = o sistema nunca mais mexe no preco
+    // desse carro; precoManual marca "falta definir o preco" no admin.
+    dados.preco='';
+    dados.camposBloqueados=['preco'];
+    dados.precoManual=true;
   }
   if(!existente||mudou(existente,dados)){
     dados.sincronizadoEstoqueEm=new Date().toISOString();
@@ -141,11 +147,18 @@ async function aplicarSistemaNoSite(placa,depois){
   // 29/10/2026: a copia que veio do Autoconf (placaSistema) e' a que aparece
   // no site no lugar desse doc - recebe o mesmo preco/km/ano/cor do sistema
   // (marca/modelo/versao e fotos dela continuam como estao).
+  const precoManual=!existente||existente.precoManual;
   const vinculados=await db.collection('site_veiculos').where('placaSistema','==',placa).get();
   for(const d of vinculados.docs){
     const atual=d.data();
     const dc=dadosDoSistema(depois,atual.camposBloqueados||[],atual);
     delete dc.marca;delete dc.modelo;delete dc.versao;
+    // Carro com preco so' manual: a copia tambem nao recebe o do sistema, e a
+    // que ainda nao teve o preco editado no admin perde o preco do Autoconf.
+    if(precoManual){
+      delete dc.preco;
+      if(!(atual.camposBloqueados||[]).includes('preco')){dc.preco='';dc.camposBloqueados=[...(atual.camposBloqueados||[]),'preco'];dc.precoManual=true;}
+    }
     if(mudou(atual,dc)){dc.sincronizadoEstoqueEm=new Date().toISOString();await d.ref.set(dc,{merge:true});}
   }
 }
