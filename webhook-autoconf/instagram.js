@@ -26,6 +26,11 @@ async function graph(caminho, params){
 // (ou a fixada em INSTAGRAM_USER_ID, se um dia tiver mais de uma)
 async function contaInstagram(){
   if(process.env.INSTAGRAM_USER_ID) return {id: process.env.INSTAGRAM_USER_ID};
+  // Token de PAGINA (gerado pelo Explorador da Graph API, 30/10/2026: o token
+  // do usuario do sistema pediu aprovacao de um 2o admin que a BM nao tem) -
+  // aqui "me" e' a propria pagina RT CAR.
+  const pagina = await graph('me', {fields: 'instagram_business_account{id,username}'}).catch(()=>null);
+  if(pagina && pagina.instagram_business_account) return pagina.instagram_business_account;
   const r = await graph('me/accounts', {fields: 'name,instagram_business_account{id,username}'});
   const pag = (r.data||[]).find(p=>p.instagram_business_account);
   if(!pag) throw new Error('nenhuma pagina com Instagram ligado nesse token');
