@@ -13,6 +13,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const QTD = 3;
+const USUARIO = process.env.INSTAGRAM_USUARIO || 'rtcar.brusque';
 
 async function graph(caminho, params){
   const qs = new URLSearchParams({...params, access_token: process.env.INSTAGRAM_TOKEN});
@@ -30,11 +31,15 @@ async function contaInstagram(){
   // do usuario do sistema pediu aprovacao de um 2o admin que a BM nao tem) -
   // aqui "me" e' a propria pagina RT CAR.
   const pagina = await graph('me', {fields: 'instagram_business_account{id,username}'}).catch(()=>null);
-  if(pagina && pagina.instagram_business_account) return pagina.instagram_business_account;
+  if(pagina && pagina.instagram_business_account && pagina.instagram_business_account.username===USUARIO) return pagina.instagram_business_account;
+  // Token de usuario enxerga mais de uma pagina (RT CAR e RT Cred, cada uma
+  // com seu Instagram) - escolhe sempre o @rtcar.brusque (30/10/2026: a
+  // primeira rodada pegou o Instagram da RT Cred).
   const r = await graph('me/accounts', {fields: 'name,instagram_business_account{id,username}'});
-  const pag = (r.data||[]).find(p=>p.instagram_business_account);
-  if(!pag) throw new Error('nenhuma pagina com Instagram ligado nesse token');
-  return pag.instagram_business_account;
+  const contas = (r.data||[]).map(p=>p.instagram_business_account).filter(Boolean);
+  const conta = contas.find(c=>c.username===USUARIO);
+  if(!conta) throw new Error(`Instagram @${USUARIO} nao aparece nesse token (achei: ${contas.map(c=>c.username).join(', ')||'nenhum'})`);
+  return conta;
 }
 
 exports.siteAtualizarInstagram = onSchedule({region:'southamerica-east1',schedule:'every 60 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:120},async()=>{
@@ -70,6 +75,8 @@ exports.siteAtualizarInstagram = onSchedule({region:'southamerica-east1',schedul
   }catch(e){
     // mantem os posts antigos no site; o erro fica registrado pra diagnostico
     console.error('siteAtualizarInstagram:', e.message);
-    await ref.set({erro: e.message, erroEm: new Date().toISOString()}, {merge:true});
+    // ...a nao ser que os posts guardados sejam de outro Instagram: ai' tira do site
+    const outraConta = atual.usuario && atual.usuario!==USUARIO;
+    await ref.set({erro: e.message, erroEm: new Date().toISOString(), ...(outraConta?{posts:[]}:{})}, {merge:true});
   }
 });
