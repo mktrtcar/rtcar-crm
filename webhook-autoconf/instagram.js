@@ -9,7 +9,7 @@ const admin = require('firebase-admin');
    rotina so' sai, entao pode ser publicada antes.
    As imagens sao copiadas pro nosso Storage porque o link da Meta expira
    em poucos dias. O site le site_config/instagram.
-   Roda 1x por dia, 20h (pedido da Aline, 30/10/2026). */
+   Roda de hora em hora (pedido da Aline, 30/10/2026). */
 const db = admin.firestore();
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const QTD = 3;
@@ -32,7 +32,7 @@ async function contaInstagram(){
   return pag.instagram_business_account;
 }
 
-exports.siteAtualizarInstagram = onSchedule({region:'southamerica-east1',schedule:'0 20 * * *',timeZone:'America/Sao_Paulo',timeoutSeconds:120},async()=>{
+exports.siteAtualizarInstagram = onSchedule({region:'southamerica-east1',schedule:'every 60 minutes',timeZone:'America/Sao_Paulo',timeoutSeconds:120},async()=>{
   if(!process.env.INSTAGRAM_TOKEN){ console.log('siteAtualizarInstagram: sem INSTAGRAM_TOKEN no .env'); return; }
   const ref = db.collection('site_config').doc('instagram');
   const atual = (await ref.get()).data() || {};
