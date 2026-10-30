@@ -1539,7 +1539,7 @@ function renderKanbanMk(cnt){
             <button class="card-btn card-btn-label" onclick="abrirDetailLead('${l.id}')"><i class="ti ti-eye"></i> Ver</button>
             <button class="card-btn card-btn-label" onclick="abrirModalLead('${l.id}')"><i class="ti ti-pencil"></i> Editar</button>
             ${isManager()?`<button class="card-btn card-btn-label" onclick="abrirReplicarLead('${l.id}',event)" title="Faz esse lead contar tambem pra outro vendedor, sem tirar do atual"><i class="ti ti-link"></i> Replicar</button>`:''}
-            ${isAssistente()?'':`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="confirmarExclusaoLead('${l.id}')"><i class="ti ti-trash"></i> Excluir</button>`}
+            ${isAssistente()||(l.st==='vendido'&&G.user?.r!=='master')?'':`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="confirmarExclusaoLead('${l.id}')"><i class="ti ti-trash"></i> Excluir</button>`}
           </div>
           ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button></div>`:''}
         </div>
@@ -4474,12 +4474,17 @@ function abrirDetailLead(id){
     <div class="detail-foot">
       <button class="btn btn-outline btn-sm" onclick="abrirModalLead('${id}')"><i class="ti ti-pencil"></i> Editar</button>
       <button class="btn btn-red btn-sm" onclick="abrirModalObs('${id}')"><i class="ti ti-message-circle"></i> Registrar</button>
-      ${isAssistente()?'':`<button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="confirmarExclusaoLead('${id}')"><i class="ti ti-trash"></i> Excluir</button>`}
+      ${isAssistente()||(lead.st==='vendido'&&G.user?.r!=='master')?'':`<button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="confirmarExclusaoLead('${id}')"><i class="ti ti-trash"></i> Excluir</button>`}
     </div>`;
 }
 function confirmarExclusaoLead(id){
   if(isAssistente()){toast('Seu perfil não pode excluir leads','red');return;}
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
+  // Lead vendido so' o master exclui (30/10/2026, LEAD-1106 do Paulo: lead
+  // apagado depois da venda some do funil e a venda deixa de contar, mas o
+  // Termo continua ligado a ele). Se a venda foi lancada por engano, troca a
+  // etapa primeiro.
+  if(lead.st==='vendido'&&G.user?.r!=='master'){toast('Lead vendido não pode ser excluído — a venda sumiria do CRM. Se foi engano, mude a etapa antes.','red');return;}
   G.mk._excluindoId=id;
   document.getElementById('excluir-lead-nome').textContent=`${lead.id} — ${lead.clienteNome||'(sem nome)'}`;
   document.getElementById('ov-excluir-lead').classList.remove('hidden');
