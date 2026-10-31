@@ -149,6 +149,10 @@ h2{font-size:15px;margin-bottom:10px}
     <div class="sub">Clique num veículo pra editar os dados, fotos ou ocultar do site.</div>
     <button class="btn btn-sm" onclick="novoVeiculo()" style="margin-bottom:12px">+ Adicionar carro</button>
     <button class="btn btn-sm" onclick="puxarUmCarroAutoconf()" style="margin-bottom:12px" title="Traz só um carro do catálogo do Autoconf, sem mexer nos outros">⬇ Puxar 1 carro do Autoconf</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <input id="busca-veiculos" type="search" placeholder="🔍 Pesquisar carro (marca, modelo, ano, cor ou placa)" oninput="renderListaVeiculos()" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+      <span id="busca-veiculos-qtd" style="font-size:12px;color:#8a8580;white-space:nowrap"></span>
+    </div>
     <div class="lista-veiculos" id="lista-veiculos"></div>
   </div>
 
@@ -293,8 +297,20 @@ async function carregarVeiculos(){
   const snap = await db.collection('site_veiculos').get();
   veiculosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   veiculosCache.sort((a,b) => (a.marca+a.modelo).localeCompare(b.marca+b.modelo));
-  if (!veiculosCache.length) { lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Nenhum veículo encontrado.</div>'; return; }
-  lista.innerHTML = veiculosCache.map(v => `
+  renderListaVeiculos();
+}
+// Pesquisa na lista (31/10/2026, pedido da Aline): marca, modelo, versao,
+// ano, cor ou placa - todas as palavras digitadas precisam aparecer.
+function renderListaVeiculos(){
+  const lista = document.getElementById('lista-veiculos');
+  const termos = (document.getElementById('busca-veiculos').value||'').toLowerCase().split(/\s+/).filter(Boolean);
+  const filtrados = veiculosCache.filter(v => {
+    const alvo = `${v.marca||''} ${v.modelo||''} ${v.versao||''} ${v.ano||''} ${v.cor||''} ${v.id} ${v.placaSistema||''}`.toLowerCase();
+    return termos.every(t => alvo.includes(t));
+  });
+  document.getElementById('busca-veiculos-qtd').textContent = termos.length ? `${filtrados.length} de ${veiculosCache.length}` : `${veiculosCache.length} veículos`;
+  if (!filtrados.length) { lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Nenhum veículo encontrado.</div>'; return; }
+  lista.innerHTML = filtrados.map(v => `
     <div class="veiculo-item">
       <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
       <div class="info">
