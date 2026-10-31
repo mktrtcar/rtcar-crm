@@ -44,7 +44,10 @@ async function graph(caminho, metodo='GET', corpo){
   const body = await r.json().catch(()=>({}));
   if(!r.ok || body.error){
     const er = body.error || {};
-    const e = new Error(er.error_user_msg || er.message || `Erro ${r.status} na Meta`);
+    // codigo/subcodigo/fbtrace aparecem na tela - e' o que o suporte da Meta pede
+    const det = [er.code&&`código ${er.code}`, er.error_subcode&&`sub ${er.error_subcode}`, er.fbtrace_id&&`trace ${er.fbtrace_id}`].filter(Boolean).join(', ');
+    console.error('whatsapp graph', caminho.split('?')[0], JSON.stringify(er));
+    const e = new Error(`${er.error_user_msg || er.message || `Erro ${r.status} na Meta`}${det?` (${det})`:''}`);
     e.status = 400; e.meta = er; throw e;
   }
   return body;
