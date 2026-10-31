@@ -6180,16 +6180,241 @@ function renderAnuncios(){
     <div class="tb-tabs">
       <div class="tb-tab${view==='kanban'?' on':''}" onclick="__G().an.view='kanban';renderAnuncios()"><i class="ti ti-layout-kanban"></i> Kanban</div>
       <div class="tb-tab${view==='dashboard'?' on':''}" onclick="__G().an.view='dashboard';renderAnuncios()"><i class="ti ti-chart-bar"></i> Dashboard</div>
+      ${isManager()?`<div class="tb-tab${view==='whatsapp'?' on':''}" onclick="__G().an.view='whatsapp';renderAnuncios()"><i class="ti ti-brand-whatsapp"></i> WhatsApp</div>`:''}
     </div>
     <div class="tb-spacer"></div>
-    <div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="__G().an.busca=this.value;renderAnuncios()"></div>
-    <button class="btn btn-red btn-sm" onclick="abrirModalAn()"><i class="ti ti-plus"></i> Novo Anuncio</button>
+    ${view==='whatsapp'?'':`<div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar anuncio..." value="${G.an.busca}" oninput="__G().an.busca=this.value;renderAnuncios()"></div>
+    <button class="btn btn-red btn-sm" onclick="abrirModalAn()"><i class="ti ti-plus"></i> Novo Anuncio</button>`}
   `;
   const cnt=document.getElementById('cnt');
   cnt.innerHTML='';
   cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanAn(cnt);
+  else if(view==='whatsapp') renderWhatsApp();
   else renderDashboardAn(cnt);
+}
+
+/* WhatsApp - API oficial da Meta (31/10/2026, pedido da Aline): aba dentro do
+   modulo Meta com Envio em massa (convite de workshop etc.), Modelos (criados
+   aqui e aprovados pela Meta) e Conversas (respostas que chegam pela API).
+   Toda chamada passa pela function whatsappApi (so' gestor); as conversas sao
+   lidas direto do Firestore (wa_conversas / wa_mensagens, gravadas pelo
+   whatsappWebhook). */
+const WA_FN=`${LITORALCAR_FN_BASE}/whatsappApi`;
+const WA_MODELO_CONVITE={
+  nome:'convite_workshop',
+  texto:'Olá, {{1}}! 👋\n\nA RT Car vai realizar o *{{2}}* e você é nosso convidado especial!\n\n📅 Data: {{3}}\n🕙 Horário: {{4}}\n📍 Local: RT Car Veículos – Brusque\n\nAs vagas são limitadas. Toque em um dos botões abaixo para confirmar. 😉',
+  exemplos:['Paulo','Workshop RT Car — Novembro','15/11/2026','10:00'],
+  rodape:'RT Car Veículos',
+  botoes:['Quero participar','Não poderei ir'],
+};
+// Fontes possiveis de cada variavel {{n}} no envio
+const WA_FONTES=[['nome','Nome do contato'],['evento','Nome do evento'],['data','Data do evento'],['hora','Horário do evento'],['fixo','Texto fixo']];
+function waEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function waEstado(){
+  if(!G.wa)G.wa={sub:'envio',modelos:null,modeloSel:'',fonte:'evento',eventoId:'',marcados:{},colados:'',mapa:{},fixos:{},resultado:null,enviando:false,conversas:null,conversaSel:'',mensagens:[],novo:null};
+  return G.wa;
+}
+async function waFetch(acao,body){
+  const token=await fbAuth.currentUser.getIdToken();
+  const resp=await fetch(`${WA_FN}?acao=${acao}`,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${token}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
+  const json=await resp.json().catch(()=>({}));
+  if(!resp.ok)throw new Error(json.erro||`Erro ${resp.status}`);
+  return json;
+}
+function waVars(texto){const n=[...String(texto||'').matchAll(/\{\{(\d+)\}\}/g)].map(x=>+x[1]);return n.length?Math.max(...n):0;}
+function waCorpo(m){return((m?.components||[]).find(c=>c.type==='BODY')||{}).text||'';}
+function waStatusBadge(st){
+  const m={APPROVED:['Aprovado','#1a6b3c','#e8f5ee'],PENDING:['Em análise','#8a6d00','#faf6e8'],REJECTED:['Recusado','#e8431e','#fff0ec'],PAUSED:['Pausado','#4a4a4a','#f0f0f0'],DISABLED:['Desativado','#4a4a4a','#f0f0f0']}[st]||[st||'—','#4a4a4a','#f0f0f0'];
+  return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;color:${m[1]};background:${m[2]}">${m[0]}</span>`;
+}
+async function waCarregarModelos(forcar){
+  const w=waEstado();
+  if(w.modelos&&!forcar)return;
+  try{w.modelos=(await waFetch('modelos')).modelos;w.erroModelos='';}
+  catch(e){w.modelos=[];w.erroModelos=e.message;}
+}
+async function waTrocarSub(sub){waEstado().sub=sub;await renderWhatsApp();}
+
+async function renderWhatsApp(){
+  if(G.modulo!=='meta'||G.an.view!=='whatsapp')return;
+  const w=waEstado();
+  const cnt=document.getElementById('cnt');
+  cnt.style.cssText='flex:1;overflow-y:auto';
+  const abas=[['envio','ti-send','Envio em massa'],['modelos','ti-template','Modelos'],['conversas','ti-messages','Conversas']];
+  const topo=`<div style="display:flex;gap:6px;padding:12px 20px;border-bottom:1px solid var(--bdr);background:var(--bg2)">${abas.map(([id,ic,lb])=>`<button class="btn btn-sm ${w.sub===id?'btn-red':''}" onclick="waTrocarSub('${id}')"><i class="ti ${ic}"></i> ${lb}</button>`).join('')}</div>`;
+  cnt.innerHTML=topo+'<div style="padding:30px;color:var(--tx3)"><i class="ti ti-loader-2"></i> Carregando...</div>';
+  let corpo='';
+  if(w.sub==='modelos'){await waCarregarModelos();corpo=waHtmlModelos();}
+  else if(w.sub==='conversas'){await waCarregarConversas();corpo=waHtmlConversas();}
+  else{await waCarregarModelos();await waCarregarEventos();corpo=waHtmlEnvio();}
+  if(G.modulo!=='meta'||G.an.view!=='whatsapp')return;
+  cnt.innerHTML=topo+`<div style="padding:16px 20px;max-width:1100px">${w.erroModelos&&w.sub!=='conversas'?`<div style="padding:10px 12px;border-radius:8px;background:#fff0ec;color:#e8431e;font-size:13px;margin-bottom:12px"><b>WhatsApp:</b> ${waEsc(w.erroModelos)}</div>`:''}${corpo}</div>`;
+}
+
+/* ---- Modelos ---- */
+function waHtmlModelos(){
+  const w=waEstado();
+  const n=w.novo;
+  const lista=(w.modelos||[]).map(m=>`<div style="border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--bg)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:13px">${waEsc(m.name)}</b>${waStatusBadge(m.status)}<span style="font-size:11px;color:var(--tx3)">${waEsc(m.category)} · ${waEsc(m.language)}</span></div>
+      <div style="font-size:12.5px;white-space:pre-wrap;color:var(--tx2)">${waEsc(waCorpo(m))}</div>
+      ${m.rejected_reason&&m.rejected_reason!=='NONE'?`<div style="font-size:12px;color:#e8431e;margin-top:6px">Motivo da recusa: ${waEsc(m.rejected_reason)}</div>`:''}
+    </div>`).join('')||'<div style="font-size:13px;color:var(--tx3)">Nenhum modelo ainda.</div>';
+  let form='';
+  if(n){
+    const qtd=waVars(n.texto);
+    form=`<div style="border:1px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:16px;background:var(--bg2)">
+      <div style="font-weight:700;margin-bottom:10px">Novo modelo</div>
+      <div class="field"><label>Nome (só letras minúsculas e _)</label><input type="text" value="${waEsc(n.nome)}" oninput="waNovoCampo('nome',this.value)"></div>
+      <div class="field"><label>Categoria</label><select onchange="waNovoCampo('categoria',this.value)"><option value="MARKETING"${n.categoria!=='UTILITY'?' selected':''}>Marketing (convites, promoções)</option><option value="UTILITY"${n.categoria==='UTILITY'?' selected':''}>Utilidade (avisos de um atendimento)</option></select></div>
+      <div class="field"><label>Texto — use {{1}}, {{2}}... onde entra o que muda (nome, data...)</label><textarea rows="8" oninput="waNovoCampo('texto',this.value,true)">${waEsc(n.texto)}</textarea></div>
+      ${qtd?`<div style="font-size:12px;color:var(--tx3);margin:4px 0">Exemplo de cada variável (a Meta exige, só para análise):</div>${Array.from({length:qtd},(_,i)=>`<div class="field"><label>{{${i+1}}}</label><input type="text" value="${waEsc(n.exemplos[i]||'')}" oninput="waNovoExemplo(${i},this.value)"></div>`).join('')}`:''}
+      <div class="field"><label>Rodapé (opcional)</label><input type="text" value="${waEsc(n.rodape)}" oninput="waNovoCampo('rodape',this.value)"></div>
+      <div class="field"><label>Botões de resposta (opcional, até 3 — o 1º conta como "vai", os outros como "não vai")</label>${[0,1,2].map(i=>`<input type="text" style="margin-bottom:4px" value="${waEsc(n.botoes[i]||'')}" oninput="waNovoBotao(${i},this.value)">`).join('')}</div>
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-red btn-sm" onclick="waCriarModelo()"><i class="ti ti-send"></i> Enviar para aprovação da Meta</button><button class="btn btn-sm" onclick="waEstado().novo=null;renderWhatsApp()">Cancelar</button></div>
+    </div>`;
+  }
+  return `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      ${n?'':`<button class="btn btn-red btn-sm" onclick="waNovoModelo(false)"><i class="ti ti-plus"></i> Novo modelo</button><button class="btn btn-sm" onclick="waNovoModelo(true)"><i class="ti ti-calendar-event"></i> Novo modelo de convite de workshop</button>`}
+      <button class="btn btn-sm" onclick="waCarregarModelos(true).then(renderWhatsApp)"><i class="ti ti-refresh"></i> Atualizar status</button>
+    </div>${form}<div style="font-size:12px;color:var(--tx3);margin-bottom:8px">A Meta analisa cada modelo (normalmente minutos). Só modelos <b>Aprovados</b> podem ser usados no envio em massa.</div>${lista}`;
+}
+function waNovoModelo(convite){
+  waEstado().novo=convite?{...WA_MODELO_CONVITE,exemplos:[...WA_MODELO_CONVITE.exemplos],botoes:[...WA_MODELO_CONVITE.botoes],categoria:'MARKETING'}:{nome:'',texto:'',exemplos:[],rodape:'RT Car Veículos',botoes:[],categoria:'MARKETING'};
+  renderWhatsApp();
+}
+// re-renderiza so' quando muda a quantidade de variaveis (pra nao perder o foco digitando)
+function waNovoCampo(campo,valor,checarVars){const n=waEstado().novo;const antes=waVars(n.texto);n[campo]=valor;if(checarVars&&waVars(n.texto)!==antes)renderWhatsApp();}
+function waNovoExemplo(i,v){waEstado().novo.exemplos[i]=v;}
+function waNovoBotao(i,v){waEstado().novo.botoes[i]=v;}
+async function waCriarModelo(){
+  const w=waEstado();
+  try{
+    const r=await waFetch('criarModelo',w.novo);
+    toast(`Modelo "${r.nome}" enviado para a Meta (${r.status==='APPROVED'?'já aprovado':'em análise'}).`);
+    w.novo=null;await waCarregarModelos(true);renderWhatsApp();
+  }catch(e){alert('A Meta recusou o modelo: '+e.message);}
+}
+
+/* ---- Envio em massa ---- */
+async function waCarregarEventos(){
+  if(!G.ws.eventos.length&&fbOk()){
+    try{G.ws.eventos=await fbList('eventos_ws');G.ws.convidados=await fbList('convidados_ws');}catch(e){console.error('WhatsApp: eventos',e);}
+  }
+}
+function waModeloAtual(){const w=waEstado();return(w.modelos||[]).find(m=>m.name===w.modeloSel&&m.status==='APPROVED');}
+function waDestinatarios(){
+  const w=waEstado();
+  if(w.fonte==='evento'){
+    const ev=G.ws.eventos.find(e=>e.id===w.eventoId);
+    if(!ev)return[];
+    return G.ws.convidados.filter(c=>c.eventoId===ev.id&&(c.whatsapp||'').replace(/\D/g,'').length>=10&&w.marcados[c.id]!==false)
+      .map(c=>({numero:c.whatsapp,nome:c.nome,convidadoId:c.id,ev}));
+  }
+  return String(w.colados||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    const p=l.split(/[;,\t]/);const tel=p.length>1?p[p.length-1]:p[0];const nome=p.length>1?p.slice(0,-1).join(' ').trim():'';
+    return{numero:tel.trim(),nome};
+  }).filter(d=>d.numero.replace(/\D/g,'').length>=10);
+}
+function waParams(d,qtd){
+  const w=waEstado();
+  return Array.from({length:qtd},(_,i)=>{
+    const f=w.mapa[i]||(['nome','evento','data','hora'][i]||'fixo');
+    if(f==='nome')return(d.nome||'').split(' ')[0]||'cliente';
+    if(f==='evento')return d.ev?.nome||w.fixos[i]||'';
+    if(f==='data')return d.ev?(isoParaBR(d.ev.data)||d.ev.data||''):(w.fixos[i]||'');
+    if(f==='hora')return d.ev?.hora||w.fixos[i]||'';
+    return w.fixos[i]||'';
+  });
+}
+function waHtmlEnvio(){
+  const w=waEstado();
+  const aprovados=(w.modelos||[]).filter(m=>m.status==='APPROVED');
+  const m=waModeloAtual();
+  const qtd=m?waVars(waCorpo(m)):0;
+  const dest=waDestinatarios();
+  let lista='';
+  if(w.fonte==='evento'){
+    const ev=G.ws.eventos.find(e=>e.id===w.eventoId);
+    const convs=ev?G.ws.convidados.filter(c=>c.eventoId===ev.id):[];
+    lista=`<div class="field"><label>Evento do Workshop</label><select onchange="waEstado().eventoId=this.value;waEstado().marcados={};renderWhatsApp()"><option value="">— escolha —</option>${G.ws.eventos.map(e=>`<option value="${waEsc(e.id)}"${e.id===w.eventoId?' selected':''}>${waEsc(e.nome)} (${waEsc(isoParaBR(e.data)||e.data||'')})</option>`).join('')}</select></div>
+      ${ev?`<div style="max-height:260px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;padding:6px 10px">${convs.map(c=>{const ok=(c.whatsapp||'').replace(/\D/g,'').length>=10;return`<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0;${ok?'':'color:var(--tx3)'}"><input type="checkbox" ${ok&&w.marcados[c.id]!==false?'checked':''} ${ok?'':'disabled'} onchange="waEstado().marcados['${c.id}']=this.checked;renderWhatsApp()"> ${waEsc(c.nome)} <span style="color:var(--tx3)">${waEsc(c.whatsapp||'sem WhatsApp')}</span> <span style="font-size:11px;color:var(--tx3)">${waEsc((COLS_WS.find(x=>x.id===c.st)||{}).label||'')}${c.conviteWhatsEm?' · já recebeu convite':''}</span></label>`;}).join('')||'<div style="font-size:12px;color:var(--tx3)">Nenhum convidado nesse evento.</div>'}</div>`:''}`;
+  }else{
+    lista=`<div class="field"><label>Um contato por linha: <b>Nome; telefone</b> (ou só o telefone)</label><textarea rows="8" placeholder="Paulo Silva; (47) 99999-1111" oninput="waEstado().colados=this.value" onchange="setTimeout(renderWhatsApp)">${waEsc(w.colados)}</textarea></div>`;
+  }
+  const mapa=qtd?`<div style="font-size:12px;color:var(--tx3);margin:10px 0 4px">O que entra em cada variável do modelo:</div>${Array.from({length:qtd},(_,i)=>{const f=w.mapa[i]||(['nome','evento','data','hora'][i]||'fixo');return`<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><b style="width:44px">{{${i+1}}}</b><select class="select-sm" onchange="waEstado().mapa[${i}]=this.value;renderWhatsApp()">${WA_FONTES.map(([v,l])=>`<option value="${v}"${v===f?' selected':''}>${l}</option>`).join('')}</select>${f==='fixo'||(w.fonte!=='evento'&&f!=='nome')?`<input type="text" class="select-sm" placeholder="texto" value="${waEsc(w.fixos[i]||'')}" oninput="waEstado().fixos[${i}]=this.value" onchange="setTimeout(renderWhatsApp)">`:''}</div>`;}).join('')}`:'';
+  const previa=m&&dest.length?`<div style="margin-top:12px"><div style="font-size:12px;color:var(--tx3);margin-bottom:4px">Prévia (1º contato):</div><div style="background:#e7fbe0;border-radius:10px;padding:10px 12px;font-size:13px;white-space:pre-wrap;max-width:420px">${waEsc(waCorpo(m).replace(/\{\{(\d+)\}\}/g,(x,k)=>waParams(dest[0],qtd)[+k-1]||x))}</div></div>`:'';
+  const res=w.resultado?`<div style="margin-top:14px;border:1px solid var(--bdr);border-radius:10px;padding:10px 12px"><b>Resultado:</b> ${w.resultado.filter(r=>r.ok).length} enviados, ${w.resultado.filter(r=>!r.ok).length} com erro${w.resultado.filter(r=>!r.ok).map(r=>`<div style="font-size:12px;color:#e8431e">${waEsc(r.nome||'')} ${waEsc(r.numero)} — ${waEsc(r.erro)}</div>`).join('')}<div style="font-size:12px;color:var(--tx3);margin-top:4px">Entregue / lido e as respostas aparecem em <b>Conversas</b>.</div></div>`:'';
+  return `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px">
+    <div>
+      <div class="field"><label>Modelo aprovado</label><select onchange="waEstado().modeloSel=this.value;waEstado().mapa={};renderWhatsApp()"><option value="">— escolha —</option>${aprovados.map(x=>`<option value="${waEsc(x.name)}"${x.name===w.modeloSel?' selected':''}>${waEsc(x.name)}</option>`).join('')}</select></div>
+      ${!aprovados.length?`<div style="font-size:12px;color:var(--tx3)">Nenhum modelo aprovado ainda — crie em <b>Modelos</b>.</div>`:''}
+      ${mapa}${previa}
+    </div>
+    <div>
+      <div style="display:flex;gap:6px;margin-bottom:8px"><button class="btn btn-sm ${w.fonte==='evento'?'btn-red':''}" onclick="waEstado().fonte='evento';renderWhatsApp()">Convidados de um evento</button><button class="btn btn-sm ${w.fonte==='lista'?'btn-red':''}" onclick="waEstado().fonte='lista';renderWhatsApp()">Colar lista</button></div>
+      ${lista}
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;align-items:center;gap:10px">
+    <button class="btn btn-red" ${m&&dest.length&&!w.enviando?'':'disabled'} onclick="waEnviar()"><i class="ti ti-send"></i> ${w.enviando?'Enviando...':`Enviar para ${dest.length} contato(s)`}</button>
+    <span style="font-size:12px;color:var(--tx3)">A Meta cobra cada mensagem de marketing enviada.</span>
+  </div>${res}`;
+}
+async function waEnviar(){
+  const w=waEstado();const m=waModeloAtual();const dest=waDestinatarios();
+  if(!m||!dest.length)return;
+  if(!confirm(`Enviar o modelo "${m.name}" para ${dest.length} contato(s) pelo WhatsApp? Não dá para desfazer.`))return;
+  const qtd=waVars(waCorpo(m));
+  w.enviando=true;w.resultado=null;renderWhatsApp();
+  try{
+    const r=await waFetch('enviarModelo',{modelo:m,eventoId:w.fonte==='evento'?w.eventoId:'',destinatarios:dest.map(d=>({numero:d.numero,nome:d.nome,convidadoId:d.convidadoId||'',params:waParams(d,qtd)}))});
+    w.resultado=r.resultado;
+    if(w.fonte==='evento')try{G.ws.convidados=await fbList('convidados_ws');}catch(e){}
+    toast(`${r.resultado.filter(x=>x.ok).length} mensagem(ns) enviada(s).`);
+  }catch(e){alert('Erro no envio: '+e.message);}
+  w.enviando=false;renderWhatsApp();
+}
+
+/* ---- Conversas ---- */
+async function waCarregarConversas(){
+  const w=waEstado();
+  try{
+    const s=await db.collection('wa_conversas').orderBy('ultimaEm','desc').limit(200).get();
+    w.conversas=s.docs.map(d=>d.data());
+    if(w.conversaSel){
+      const sm=await db.collection('wa_mensagens').where('numero','==',w.conversaSel).get();
+      w.mensagens=sm.docs.map(d=>d.data()).sort((a,b)=>(a.em||'').localeCompare(b.em||''));
+    }
+  }catch(e){console.error('WhatsApp: conversas',e);w.conversas=[];w.erroConversas=e.message;}
+}
+function waHora(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function waHtmlConversas(){
+  const w=waEstado();
+  const conv=(w.conversas||[]).find(c=>c.numero===w.conversaSel);
+  const janela=conv?.ultimaEntradaEm&&(Date.now()-new Date(conv.ultimaEntradaEm).getTime())<24*3600*1000;
+  const lista=(w.conversas||[]).map(c=>`<div onclick="waAbrirConversa('${waEsc(c.numero)}')" style="padding:9px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;${c.numero===w.conversaSel?'background:var(--bg2)':''}">
+      <div style="display:flex;justify-content:space-between;gap:6px"><b style="font-size:13px">${waEsc(c.nome||'+'+c.numero)}</b><span style="font-size:11px;color:var(--tx3)">${waHora(c.ultimaEm)}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:6px"><span style="font-size:12px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${waEsc(c.ultimaMsg)}</span>${c.naoLidas>0?`<span style="background:var(--red);color:#fff;border-radius:10px;font-size:11px;padding:0 6px">${c.naoLidas}</span>`:''}</div>
+    </div>`).join('')||`<div style="font-size:13px;color:var(--tx3);padding:10px">${w.erroConversas?'Erro: '+waEsc(w.erroConversas):'Nenhuma conversa ainda.'}</div>`;
+  const msgs=conv?w.mensagens.map(m=>{const sai=m.direcao==='saida';const st={sent:'✓',delivered:'✓✓',read:'✓✓ lida',failed:'⚠ falhou',enviado:'…'}[m.status]||'';return`<div style="display:flex;justify-content:${sai?'flex-end':'flex-start'};margin-bottom:6px"><div style="max-width:75%;background:${sai?'#e7fbe0':'var(--bg2)'};border-radius:10px;padding:7px 10px;font-size:13px;white-space:pre-wrap">${waEsc(m.texto)}<div style="font-size:10.5px;color:var(--tx3);text-align:right;margin-top:3px">${waHora(m.em)} ${sai?st:''}${m.erro?`<br><span style="color:#e8431e">${waEsc(m.erro)}</span>`:''}</div></div></div>`;}).join(''):'';
+  const caixa=conv?(janela?`<div style="display:flex;gap:6px;margin-top:8px"><textarea id="wa-resposta" rows="2" style="flex:1" placeholder="Escreva a resposta..."></textarea><button class="btn btn-red btn-sm" onclick="waResponder()"><i class="ti ti-send"></i></button></div>`:`<div style="font-size:12px;color:var(--tx3);margin-top:8px">Passaram 24h desde a última mensagem do cliente — a Meta só deixa mandar um <b>modelo aprovado</b> (em Envio em massa → Colar lista).</div>`):'';
+  return `<div style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px;min-height:420px">
+    <div style="border-right:1px solid var(--bdr);padding-right:8px"><button class="btn btn-sm" style="margin-bottom:8px" onclick="renderWhatsApp()"><i class="ti ti-refresh"></i> Atualizar</button>${lista}</div>
+    <div>${conv?`<div style="font-weight:700;margin-bottom:8px">${waEsc(conv.nome||'')} <span style="color:var(--tx3);font-weight:400">+${waEsc(conv.numero)}</span></div><div style="max-height:480px;overflow-y:auto">${msgs}</div>${caixa}`:'<div style="color:var(--tx3);font-size:13px">Escolha uma conversa.</div>'}</div>
+  </div>`;
+}
+async function waAbrirConversa(numero){
+  const w=waEstado();w.conversaSel=numero;
+  db.collection('wa_conversas').doc(numero).set({naoLidas:0},{merge:true}).catch(()=>{});
+  await renderWhatsApp();
+}
+async function waResponder(){
+  const w=waEstado();const el=document.getElementById('wa-resposta');const texto=(el?.value||'').trim();
+  if(!texto)return;
+  try{await waFetch('responder',{numero:w.conversaSel,texto});await renderWhatsApp();}
+  catch(e){alert('Não foi possível enviar: '+e.message);}
 }
 
 function anFiltrados(){
@@ -6786,6 +7011,18 @@ window.abrirSidebarMobile=abrirSidebarMobile;
 window.fecharSidebarMobile=fecharSidebarMobile;
 window.trocarViewGeral=trocarViewGeral;
 function __G(){return G;}
+window.renderWhatsApp=renderWhatsApp;
+window.waAbrirConversa=waAbrirConversa;
+window.waCarregarModelos=waCarregarModelos;
+window.waCriarModelo=waCriarModelo;
+window.waEnviar=waEnviar;
+window.waEstado=waEstado;
+window.waNovoBotao=waNovoBotao;
+window.waNovoCampo=waNovoCampo;
+window.waNovoExemplo=waNovoExemplo;
+window.waNovoModelo=waNovoModelo;
+window.waResponder=waResponder;
+window.waTrocarSub=waTrocarSub;
 window.__G=__G;
 window.RTCarCRM={montar:montarRTCarCRM,desmontar:desmontarRTCarCRM};
 // Modo standalone (arquivo aberto direto, como sempre foi): monta
