@@ -1288,6 +1288,13 @@ function dadosDoAnuncio(msg) {
   }
   return null;
 }
+// Cliente querendo VENDER o carro dele pra loja (anuncio de compra).
+function intencaoDeVenda(t) {
+  const s = String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return /\b(quero|gostaria de|queria|pretendo|preciso)\s+(de\s+)?vender\b/.test(s)
+    || /\bvender\s+(o\s+|meu\s+|minha\s+|o meu\s+|a minha\s+)?(carro|veiculo|moto|caminhonete|automovel|camionete)\b/.test(s)
+    || /\b(compramos|compra-se|compramos seu)\s+(seu\s+)?(carro|veiculo)\b/.test(s);
+}
 function formatarTelBR(digitos) {
   let d = String(digitos || '').replace(/\D/g, '');
   if (d.startsWith('55') && d.length >= 12) d = d.slice(2);
@@ -1329,25 +1336,37 @@ async function tratarContatoNovo(msg, jid, jidTel, chave) {
       const origem = ad ? (/instagram/i.test(urlAd) ? 'Instagram' : 'Facebook') : (/vi no site/i.test(texto) ? 'Google + Site' : 'Telefone'); // mensagem pronta do botao do site
       const tituloAd = ad ? [ad.title, ad.body].filter(Boolean).join(' — ') : '';
       const veiculoAd = (tituloAd && buscarVeiculoNoTexto(tituloAd)) || (texto && buscarVeiculoNoTexto(texto)) || null;
+      // 31/10/2026 (pedido da Aline): anuncio de COMPRA ("vendemos seu carro")
+      // apontando pro numero da Eva -> lead vai direto pra Milena (igual Compra
+      // do Autoconf), sem rodizio. Reconhece pela mensagem pronta do anuncio
+      // ("Quero vender meu carro") ou pelo titulo do anuncio.
+      const ehCompra = intencaoDeVenda(`${texto} ${tituloAd}`);
       const agora = new Date();
       const digitos = jidTel.split('@')[0];
       const novoId = await criarComSequencia('leads_config', 'mk', 'leadSeq', 'leads', (seq) => {
         const id = `LEAD-${String(seq).padStart(3, '0')}`;
         return { id, dados: {
           id, dt: hoje(), dtISO: agora.toISOString().slice(0, 10), _criadoEm: agora.toISOString(),
-          st: 'ia', by: '', captador: '', uid: '', origem,
+          st: ehCompra ? 'atendimento' : 'ia', by: '', captador: ehCompra ? 'Milena' : '', uid: '', origem: ehCompra ? 'Compra' : origem,
           clienteNome: (msg.pushName || '').trim(), clienteTel: formatarTelBR(digitos), clienteTelNorm: chave, clienteEmail: '',
           veiculo: veiculoAd ? [veiculoAd.b, veiculoAd.m].filter(Boolean).join(' ') : '',
           valor: '', obs: ad ? `Veio do anúncio: ${tituloAd || urlAd}${urlAd ? ' (' + urlAd + ')' : ''}` : 'Cliente chamou direto no WhatsApp da Eva.',
           convertido: false, dtVenda: '', motivoPerda: '',
-          historico: [{ dt: agoraDt(), icone: 'blue', acao: 'Lead criado', obs: `Cliente chamou primeiro no WhatsApp da Eva${ad ? ' (anúncio ' + origem + ')' : ''}: "${(texto || '(áudio)').slice(0, 300)}"`, by: 'Eva' }],
-          pendente_at: '', pendente_end: '', atendimento_at: '', atendimento_end: '', notificacaoVendedorEm: '',
+          historico: [{ dt: agoraDt(), icone: 'blue', acao: 'Lead criado', obs: `Cliente chamou primeiro no WhatsApp da Eva${ad ? ' (anúncio ' + origem + ')' : ''}${ehCompra ? ' — intenção de venda do veículo, atribuído direto à Milena' : ''}: "${(texto || '(áudio)').slice(0, 300)}"`, by: 'Eva' }],
+          pendente_at: '', pendente_end: '', atendimento_at: ehCompra ? agora.toISOString() : '', atendimento_end: '', notificacaoVendedorEm: '',
           contatoEntrante: true, eloaEnviadoEm: agora.toISOString(), ultimaMensagemEm: agora.toISOString(), followUpStep: 0, conversaEloa: [],
         } };
       });
       leadsCache.dados = null;
       telParaLeadId.set(chave, novoId);
-      console.log(`✅ Contato novo virou lead: ${novoId} (${origem}) — ${msg.pushName || digitos}`);
+      console.log(`✅ Contato novo virou lead: ${novoId} (${ehCompra ? 'Compra → Milena' : origem}) — ${msg.pushName || digitos}`);
+      if (ehCompra) {
+        // A Eva so' avisa o cliente; o aviso pra Milena sai pelo ciclo de
+        // notificarVendedorAtribuido (lead em atendimento com captador).
+        const primeiro = (msg.pushName || '').trim().split(/\s+/)[0];
+        if (sock) await sock.sendMessage(jid, { text: `Olá${primeiro ? ', ' + primeiro : ''}! Aqui é a Eva, da RT Car 😊 Que bom que você quer vender seu veículo! Já passei seu contato para a Milena, da nossa equipe de avaliação, e ela vai falar com você em instantes.` });
+        return;
+      }
     }
   } finally {
     contatosNovosEmAndamento.delete(chave);
