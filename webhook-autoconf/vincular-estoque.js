@@ -132,12 +132,13 @@ function combustivelSite(lista){
 function dadosTecnicos(tec,depois,bloq,atual){
   const dados={};
   if(!tec)return dados;
-  const comb=combustivelSite(tec.combustiveis);
+  const nomeCarro=`${depois.modelo||''} ${depois.versao||''}`.toUpperCase();
+  // "HIBRIDO"/"(HÍB.)" no nome do carro vence (ex.: Haval H6 GT ficou so' com o Flex padrao na avaliacao)
+  const comb=/H[IÍ]BRID|(H[IÍ]B.?)/.test(nomeCarro)?'Híbrido':combustivelSite(tec.combustiveis);
   if(comb&&!bloq.includes('combustivel'))dados.combustivel=comb;
   // 'manual' tambem e' o padrao da avaliacao nova (esquecem de trocar): o nome da
   // versao no sistema vence ('AUT.', 'CVT' = automatico; 'MEC.' = manual), e
   // 'manual' da avaliacao so' preenche quando o site nao tem cambio.
-  const nomeCarro=`${depois.modelo||''} ${depois.versao||''}`.toUpperCase();
   const pelaVersao=/\b(AUT|AUTOM[AÁ]TIC[OA]|CVT|DSG|TIPTRONIC)\b/.test(nomeCarro)?'Automático':/\b(MEC|MANUAL)\b/.test(nomeCarro)?'Manual':'';
   const camb=pelaVersao||((tec.cambio==='automatico'||tec.cambio==='cvt')?'Automático':(tec.cambio==='manual'&&!atual?.cambio?'Manual':''));
   if(camb&&!bloq.includes('cambio'))dados.cambio=camb;
