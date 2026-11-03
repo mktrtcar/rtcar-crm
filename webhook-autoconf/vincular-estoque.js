@@ -122,7 +122,7 @@ async function tecnicosPorPlaca(){
 // foi o escolhido de verdade (ex.: Mercedes A200 "flex+gasolina" = Gasolina).
 function combustivelSite(lista){
   const c=new Set(lista||[]);
-  if(c.has('hibrido')||(c.has('eletrico')&&(c.has('gasolina')||c.has('flex'))))return 'Gasolina e Elétrico';
+  if(c.has('hibrido')||(c.has('eletrico')&&(c.has('gasolina')||c.has('flex'))))return 'Híbrido';
   if(c.has('eletrico'))return 'Elétrico';
   if(c.has('diesel'))return 'Diesel';
   if(c.has('gasolina'))return 'Gasolina';

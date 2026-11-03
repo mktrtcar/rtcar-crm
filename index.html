@@ -3316,7 +3316,7 @@ function litoralCombustivel(v){
   if(!nome)return'';
   const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
   const lista=((G.pf.litoralcarRefs||{}).combustiveis)||[];
-  return lista.find(c=>norm(c)===norm(nome))||(nome==='Gasolina e Elétrico'?lista.find(c=>norm(c)==='gasolina/eletrico')||'':'');
+  return lista.find(c=>norm(c)===norm(nome))||(/^(Híbrido|Gasolina e Elétrico)$/.test(nome)?lista.find(c=>norm(c)==='gasolina/eletrico')||'':'');
 }
 function lcbPadrao(v){
   const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{};

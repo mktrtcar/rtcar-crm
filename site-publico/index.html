@@ -411,7 +411,7 @@ function veiculosFiltrados(){
       if(!alvo.includes(b)) return false;
     }
     if(filtroCambio && v.cambio!==filtroCambio) return false;
-    if(filtroCombustivel && v.combustivel!==filtroCombustivel) return false;
+    if(filtroCombustivel && (v.combustivel==='Gasolina e Elétrico'?'Híbrido':v.combustivel)!==filtroCombustivel) return false;
     if(filtroPrecoDe && precoNum(v) < +filtroPrecoDe) return false;
     if(filtroPrecoAte && precoNum(v) > +filtroPrecoAte) return false;
     return true;
@@ -560,7 +560,7 @@ function marcasStripHtml(){
 function filtroPainelHtml(){
   const opcoesPreco = (sel)=>FAIXAS_PRECO.map(p=>`<option value="${p}" ${String(p)===String(sel)?'selected':''}>R$ ${p.toLocaleString('pt-BR')}</option>`).join('');
   const cambios = ['Automático','Manual'];
-  const combustiveis = ['Diesel','Elétrico','Flex','Gasolina','Gasolina e Elétrico'];
+  const combustiveis = ['Diesel','Elétrico','Flex','Gasolina','Híbrido'];
   return `<div class="filtro-painel" id="filtro-painel">
     <div class="filtro-grid">
       <div class="filtro-col">
