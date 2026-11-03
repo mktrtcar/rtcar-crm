@@ -243,3 +243,21 @@ exports.mercadoLivreDiagnosticoAnuncios=onRequest({region:'southamerica-east1',t
     });
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
+
+/* Fase 2 (03/11/2026): consulta SO' LEITURA (GET) na API do ML, pra estudar
+   como o anuncio de carro e' montado (anuncios atuais do Autoconf, catalogo de
+   marca/modelo/versao) antes de publicar pelo nosso integrador. Gestor-only;
+   so' caminhos de consulta, nunca devolve token. */
+const CAMINHOS_CONSULTA=/^\/(items|categories|catalog_domains|sites\/MLB\/(search|domain_discovery)|users\/me$|users\/\d+$)/;
+exports.mercadoLivreConsultar=onRequest({region:'southamerica-east1',timeoutSeconds:60,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const caminho=String(req.query.caminho||'');
+    if(!CAMINHOS_CONSULTA.test(caminho)){res.status(400).json({erro:'Caminho não permitido'});return;}
+    const c=await obterToken();
+    const r=await fetch(API+caminho,{headers:{Authorization:'Bearer '+c.accessToken}});
+    res.status(r.status).json(await r.json().catch(()=>({})));
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
