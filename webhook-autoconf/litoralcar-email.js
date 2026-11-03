@@ -37,8 +37,8 @@ exports.litoralcarEmailOAuthCallback=onRequest({region:'southamerica-east1'},asy
       res.status(500).send(`<h2>Erro ao autorizar</h2><pre>${JSON.stringify(dados,null,2)}</pre><p>Se o erro for sobre "refresh_token" ausente, provavelmente essa conta já autorizou antes - peça pro Claude revogar o acesso anterior em myaccount.google.com/permissions e tente de novo.</p>`);
       return;
     }
+    await gravarTokenGmail(dados.refresh_token);
     await db.collection('leads_config').doc('gmail_oauth').set({
-      refreshToken:dados.refresh_token,
       autorizadoEm:new Date().toISOString(),
       email:process.env.GMAIL_LEADS_EMAIL||'',
     },{merge:true});
@@ -49,13 +49,31 @@ exports.litoralcarEmailOAuthCallback=onRequest({region:'southamerica-east1'},asy
   }
 });
 
+/* 03/11/2026: o refreshToken saiu de leads_config/gmail_oauth (qualquer usuario
+   logado do CRM le o Firestore) pra um arquivo privado do Storage, so' das
+   functions. Na 1a execucao migra do doc e apaga de la'. */
+const ARQ_TOKEN_GMAIL='privado/gmail-leads-token.txt';
+async function gravarTokenGmail(t){
+  await admin.storage().bucket().file(ARQ_TOKEN_GMAIL).save(t,{contentType:'text/plain',resumable:false});
+}
+async function lerTokenGmail(){
+  try{const [b]=await admin.storage().bucket().file(ARQ_TOKEN_GMAIL).download();return b.toString().trim();}
+  catch(e){if(e.code!==404)throw e;}
+  const ref=db.collection('leads_config').doc('gmail_oauth');
+  const doc=await ref.get();
+  const t=doc.exists&&doc.data().refreshToken;
+  if(!t)return '';
+  await gravarTokenGmail(t);
+  await ref.update({refreshToken:admin.firestore.FieldValue.delete()});
+  return t;
+}
 async function obterAccessToken(){
-  const doc=await db.collection('leads_config').doc('gmail_oauth').get();
-  if(!doc.exists||!doc.data().refreshToken)throw new Error('Gmail ainda não foi autorizado (sem refreshToken salvo)');
+  const refreshToken=await lerTokenGmail();
+  if(!refreshToken)throw new Error('Gmail ainda não foi autorizado (sem refreshToken salvo)');
   const params=new URLSearchParams({
     client_id:process.env.GMAIL_LEADS_CLIENT_ID,
     client_secret:process.env.GMAIL_LEADS_CLIENT_SECRET,
-    refresh_token:doc.data().refreshToken,
+    refresh_token:refreshToken,
     grant_type:'refresh_token',
   });
   const resp=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});
