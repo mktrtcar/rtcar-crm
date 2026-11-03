@@ -51,24 +51,46 @@ exports.mercadolivreoauth=onRequest({region:'southamerica-east1'},async(req,res)
     const resp=await fetch(API+'/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',accept:'application/json'},body:new URLSearchParams({grant_type:'authorization_code',client_id:process.env.ML_CLIENT_ID,client_secret:process.env.ML_CLIENT_SECRET,code,redirect_uri:REDIRECT_URI}).toString()});
     const dados=await resp.json();
     if(!resp.ok||!dados.refresh_token){console.error('ML token:',dados);res.status(500).send(`<h2>Erro ao autorizar</h2><pre>${JSON.stringify(dados,null,2)}</pre>`);return;}
-    await refConfig().set({accessToken:dados.access_token,refreshToken:dados.refresh_token,expiraEm:Date.now()+(dados.expires_in||21600)*1000,userId:dados.user_id,autorizadoEm:new Date().toISOString()},{merge:true});
+    await gravarTokensML({accessToken:dados.access_token,refreshToken:dados.refresh_token,expiraEm:Date.now()+(dados.expires_in||21600)*1000});
+    await refConfig().set({userId:dados.user_id,autorizadoEm:new Date().toISOString()},{merge:true});
     res.send('<h2>✅ Mercado Livre autorizado!</h2><p>Pode fechar esta aba e voltar pro chat.</p>');
   }catch(e){console.error(e);res.status(500).send(`<h2>Erro inesperado</h2><pre>${e.message}</pre>`);}
 });
 
+/* Tokens do ML (03/11/2026): saíram de leads_config/ml_oauth - o Firestore deixa
+   qualquer usuario logado do CRM ler, e com o token da' pra mexer nos anuncios.
+   Agora ficam num arquivo do Storage fora de qualquer regra (so' as functions
+   leem), igual ao token do Instagram. Na 1a execucao migra do doc e apaga de la'. */
+const ARQ_TOKENS_ML='privado/mercadolivre-oauth.json';
+async function lerTokensML(){
+  try{const [b]=await admin.storage().bucket().file(ARQ_TOKENS_ML).download();return JSON.parse(b.toString());}
+  catch(e){if(e.code===404)return null;throw e;}
+}
+async function gravarTokensML(t){
+  await admin.storage().bucket().file(ARQ_TOKENS_ML).save(JSON.stringify(t),{contentType:'application/json',resumable:false});
+}
 // O refresh_token do ML e' de uso unico - cada renovacao devolve um novo, que
 // precisa ser gravado (senao a proxima renovacao falha).
 async function obterToken(){
   const ref=refConfig();
   const snap=await ref.get();
   const c=snap.exists?snap.data():{};
-  if(!c.refreshToken)throw new Error('Mercado Livre ainda não foi autorizado');
-  if(c.accessToken&&c.expiraEm-Date.now()>5*60*1000)return c;
-  const resp=await fetch(API+'/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',accept:'application/json'},body:new URLSearchParams({grant_type:'refresh_token',client_id:process.env.ML_CLIENT_ID,client_secret:process.env.ML_CLIENT_SECRET,refresh_token:c.refreshToken}).toString()});
+  let t=await lerTokensML();
+  if(!t&&c.refreshToken){
+    t={accessToken:c.accessToken,refreshToken:c.refreshToken,expiraEm:c.expiraEm};
+    await gravarTokensML(t);
+  }
+  if(c.refreshToken||c.accessToken){
+    const del=admin.firestore.FieldValue.delete();
+    await ref.update({accessToken:del,refreshToken:del,expiraEm:del});
+  }
+  if(!t||!t.refreshToken)throw new Error('Mercado Livre ainda não foi autorizado');
+  if(t.accessToken&&t.expiraEm-Date.now()>5*60*1000)return{...c,...t};
+  const resp=await fetch(API+'/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',accept:'application/json'},body:new URLSearchParams({grant_type:'refresh_token',client_id:process.env.ML_CLIENT_ID,client_secret:process.env.ML_CLIENT_SECRET,refresh_token:t.refreshToken}).toString()});
   const dados=await resp.json();
   if(!resp.ok||!dados.access_token)throw new Error('Erro ao renovar token ML: '+JSON.stringify(dados));
-  const novo={accessToken:dados.access_token,refreshToken:dados.refresh_token||c.refreshToken,expiraEm:Date.now()+(dados.expires_in||21600)*1000};
-  await ref.set(novo,{merge:true});
+  const novo={accessToken:dados.access_token,refreshToken:dados.refresh_token||t.refreshToken,expiraEm:Date.now()+(dados.expires_in||21600)*1000};
+  await gravarTokensML(novo);
   return{...c,...novo};
 }
 async function apiML(caminho,token){
@@ -215,7 +237,7 @@ exports.mercadoLivreProcessarAviso=onDocumentCreated({region:'southamerica-east1
 
 // Reserva: se algum aviso se perder, a cada 10 min busca de novo.
 exports.mercadoLivreSync=onSchedule({region:'southamerica-east1',schedule:'every 10 minutes',timeZone:'America/Sao_Paulo'},async()=>{
-  try{const snap=await refConfig().get();if(!snap.exists||!snap.data().refreshToken)return;await sincronizarML();}
+  try{const snap=await refConfig().get();if(!snap.exists||!(snap.data().autorizadoEm||snap.data().refreshToken))return;await sincronizarML();}
   catch(e){console.error('ML sync:',e);await refConfig().set({ultimoErro:String(e.message||e),ultimoErroEm:new Date().toISOString()},{merge:true});}
 });
 
