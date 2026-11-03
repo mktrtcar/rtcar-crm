@@ -218,3 +218,28 @@ exports.mercadoLivreSync=onSchedule({region:'southamerica-east1',schedule:'every
   try{const snap=await refConfig().get();if(!snap.exists||!snap.data().refreshToken)return;await sincronizarML();}
   catch(e){console.error('ML sync:',e);await refConfig().set({ultimoErro:String(e.message||e),ultimoErroEm:new Date().toISOString()},{merge:true});}
 });
+
+/* Fase 2 - publicar carros do NOSSO estoque no ML (03/11/2026, pedido da
+   Aline). Passo 1: so' LEITURA - descobre o plano de anuncios de veiculos da
+   RT Car (pacotes/cota), quais tipos de anuncio o app pode usar e quais
+   atributos o ML exige na categoria de carros. Nao cria nem altera anuncio. */
+const CATEGORIA_CARROS='MLB1744'; // Carros e Caminhonetes
+exports.mercadoLivreDiagnosticoAnuncios=onRequest({region:'southamerica-east1',timeoutSeconds:120,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const c=await obterToken();const token=c.accessToken;
+    const tenta=async(caminho)=>{try{return await apiML(caminho,token);}catch(e){return{erro:String(e.message).slice(0,400)};}};
+    const usuario=await tenta(`/users/${c.userId}`);
+    const attrs=await tenta(`/categories/${CATEGORIA_CARROS}/attributes`);
+    res.json({
+      usuario:usuario.erro?usuario:{id:usuario.id,nickname:usuario.nickname,tipo:usuario.user_type,site:usuario.site_id,tags:usuario.tags,reputacao:usuario.seller_reputation&&usuario.seller_reputation.level_id},
+      pacotes:await tenta(`/users/${c.userId}/classifieds_promotion_packs`),
+      tiposDisponiveis:await tenta(`/users/${c.userId}/available_listing_types?category_id=${CATEGORIA_CARROS}`),
+      categoria:await tenta(`/categories/${CATEGORIA_CARROS}`).then(x=>x.erro?x:{id:x.id,nome:x.name,settings:x.settings&&{listing_allowed:x.settings.listing_allowed,max_pictures:x.settings.max_pictures_per_item,price:x.settings.price,currencies:x.settings.currencies}}),
+      atributosObrigatorios:Array.isArray(attrs)?attrs.filter(a=>a.tags&&(a.tags.required||a.tags.catalog_required||a.tags.conditional_required)).map(a=>({id:a.id,nome:a.name,tipo:a.value_type,tags:Object.keys(a.tags).filter(k=>a.tags[k])})):attrs,
+      anunciosAtivos:await tenta(`/users/${c.userId}/items/search?status=active&limit=1`).then(x=>x.erro?x:{total:x.paging&&x.paging.total}),
+    });
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
