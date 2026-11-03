@@ -2829,6 +2829,12 @@ function litoralCombustivel(v){
   const lista=((G.pf.litoralcarRefs||{}).combustiveis)||[];
   return lista.find(c=>norm(c)===norm(nome))||(/^(Híbrido|Gasolina e Elétrico)$/.test(nome)?lista.find(c=>norm(c)==='gasolina/eletrico')||'':'');
 }
+// A lista da LitoralCar nao tem "Híbrido" (so' Gasolina/Elétrico) - a palavra vai na versao, que e' texto livre
+function litoralVersao(v,versao){
+  const ehHibrido=/^(Híbrido|Gasolina e Elétrico)$/.test((G.pf.combSite||{})[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||'');
+  versao=String(versao||'').trim();
+  return ehHibrido&&!/H[IÍ]B/i.test(versao)?(versao+' Híbrido').trim():versao;
+}
 function lcbPadrao(v){
   const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{};
   const categoria=litoral.categoria||litoralCarCategoriaSugerida(v.marca);
@@ -2836,7 +2842,7 @@ function lcbPadrao(v){
   const marca=litoral.marca||melhorCorrespondenciaLitoral(v.marca,mm.marcas);
   const modelosDaMarca=mm.modelos.filter(m=>m.marca===marca).map(m=>m.modelo);
   const modelo=litoral.modelo||melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
-  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'Flex',versao:(litoral.versao!==undefined?litoral.versao:(v.versao||'')).trim()};
+  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'Flex',versao:litoralVersao(v,litoral.versao!==undefined?litoral.versao:(v.versao||''))};
 }
 async function abrirPublicarTodosLitoralCar(atualizar){
   atualizar=atualizar===true;
@@ -2970,7 +2976,7 @@ async function abrirPublicarPlataforma(placa,plataformaId){
       <div class="field"><label>Categoria</label><select id="pp-categoria" style="width:100%" onchange="ppAtualizarMarcas()">${categorias.map(c=>`<option ${c===categoriaSugerida?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="field"><label>Marca</label><select id="pp-marca" style="width:100%" onchange="ppAtualizarModelos()"></select></div>
       <div class="field"><label>Modelo</label><select id="pp-modelo" style="width:100%"></select></div>
-      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${(v.versao||'').trim()}" style="width:100%"></div>
+      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${litoralVersao(v,v.versao)}" style="width:100%"></div>
       <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c===(litoralCombustivel(v)||'Flex')?'selected':''}>${c}</option>`).join('')}</select></div>
       ${v.preco?'':'<p style="color:var(--red);font-size:12px;margin-top:8px">⚠️ Este veículo está sem preço no estoque — a LitoralCar vai recusar.</p>'}`;
     _ppMarcasModelos=mm;
