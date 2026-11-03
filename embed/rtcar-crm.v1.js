@@ -2760,11 +2760,15 @@ async function initPlataformasAnuncio(){
   cnt.innerHTML='<div style="padding:40px;text-align:center;color:var(--tx3)"><i class="ti ti-loader-2"></i> Carregando estoque...</div>';
   tb.innerHTML=`<div class="tb-title"><i class="ti ti-apps" style="color:var(--red)"></i> Anúncios</div><div class="tb-sep"></div><div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar por marca, modelo ou placa..." value="${G.pf.busca}" oninput="__G().pf.busca=this.value;renderPlataformasAnuncio()"></div><div class="tb-spacer"></div><button class="btn btn-outline btn-sm" onclick="abrirPublicarTodosLitoralCar(true)"><i class="ti ti-refresh"></i> Atualizar publicados</button><button class="btn btn-red btn-sm" onclick="abrirPublicarTodosLitoralCar()"><i class="ti ti-upload"></i> Publicar todos na LitoralCar</button>`;
   try{
-    const[estoqueSnap,mapSnap]=await Promise.all([
+    const[estoqueSnap,mapSnap,siteSnap]=await Promise.all([
       db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao']).get(),
       db.collection('litoralcar_veiculos').get(),
+      db.collection('site_veiculos').get(),
     ]);
     G.pf.veiculos=estoqueSnap.docs.map(d=>({placa:d.id,...d.data()}));
+    // Combustivel do site (vem da Avaliacao do sistema, ou editado no admin) - 03/11/2026
+    G.pf.combSite={};
+    siteSnap.docs.forEach(d=>{const s=d.data();if(!s.combustivel)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=k.replace(/[^A-Za-z0-9]/g,'').toUpperCase();if(!G.pf.combSite[k]||(s.camposBloqueados||[]).includes('combustivel'))G.pf.combSite[k]=s.combustivel;});});
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
   }catch(e){
@@ -2817,6 +2821,14 @@ function litoralCarPendentes(atualizar){
     return atualizar?publicado:!publicado;
   });
 }
+// Combustivel do site convertido para a lista da LitoralCar ('' = nao achou)
+function litoralCombustivel(v){
+  const nome=(G.pf.combSite||{})[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
+  if(!nome)return'';
+  const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const lista=((G.pf.litoralcarRefs||{}).combustiveis)||[];
+  return lista.find(c=>norm(c)===norm(nome))||(nome==='Gasolina e Elétrico'?lista.find(c=>norm(c)==='gasolina/eletrico')||'':'');
+}
 function lcbPadrao(v){
   const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{};
   const categoria=litoral.categoria||litoralCarCategoriaSugerida(v.marca);
@@ -2824,7 +2836,7 @@ function lcbPadrao(v){
   const marca=litoral.marca||melhorCorrespondenciaLitoral(v.marca,mm.marcas);
   const modelosDaMarca=mm.modelos.filter(m=>m.marca===marca).map(m=>m.modelo);
   const modelo=litoral.modelo||melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
-  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoral.combustivel||'Flex',versao:(litoral.versao!==undefined?litoral.versao:(v.versao||'')).trim()};
+  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'Flex',versao:(litoral.versao!==undefined?litoral.versao:(v.versao||'')).trim()};
 }
 async function abrirPublicarTodosLitoralCar(atualizar){
   atualizar=atualizar===true;
@@ -2959,7 +2971,7 @@ async function abrirPublicarPlataforma(placa,plataformaId){
       <div class="field"><label>Marca</label><select id="pp-marca" style="width:100%" onchange="ppAtualizarModelos()"></select></div>
       <div class="field"><label>Modelo</label><select id="pp-modelo" style="width:100%"></select></div>
       <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${(v.versao||'').trim()}" style="width:100%"></div>
-      <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c==='Flex'?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c===(litoralCombustivel(v)||'Flex')?'selected':''}>${c}</option>`).join('')}</select></div>
       ${v.preco?'':'<p style="color:var(--red);font-size:12px;margin-top:8px">⚠️ Este veículo está sem preço no estoque — a LitoralCar vai recusar.</p>'}`;
     _ppMarcasModelos=mm;
     popularSelectLitoral('pp-marca',mm.marcas,marcaSugerida);

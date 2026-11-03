@@ -93,6 +93,56 @@ function dadosDoSistema(depois,camposBloqueados,atual){
   if(depois.precoAbaixoFipe!==undefined)dados.precoAbaixoFipe=!!depois.precoAbaixoFipe;
   return dados;
 }
+/* 03/11/2026 (pedido da Aline): combustivel, cambio, portas e carroceria nao
+   vem no feed - ficam na Avaliacao do sistema principal (colecao avaliacoes,
+   mesmo projeto Firebase), ligada ao carro pela placa. So' le os campos do
+   veiculo (nada do cliente). Carro antigo sem avaliacao continua com o que ja
+   tem (Autoconf/admin). Campo editado no admin (camposBloqueados) vence. */
+const placaCanon=p=>String(p||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const PROPULSAO_LEGADO={flex:['flex'],gasolina:['gasolina'],etanol:['flex'],diesel:['diesel'],gnv:['gnv'],hibrido:['hibrido'],hibrido_flex:['hibrido','flex'],eletrico:['eletrico']};
+const MARCAS_MOTO=/^(HARLEY|DUCATI|TRIUMPH|KAWASAKI|YAMAHA|KTM|ROYAL ENFIELD)/i;
+let tecCache={em:0,mapa:null};
+async function tecnicosPorPlaca(){
+  if(tecCache.mapa&&Date.now()-tecCache.em<5*60*1000)return tecCache.mapa;
+  const mapa={};
+  const cfg=await db.collection('rtcar').doc('config').get();
+  if(cfg.exists&&cfg.data().avModo==='colecao'){
+    const s=await db.collection('avaliacoes').select('veiculo.pl','veiculo.combustiveis','veiculo.propulsao','veiculo.portas','veiculo.cambio','veiculo.carroceria').get();
+    s.docs.forEach(d=>{ // ordem do id: a avaliacao mais nova da mesma placa fica por ultimo e vence
+      const v=d.data().veiculo||{},p=placaCanon(v.pl);
+      if(!p)return;
+      const comb=Array.isArray(v.combustiveis)?v.combustiveis:(PROPULSAO_LEGADO[v.propulsao]||[]);
+      mapa[p]={avId:d.id,combustiveis:comb,portas:v.portas||'',cambio:v.cambio||'',carroceria:v.carroceria||''};
+    });
+  }
+  tecCache={em:Date.now(),mapa};
+  return mapa;
+}
+// A avaliacao nova ja' nasce com Flex marcado: Flex junto com outro = o outro
+// foi o escolhido de verdade (ex.: Mercedes A200 "flex+gasolina" = Gasolina).
+function combustivelSite(lista){
+  const c=new Set(lista||[]);
+  if(c.has('hibrido')||(c.has('eletrico')&&(c.has('gasolina')||c.has('flex'))))return 'Gasolina e Elétrico';
+  if(c.has('eletrico'))return 'Elétrico';
+  if(c.has('diesel'))return 'Diesel';
+  if(c.has('gasolina'))return 'Gasolina';
+  if(c.has('flex'))return 'Flex';
+  return '';
+}
+function dadosTecnicos(tec,depois,bloq,atual){
+  const dados={};
+  if(!tec)return dados;
+  const comb=combustivelSite(tec.combustiveis);
+  if(comb&&!bloq.includes('combustivel'))dados.combustivel=comb;
+  // 'manual' tambem e' o padrao da avaliacao nova: so' preenche quando o site nao tem cambio.
+  const camb=(tec.cambio==='automatico'||tec.cambio==='cvt')?'Automático':(tec.cambio==='manual'&&!atual?.cambio?'Manual':'');
+  if(camb&&!bloq.includes('cambio'))dados.cambio=camb;
+  if(tec.portas&&!MARCAS_MOTO.test(String(depois.marca||''))&&!bloq.includes('portas'))dados.portas=Number(tec.portas)||'';
+  if(tec.carroceria&&!bloq.includes('carroceria'))dados.carroceria=tec.carroceria;
+  dados.combustiveisSistema=tec.combustiveis||[];
+  dados.avaliacaoId=tec.avId;
+  return dados;
+}
 const mudou=(atual,dados)=>Object.entries(dados).some(([k,v])=>String(atual?.[k]??'')!==String(v??''));
 
 async function aplicarSistemaNoSite(placa,depois){
@@ -119,7 +169,8 @@ async function aplicarSistemaNoSite(placa,depois){
     }
   }
 
-  const dados=dadosDoSistema(depois,existente?.camposBloqueados||[],existente);
+  const tec=(await tecnicosPorPlaca())[placaCanon(depois.placa||placa)];
+  const dados={...dadosDoSistema(depois,existente?.camposBloqueados||[],existente),...dadosTecnicos(tec,depois,existente?.camposBloqueados||[],existente)};
   dados.origemEstoquePrincipal=true;
   // Carro que a passada de 30 min tinha ocultado por ter sumido do sistema e voltou.
   if(existente?.ocultoPorSaida){dados.oculto=false;dados.ocultoPorSaida=false;}
@@ -151,7 +202,7 @@ async function aplicarSistemaNoSite(placa,depois){
   const vinculados=await db.collection('site_veiculos').where('placaSistema','==',placa).get();
   for(const d of vinculados.docs){
     const atual=d.data();
-    const dc=dadosDoSistema(depois,atual.camposBloqueados||[],atual);
+    const dc={...dadosDoSistema(depois,atual.camposBloqueados||[],atual),...dadosTecnicos(tec,depois,atual.camposBloqueados||[],atual)};
     delete dc.marca;delete dc.modelo;delete dc.versao;
     // Carro com preco so' manual: a copia tambem nao recebe o do sistema, e a
     // que ainda nao teve o preco editado no admin perde o preco do Autoconf.
