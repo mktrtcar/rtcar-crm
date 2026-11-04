@@ -193,6 +193,12 @@
     color: var(--purple);
     font-weight: 600;
   }
+  #busca {
+    display: block; width: 100%; margin-top: 12px;
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 12px; border-radius: 8px; font-size: 13px;
+  }
+  #busca:focus { outline: none; border-color: var(--accent); }
   #sair {
     font-size: 11px;
     color: var(--text3);
@@ -226,6 +232,7 @@
       <div class="sub">Leads e conversas em tempo real</div>
       <div id="status-line"><span class="dot"></span><span id="status-text">Carregando…</span></div>
       <span id="sair">Sair</span>
+      <input type="search" id="busca" placeholder="Buscar lead (nome, telefone ou LEAD-...)" autocomplete="off">
     </div>
     <div id="lead-list"><div id="empty-state">Carregando leads…</div></div>
   </div>
@@ -339,13 +346,29 @@ function statusBadge(st) {
   return `<span class="badge badge-outro">${st || '—'}</span>`;
 }
 
+function semAcento(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+document.getElementById('busca').addEventListener('input', () => renderList());
+
 function renderList() {
   const list = document.getElementById('lead-list');
   if (!leadsCache.length) {
     list.innerHTML = '<div id="empty-state">Nenhum lead ainda.</div>';
     return;
   }
-  const sorted = [...leadsCache].sort((a, b) => (b._criadoEm || '').localeCompare(a._criadoEm || ''));
+  // 04/11/2026: campo de busca (nome sem acento/maiuscula, telefone so' digitos, LEAD-xxx).
+  const termo = semAcento(document.getElementById('busca').value.trim());
+  const termoDig = termo.replace(/\D/g, '');
+  const filtrados = !termo ? leadsCache : leadsCache.filter((l) => {
+    if (semAcento(`${l.clienteNome || ''} ${l.id || ''}`).includes(termo)) return true;
+    return termoDig.length >= 4 && String(l.clienteTel || '').replace(/\D/g, '').includes(termoDig);
+  });
+  if (!filtrados.length) {
+    list.innerHTML = '<div id="empty-state">Nenhum lead encontrado pra essa busca.</div>';
+    return;
+  }
+  const sorted = [...filtrados].sort((a, b) => (b._criadoEm || '').localeCompare(a._criadoEm || ''));
   list.innerHTML = sorted.map((l) => {
     const conversa = l.conversaEloa || [];
     const ultima = conversa.length ? conversa[conversa.length - 1].texto : (l.obs || '');
@@ -355,7 +378,7 @@ function renderList() {
         <span class="name">${l.clienteNome || l.id}</span>
         ${statusBadge(l.st)}
       </div>
-      <div class="meta">${l.veiculo || 'Veículo não informado'} · ${l.origem || '-'}</div>
+      <div class="meta">${l.id} · ${l.veiculo || 'Veículo não informado'} · ${l.origem || '-'}</div>
       <div class="last-msg">${(ultima || '').replace(/</g, '&lt;')}</div>
     </div>`;
   }).join('');
