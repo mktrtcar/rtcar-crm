@@ -2971,7 +2971,14 @@ async function confirmarPublicarTodosLitoralCar(){
   const btn=document.getElementById('btn-lcb-confirmar');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Publicando...';
   try{
-    const{resultados}=await litoralCarFetch('litoralcarPublicarEstoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({veiculos})});
+    // Um carro por chamada (05/11/2026): a LitoralCar demora ~1 min por carro
+    // e recusa pedido grande - em lote, a chamada estourava o tempo/limite.
+    const resultados=[];
+    for(let i=0;i<veiculos.length;i++){
+      btn.innerHTML=`<span class="spin"></span> Publicando ${i+1}/${veiculos.length}...`;
+      try{const r=await litoralCarFetch('litoralcarPublicarEstoque',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({veiculos:[veiculos[i]]})});resultados.push(...(r.resultados||[]));}
+      catch(e){resultados.push({placa:veiculos[i].placa,ok:false,erro:e.message});}
+    }
     const ok=resultados.filter(r=>r.ok).length;
     const falhas=resultados.filter(r=>!r.ok);
     toast(`${ok}/${resultados.length} publicado(s) na LitoralCar${falhas.length?'. Veja os erros abaixo.':'!'}`,falhas.length?'red':'green',6000);

@@ -48,6 +48,8 @@ async function exigirGestor(req){
 function jsonAsciiSafe(obj){
   return JSON.stringify(obj).replace(/[-￿]/g,c=>'\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4));
 }
+// Limite seguro do header Content (Apache costuma aceitar ~8 KB por campo)
+const LIMITE_HEADER=7000;
 async function litoralFetch(acao,metodo,parametro,body){
   const partes=[LITORAL_BASE,acao,metodo];
   if(parametro!==undefined&&parametro!==null)partes.push(parametro);
@@ -371,7 +373,7 @@ exports.litoralcarMarcasModelos=onRequest({region:'southamerica-east1',cors:true
    cod_importacao é gerado e mantido aqui (coleção litoralcar_veiculos,
    indexada pela placa) pra saber se cada veículo é novo (salvar) ou já
    publicado antes (alterar). */
-exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:540},async(req,res)=>{
   if(req.method!=='POST'){res.status(405).send('Method not allowed');return;}
   try{
     await exigirGestor(req);
@@ -404,6 +406,10 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
         valor,situacao:'exibir',
       };
       if(fotos.length)payload.fotos=fotos;
+      // O JSON vai num HEADER (Content) e o servidor deles recusa header grande
+      // ('Size of a request header field exceeds server limit', 05/11/2026,
+      // Jaecoo com muitas fotos): corta fotos do fim ate caber.
+      while(payload.fotos&&payload.fotos.length>1&&jsonAsciiSafe({veiculos:[payload]}).length>LIMITE_HEADER)payload.fotos.pop();
       porPlaca[placa]=v.placa;
       escolhidosPorPlaca[placa]={categoria:v.categoria,marca:v.marca,modelo:v.modelo,versao:v.versao||'',combustivel:v.combustivel};
 
@@ -459,8 +465,9 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       }
     }
 
-    await processarLote('salvar',novos);
-    await processarLote('alterar',alterados);
+    // Um veiculo por chamada: varios juntos estouram o limite do header (05/11/2026)
+    for(const x of novos)await processarLote('salvar',[x]);
+    for(const x of alterados)await processarLote('alterar',[x]);
 
     res.json({resultados});
   }catch(e){
@@ -476,7 +483,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
    Header Content = {veiculos:[{cod_importacao,cod_veiculo}]}. So precisa
    dos dois codigos que ja guardamos em litoralcar_veiculos/{placa} desde
    a primeira publicacao. */
-exports.litoralcarDespublicarEstoque=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+exports.litoralcarDespublicarEstoque=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:300},async(req,res)=>{
   if(req.method!=='POST'){res.status(405).send('Method not allowed');return;}
   try{
     await exigirGestor(req);
