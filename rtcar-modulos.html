@@ -3186,7 +3186,7 @@ async function abrirModalIntegracoes(){
    ============================================================ */
 const PLATAFORMAS_ANUNCIO=[
   {id:'litoralcar',nome:'LitoralCar',cor:'#0a5ca8',ativa:true},
-  {id:'mercadolivre',nome:'Mercado Livre',cor:'#ffe600',ativa:false},
+  {id:'mercadolivre',nome:'Mercado Livre',cor:'#2d3277',ativa:true},
   {id:'olx',nome:'OLX',cor:'#7c1fa2',ativa:false},
   {id:'mobiauto',nome:'Mobiauto',cor:'#00a19a',ativa:false},
   {id:'napista',nome:'Na Pista',cor:'#1e63c9',ativa:false},
@@ -3260,12 +3260,36 @@ async function initPlataformasAnuncio(){
     siteSnap.docs.forEach(d=>{const s=d.data();if(!s.combustivel)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=k.replace(/[^A-Za-z0-9]/g,'').toUpperCase();if(!G.pf.combSite[k]||(s.camposBloqueados||[]).includes('combustivel'))G.pf.combSite[k]=s.combustivel;});});
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
+    // Versao do site (copias do Autoconf) - sugestao quando o sistema nao tem (05/11/2026)
+    G.pf.versaoSite={};
+    siteSnap.docs.forEach(d=>{const s=d.data();const vs=pfLimparVersao(s.versao,s.marca,s.modelo);if(!vs)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=pfChavePlaca(k);if(!G.pf.versaoSite[k])G.pf.versaoSite[k]=vs;});});
   }catch(e){
     console.error(e);
     cnt.innerHTML=`<p style="padding:20px;color:var(--red)">Erro ao carregar estoque: ${e.message}</p>`;
     return;
   }
   renderPlataformasAnuncio();
+  carregarStatusMercadoLivre();
+}
+/* Mercado Livre na tela Anuncios (05/11/2026): mostra quem ja' esta' anunciado
+   la' (hoje pelo Autoconf) e usa a versao do anuncio do ML como sugestao. */
+// Placa Mercosul x antiga: 5o caractere A=0 ... J=9 (mesma placa)
+function pfChavePlaca(p){const s=String(p||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return s.length===7&&/[A-J]/.test(s[4])?s.slice(0,4)+(s.charCodeAt(4)-65)+s.slice(5):s;}
+// Tira marca/modelo do comeco ("VolksWagen Gol 1.0 12V" -> "1.0 12V")
+function pfLimparVersao(vs,marca,modelo){vs=String(vs||'').trim();const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');for(const p of [marca,modelo]){const w=vs.split(/\s+/);if(p&&w.length>1&&n(w[0])===n(p))vs=w.slice(1).join(' ');}return vs.trim();}
+async function carregarStatusMercadoLivre(){
+  G.pf.mlMap=null;G.pf.mlErro='';
+  try{const r=await litoralCarFetch('mercadoLivreAnunciosStatus');G.pf.mlMap={};(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
+  catch(e){console.error(e);G.pf.mlErro=e.message||'erro';}
+  renderPlataformasAnuncio();
+}
+function pfAnuncioML(v){return G.pf.mlMap?G.pf.mlMap[pfChavePlaca(v.placa)]||null:null;}
+// Versao sugerida: sistema > anuncio do ML > site. Sempre editavel antes de publicar.
+function versaoSugerida(v){
+  if(String(v.versao||'').trim())return{txt:String(v.versao).trim(),fonte:'cadastro do sistema'};
+  const ml=pfAnuncioML(v);if(ml&&ml.versao)return{txt:ml.versao,fonte:'anúncio do Mercado Livre'};
+  const s=(G.pf.versaoSite||{})[pfChavePlaca(v.placa)];if(s)return{txt:s,fonte:'site'};
+  return{txt:'',fonte:''};
 }
 function pfFiltrados(){
   let ls=G.pf.veiculos||[];
@@ -3285,7 +3309,8 @@ function renderPlataformasAnuncio(){
   cnt.innerHTML=veiculos.map(v=>{
     const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
     const publicadoLitoral=!!(litoral&&litoral.codVeiculo);
-    const publicadas=publicadoLitoral?1:0; // so LitoralCar tem integracao de verdade por enquanto
+    const ml=pfAnuncioML(v);
+    const publicadas=(publicadoLitoral?1:0)+(ml&&ml.status==='active'?1:0);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
@@ -3295,6 +3320,12 @@ function renderPlataformasAnuncio(){
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
+          if(p.id==='mercadolivre'){
+            if(G.pf.mlErro)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(G.pf.mlErro).replace(/"/g,'')}">${p.nome}: indisponível</span>`;
+            if(!G.pf.mlMap)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: carregando...</span>`;
+            if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':'Pausado'}</a>`;
+            return`<span style="background:var(--bg3);color:var(--tx2);border-radius:6px;padding:5px 10px;font-size:11px" title="Publicação pelo nosso sistema: em teste">${p.nome}: não publicado</span>`;
+          }
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
         }).join('')}
@@ -3331,7 +3362,7 @@ function lcbPadrao(v){
   const marca=litoral.marca||melhorCorrespondenciaLitoral(v.marca,mm.marcas);
   const modelosDaMarca=mm.modelos.filter(m=>m.marca===marca).map(m=>m.modelo);
   const modelo=litoral.modelo||melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
-  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'Flex',versao:litoralVersao(v,litoral.versao!==undefined?litoral.versao:(v.versao||''))};
+  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'Flex',versao:litoralVersao(v,litoral.versao!==undefined&&litoral.versao!==''?litoral.versao:versaoSugerida(v).txt)};
 }
 async function abrirPublicarTodosLitoralCar(atualizar){
   atualizar=atualizar===true;
@@ -3465,7 +3496,7 @@ async function abrirPublicarPlataforma(placa,plataformaId){
       <div class="field"><label>Categoria</label><select id="pp-categoria" style="width:100%" onchange="ppAtualizarMarcas()">${categorias.map(c=>`<option ${c===categoriaSugerida?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="field"><label>Marca</label><select id="pp-marca" style="width:100%" onchange="ppAtualizarModelos()"></select></div>
       <div class="field"><label>Modelo</label><select id="pp-modelo" style="width:100%"></select></div>
-      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${litoralVersao(v,v.versao)}" style="width:100%"></div>
+      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${String(litoralVersao(v,versaoSugerida(v).txt)).replace(/"/g,'&quot;')}" style="width:100%">${versaoSugerida(v).fonte&&versaoSugerida(v).fonte!=='cadastro do sistema'?`<div style="font-size:11px;color:var(--tx3);margin-top:4px">💡 Sugestão puxada do ${versaoSugerida(v).fonte} — confira e corrija se precisar.</div>`:(versaoSugerida(v).txt?'':'<div style="font-size:11px;color:var(--tx3);margin-top:4px">Sem versão no sistema, no Mercado Livre ou no site — preencha.</div>')}</div>
       <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c===(litoralCombustivel(v)||'Flex')?'selected':''}>${c}</option>`).join('')}</select></div>
       ${v.preco?'':'<p style="color:var(--red);font-size:12px;margin-top:8px">⚠️ Este veículo está sem preço no estoque — a LitoralCar vai recusar.</p>'}`;
     _ppMarcasModelos=mm;

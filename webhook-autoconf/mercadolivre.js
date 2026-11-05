@@ -440,3 +440,36 @@ exports.mercadoLivrePrevia=onRequest({region:'southamerica-east1',timeoutSeconds
     res.json({total:saida.length,passam:saida.filter(s=>s.validacaoML.ok).length,carros:saida});
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
+
+/* Tela "Anuncios" do CRM (05/11/2026, pedido da Aline): quais carros ja' estao
+   no ML (anuncios ativos/pausados da conta, hoje feitos pelo Autoconf) e a
+   versao (TRIM) usada la' - serve de sugestao de versao na LitoralCar, ja' que
+   o sistema muitas vezes nao tem a versao cadastrada. So' leitura. */
+exports.mercadoLivreAnunciosStatus=onRequest({region:'southamerica-east1',timeoutSeconds:120,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const c=await obterToken();const token=c.accessToken;
+    const ids=[];
+    for(const st of ['active','paused']){
+      for(let off=0;off<1000;off+=50){
+        const r=await apiML(`/users/${c.userId}/items/search?status=${st}&limit=50&offset=${off}`,token);
+        ids.push(...(r.results||[]));
+        if(!r.results||r.results.length<50)break;
+      }
+    }
+    const anuncios=[];
+    for(let i=0;i<ids.length;i+=20){
+      const lote=await apiML(`/items?ids=${ids.slice(i,i+20).join(',')}&attributes=id,status,title,price,permalink,category_id,attributes`,token);
+      for(const x of lote||[]){
+        const b=x&&x.body;if(!b||!b.id)continue;
+        const at=id=>((b.attributes||[]).find(a=>a.id===id)||{}).value_name||'';
+        const placa=at('LICENSE_PLATE');
+        anuncios.push({id:b.id,status:b.status,titulo:b.title,preco:b.price,link:b.permalink,categoria:b.category_id,
+          placa,chave:placa?placaChaveML(placa):'',versao:at('TRIM'),marca:at('BRAND'),modelo:at('MODEL')});
+      }
+    }
+    res.json({total:anuncios.length,anuncios});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
