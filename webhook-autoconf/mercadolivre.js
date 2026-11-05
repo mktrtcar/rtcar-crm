@@ -306,7 +306,7 @@ const normML=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,
 // manter a palavra "Híbrido" (pedido da Aline) e cai em "Gasolina e elétrico".
 const COMB_ML={'Flex':['Gasolina e álcool'],'Gasolina':['Gasolina'],'Diesel':['Diesel'],'Elétrico':['Elétrico'],'Híbrido':['Híbrido/Gasolina','Híbrido','Gasolina e elétrico'],'Gasolina e Elétrico':['Híbrido/Gasolina','Híbrido','Gasolina e elétrico']};
 const MOTO_ML=/^(HARLEY|DUCATI|TRIUMPH|KAWASAKI|YAMAHA|KTM|ROYAL ENFIELD)/i;
-const MARCA_ALIAS={'MERCEDES':'Mercedes-Benz','MERCEDESBENZ':'Mercedes-Benz','KIAMOTORS':'Kia','HARLEY':'Harley-Davidson','HARLEYDAVIDSON':'Harley-Davidson','CAOACHERYCHERY':'Chery','CAOACHERY':'Chery','GM':'Chevrolet','VW':'Volkswagen','LANDROVER':'Land Rover'};
+const MARCA_ALIAS={'MERCEDES':'Mercedes-Benz','MERCEDESBENZ':'Mercedes-Benz','KIAMOTORS':'Kia','HARLEY':'Harley-Davidson','HARLEYDAVIDSON':'Harley-Davidson','CAOACHERYCHERY':'Chery','CAOACHERY':'Chery','GM':'Chevrolet','GMCHEVROLET':'Chevrolet','VWVOLKSWAGEN':'Volkswagen','CAOACHERYCHERY':'Chery','VW':'Volkswagen','LANDROVER':'Land Rover'};
 const titulo60=s=>{s=String(s||'').replace(/\s+/g,' ').trim();if(s.length<=60)return s;const c=s.slice(0,60);const i=c.lastIndexOf(' ');return (i>30?c.slice(0,i):c).trim();};
 const capitaliza=s=>String(s||'').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
 let _attrsCarros=null;
@@ -445,31 +445,83 @@ exports.mercadoLivrePrevia=onRequest({region:'southamerica-east1',timeoutSeconds
    no ML (anuncios ativos/pausados da conta, hoje feitos pelo Autoconf) e a
    versao (TRIM) usada la' - serve de sugestao de versao na LitoralCar, ja' que
    o sistema muitas vezes nao tem a versao cadastrada. So' leitura. */
+// Todos os anuncios ativos/pausados da conta (Autoconf + nossos), com a placa.
+async function listarAnunciosML(token,userId){
+  const ids=[];
+  for(const st of ['active','paused']){
+    for(let off=0;off<1000;off+=50){
+      const r=await apiML(`/users/${userId}/items/search?status=${st}&limit=50&offset=${off}`,token);
+      ids.push(...(r.results||[]));
+      if(!r.results||r.results.length<50)break;
+    }
+  }
+  const anuncios=[];
+  for(let i=0;i<ids.length;i+=20){
+    const lote=await apiML(`/items?ids=${ids.slice(i,i+20).join(',')}&attributes=id,status,title,price,permalink,category_id,attributes`,token);
+    for(const x of lote||[]){
+      const b=x&&x.body;if(!b||!b.id)continue;
+      const at=id=>((b.attributes||[]).find(a=>a.id===id)||{}).value_name||'';
+      const placa=at('LICENSE_PLATE');
+      anuncios.push({id:b.id,status:b.status,titulo:b.title,preco:b.price,link:b.permalink,categoria:b.category_id,
+        placa,chave:placa?placaChaveML(placa):'',versao:at('TRIM'),marca:at('BRAND'),modelo:at('MODEL')});
+    }
+  }
+  return anuncios;
+}
 exports.mercadoLivreAnunciosStatus=onRequest({region:'southamerica-east1',timeoutSeconds:120,cors:true},async(req,res)=>{
   try{
     const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
     const dec=await admin.auth().verifyIdToken(tk);
     if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
-    const c=await obterToken();const token=c.accessToken;
-    const ids=[];
-    for(const st of ['active','paused']){
-      for(let off=0;off<1000;off+=50){
-        const r=await apiML(`/users/${c.userId}/items/search?status=${st}&limit=50&offset=${off}`,token);
-        ids.push(...(r.results||[]));
-        if(!r.results||r.results.length<50)break;
-      }
-    }
-    const anuncios=[];
-    for(let i=0;i<ids.length;i+=20){
-      const lote=await apiML(`/items?ids=${ids.slice(i,i+20).join(',')}&attributes=id,status,title,price,permalink,category_id,attributes`,token);
-      for(const x of lote||[]){
-        const b=x&&x.body;if(!b||!b.id)continue;
-        const at=id=>((b.attributes||[]).find(a=>a.id===id)||{}).value_name||'';
-        const placa=at('LICENSE_PLATE');
-        anuncios.push({id:b.id,status:b.status,titulo:b.title,preco:b.price,link:b.permalink,categoria:b.category_id,
-          placa,chave:placa?placaChaveML(placa):'',versao:at('TRIM'),marca:at('BRAND'),modelo:at('MODEL')});
-      }
-    }
+    const c=await obterToken();
+    const anuncios=await listarAnunciosML(c.accessToken,c.userId);
     res.json({total:anuncios.length,anuncios});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+
+/* PUBLICAR 1 carro no ML pelo nosso integrador (fase 2 - teste, 05/11/2026).
+   POST ?placa=XXX (gestor). Trava: nao publica se a placa ja tem anuncio
+   ativo/pausado na conta (evita duplicar com o Autoconf), se faltar preco/
+   fotos/marca/modelo, ou se o proprio ML recusar na validacao. Grava o
+   resultado em ml_anuncios/{placa} (origem rtcar). Descricao vai depois, em
+   chamada separada (regra do ML). */
+exports.mercadoLivrePublicar=onRequest({region:'southamerica-east1',timeoutSeconds:300,memory:'512MiB',cors:true},async(req,res)=>{
+  try{
+    if(req.method!=='POST'){res.status(405).json({erro:'Use POST'});return;}
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const pedida=placaChaveML(req.query.placa||(req.body&&req.body.placa));
+    if(!pedida){res.status(400).json({erro:'Informe a placa'});return;}
+    const c=await obterToken();const token=c.accessToken;
+    const existentes=(await listarAnunciosML(token,c.userId)).filter(a=>a.chave===pedida);
+    if(existentes.length){res.status(409).json({erro:'Esse carro já tem anúncio no Mercado Livre',anuncios:existentes.map(a=>({id:a.id,status:a.status,link:a.link}))});return;}
+    const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
+      .filter(f=>['disponivel','em_preparacao'].includes(f.status));
+    const carro=feed.find(f=>placaChaveML(f.placa)===pedida||placaChaveML(f._id)===pedida);
+    if(!carro){res.status(404).json({erro:'Placa não encontrada no estoque disponível'});return;}
+    const docs=[];
+    const s0=await db.collection('site_veiculos').doc(carro._id).get();
+    if(s0.exists)docs.push(s0.data());
+    (await db.collection('site_veiculos').where('placaSistema','==',carro._id).get()).docs.forEach(d=>docs.push(d.data()));
+    docs.sort((a,b)=>((a.oculto?1:0)-(b.oculto?1:0))||(((b.fotos||[]).length)-((a.fotos||[]).length)));
+    const site=docs[0]?{...docs[0]}:null;
+    if(site)for(const k of ['combustivel','portas','cambio','descricao','cor'])if(!site[k])site[k]=(docs.find(d=>d[k])||{})[k];
+    const attrsCat=await atributosCarros(token);
+    const {modelo}=await anunciosAutoconfPorPlaca(token);
+    const {anuncio,avisos}=montarAnuncioML(carro,site,null,attrsCat,modelo);
+    const bloqueio=avisos.filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|moto/i.test(a));
+    if(bloqueio.length){res.status(422).json({erro:'Faltam dados',avisos:bloqueio});return;}
+    const v=await validarML(anuncio,token);
+    if(!v.ok){res.status(422).json({erro:'O Mercado Livre recusou na validação',validacaoML:v});return;}
+    const {description,...corpo}=anuncio;
+    const r=await fetch(API+'/items',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+    const item=await r.json().catch(()=>({}));
+    if(!r.ok||!item.id){res.status(502).json({erro:'Falha ao publicar',status:r.status,ml:item});return;}
+    let descricaoOk=false;
+    try{const d=await fetch(API+`/items/${item.id}/description`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(description)});descricaoOk=d.ok;}catch(e){console.error(e);}
+    await db.collection('ml_anuncios').doc(pedida).set({itemId:item.id,link:item.permalink||'',status:item.status||'',origem:'rtcar',
+      placa:carro.placa,titulo:anuncio.title,preco:anuncio.price,publicadoEm:new Date().toISOString(),publicadoPor:dec.email||''},{merge:true});
+    res.json({ok:true,itemId:item.id,link:item.permalink,status:item.status,descricaoOk,titulo:anuncio.title,preco:anuncio.price,avisos});
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
