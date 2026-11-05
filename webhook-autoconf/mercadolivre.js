@@ -283,3 +283,151 @@ exports.mercadoLivreConsultar=onRequest({region:'southamerica-east1',timeoutSeco
     res.status(r.status).json(await r.json().catch(()=>({})));
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
+
+/* Fase 2 - PREVIA do anuncio (05/11/2026, pedido da Aline). Monta o anuncio
+   de carro como o NOSSO integrador mandaria pro ML e pede pro proprio ML
+   conferir (POST /items/validate: nao publica, nao gasta cota). Nada e'
+   gravado. ?placa=XXX = 1 carro (devolve o anuncio montado); sem placa = todo
+   o estoque disponivel/em preparacao (so' o resumo de quem passa/falha).
+   Fontes: feed do sistema (marca/modelo/versao/ano/km/cor/preco), site
+   (fotos, descricao, preco editado, combustivel/cambio/portas da Avaliacao) e,
+   quando o carro ja tem anuncio do Autoconf no ML, os atributos desse anuncio
+   (combustivel, portas, opcionais) como reserva. Plano da RT Car: pacote
+   "Todo o seu estoque" (PUS30, ilimitado, listing silver). */
+// Placa Mercosul x antiga: o sistema guarda "QIP4167" e o Autoconf "QIP4B67"
+// (5o caractere: A=0 ... J=9) - mesma placa.
+const placaChaveML=p=>{
+  const s=String(p||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return s.length===7&&/[A-J]/.test(s[4])?s.slice(0,4)+(s.charCodeAt(4)-65)+s.slice(5):s;
+};
+const normML=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
+const COMB_ML={'Flex':'Flex','Gasolina':'Gasolina','Diesel':'Diesel','Elétrico':'Elétrico','Híbrido':'Híbrido/Gasolina','Gasolina e Elétrico':'Híbrido/Gasolina'};
+const MARCA_ALIAS={'MERCEDES':'Mercedes-Benz','MERCEDESBENZ':'Mercedes-Benz','KIAMOTORS':'Kia','HARLEY':'Harley-Davidson','HARLEYDAVIDSON':'Harley-Davidson','CAOACHERYCHERY':'Chery','CAOACHERY':'Chery','GM':'Chevrolet','VW':'Volkswagen','LANDROVER':'Land Rover'};
+const titulo60=s=>{s=String(s||'').replace(/\s+/g,' ').trim();if(s.length<=60)return s;const c=s.slice(0,60);const i=c.lastIndexOf(' ');return (i>30?c.slice(0,i):c).trim();};
+const capitaliza=s=>String(s||'').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
+let _attrsCarros=null;
+async function atributosCarros(token){
+  if(!_attrsCarros)_attrsCarros=await apiML(`/categories/${CATEGORIA_CARROS}/attributes`,token);
+  return _attrsCarros;
+}
+async function anunciosAutoconfPorPlaca(token){
+  const cfg=(await refConfig().get()).data()||{};
+  const mapa={};let modelo=null;
+  for(const id of cfg.idsAnuncios||[]){
+    try{
+      const it=await apiML('/items/'+id,token);
+      if(!['active','paused'].includes(it.status))continue;
+      const pl=(it.attributes||[]).find(a=>a.id==='LICENSE_PLATE');
+      if(pl&&pl.value_name)mapa[placaChaveML(pl.value_name)]=it;
+      if(!modelo&&it.status==='active'&&it.location&&it.seller_contact)modelo=it;
+    }catch(e){}
+  }
+  return{mapa,modelo};
+}
+function montarAnuncioML(carro,site,ac,attrsCat,modelo){
+  const avisos=[];
+  const val=(id,nome)=>{const a=attrsCat.find(x=>x.id===id);const v=a&&(a.values||[]).find(x=>normML(x.name)===normML(nome));return v?{id,value_id:v.id,value_name:v.name}:(nome?{id,value_name:String(nome)}:null);};
+  const doAc=id=>{const a=ac&&(ac.attributes||[]).find(x=>x.id===id);return a&&(a.value_id||a.value_name)?{id,value_id:a.value_id||undefined,value_name:a.value_name}:null;};
+  const marcaTxt=MARCA_ALIAS[normML(carro.marca)]||carro.marca;
+  let brand=val('BRAND',marcaTxt);
+  if(!brand||!brand.value_id){const b=doAc('BRAND');if(b)brand=b;else avisos.push(`Marca "${carro.marca}" não existe na lista do ML`);}
+  const modeloTxt=String(carro.modelo||'').trim();
+  let model=val('MODEL',modeloTxt);
+  if(!model||!model.value_id){
+    const m=modeloTxt.split(/\s+/)[0];const vm=val('MODEL',m);
+    if(vm&&vm.value_id)model=vm;else{const b=doAc('MODEL');if(b)model=b;else avisos.push(`Modelo "${modeloTxt}" não existe na lista do ML`);}
+  }
+  const anoMod=Number(carro.anoModelo)||Number(String(site&&site.ano||'').split('/')[1])||'';
+  const km=Number(String(carro.km!=null?carro.km:(site&&site.km)||'').replace(/\D/g,''));
+  const zeroKm=km===0;
+  const comb=COMB_ML[site&&site.combustivel]||'';
+  const fuel=comb?val('FUEL_TYPE',comb):doAc('FUEL_TYPE');
+  if(!fuel)avisos.push('Sem combustível (nem na Avaliação nem no anúncio do Autoconf)');
+  const portas=(site&&site.portas)||(doAc('DOORS')||{}).value_name||'';
+  if(!portas)avisos.push('Sem número de portas');
+  const camb=site&&site.cambio==='Automático'?'Automática':site&&site.cambio==='Manual'?'Manual':'';
+  const versao=String(carro.versao||'').trim();
+  const precoSite=Number(site&&site.preco)||0, precoSis=Number(carro.preco)||0;
+  const preco=precoSite>1?precoSite:precoSis;
+  if(!(preco>1))avisos.push('Sem preço (o ML não aceita "Consulte o preço")');
+  const fotos=((site&&site.fotos)||[]).map(u=>typeof u==='string'?u:u&&u.url).filter(Boolean).slice(0,25);
+  if(!fotos.length)avisos.push('Sem fotos no site');
+  const cor=(site&&site.cor)||carro.cor||'';
+  const attrs=[
+    brand,model,
+    {id:'VEHICLE_YEAR',value_name:String(anoMod)},
+    {id:'TRIM',value_name:versao||modeloTxt},
+    {id:'KILOMETERS',value_name:`${km||0} km`},
+    zeroKm?null:{id:'LICENSE_PLATE',value_name:String(carro.placa||'').toUpperCase().replace(/[^A-Z0-9]/g,'')},
+    val('VEHICLE_TYPE','Carros e caminhonetes'),
+    fuel,
+    portas?{id:'DOORS',value_name:String(portas)}:null,
+    camb?val('TRANSMISSION',camb):doAc('TRANSMISSION'),
+    cor?val('COLOR',capitaliza(cor)):doAc('COLOR'),
+    val('ITEM_CONDITION',zeroKm?'Novo':'Usado'),
+  ].filter(Boolean);
+  // Opcionais e medidas que so' o anuncio do Autoconf tem (ar, direcao...):
+  // aproveita o que nao montamos acima.
+  const ja=new Set(attrs.map(a=>a.id));
+  for(const a of (ac&&ac.attributes)||[]){
+    if(ja.has(a.id)||!(a.value_id||a.value_name))continue;
+    if(/^(FIPE_|CURRENCY|SELLER_SKU|GTIN|ITEM_CONDITION)/.test(a.id))continue;
+    attrs.push({id:a.id,value_id:a.value_id||undefined,value_name:a.value_name});
+  }
+  const ano=(site&&site.ano)||`${carro.anoFabricacao||''}/${carro.anoModelo||''}`;
+  const anuncio={
+    title:titulo60(`${capitaliza(marcaTxt)} ${capitaliza(modeloTxt)} ${capitaliza(versao)} ${ano}`),
+    category_id:CATEGORIA_CARROS,
+    price:preco,currency_id:'BRL',available_quantity:1,
+    buying_mode:'classified',listing_type_id:'silver',
+    condition:zeroKm?'new':'used',
+    pictures:fotos.map(source=>({source})),
+    attributes:attrs,
+    description:{plain_text:String((site&&site.descricao)||`${capitaliza(marcaTxt)} ${capitaliza(modeloTxt)} ${capitaliza(versao)} ${ano}. Venha conhecer na RT Car!`).slice(0,5000)},
+  };
+  if(modelo){anuncio.location=modelo.location;anuncio.seller_contact=modelo.seller_contact;}
+  else avisos.push('Sem anúncio modelo para copiar endereço/contato');
+  return{anuncio,avisos};
+}
+async function validarML(anuncio,token){
+  const {description,...corpo}=anuncio; // descricao vai em chamada separada ao publicar
+  const r=await fetch(API+'/items/validate',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+  if(r.status===204)return{ok:true,erros:[]};
+  const j=await r.json().catch(()=>({}));
+  const causas=(j.cause||[]).filter(c=>c.type!=='warning').map(c=>c.message||c.code);
+  const alertas=(j.cause||[]).filter(c=>c.type==='warning').map(c=>c.message||c.code);
+  return{ok:false,status:r.status,erros:causas.length?causas:[j.message||JSON.stringify(j).slice(0,300)],alertas};
+}
+exports.mercadoLivrePrevia=onRequest({region:'southamerica-east1',timeoutSeconds:300,memory:'512MiB',cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const c=await obterToken();const token=c.accessToken;
+    const attrsCat=await atributosCarros(token);
+    const {mapa:acPorPlaca,modelo}=await anunciosAutoconfPorPlaca(token);
+    const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
+      .filter(f=>['disponivel','em_preparacao'].includes(f.status));
+    const pedida=req.query.placa?placaChaveML(req.query.placa):'';
+    const alvo=pedida?feed.filter(f=>placaChaveML(f.placa)===pedida||placaChaveML(f._id)===pedida):feed;
+    if(!alvo.length){res.status(404).json({erro:'Placa não encontrada no estoque disponível'});return;}
+    const saida=[];
+    for(const carro of alvo){
+      const docs=[];
+      const s0=await db.collection('site_veiculos').doc(carro._id).get();
+      if(s0.exists)docs.push(s0.data());
+      (await db.collection('site_veiculos').where('placaSistema','==',carro._id).get()).docs.forEach(d=>docs.push(d.data()));
+      // Site: o visivel com mais fotos manda; combustivel/portas/cambio de qualquer um
+      docs.sort((a,b)=>((a.oculto?1:0)-(b.oculto?1:0))||(((b.fotos||[]).length)-((a.fotos||[]).length)));
+      const site=docs[0]?{...docs[0]}:null;
+      if(site)for(const k of ['combustivel','portas','cambio','descricao','cor'])if(!site[k])site[k]=(docs.find(d=>d[k])||{})[k];
+      const ac=acPorPlaca[placaChaveML(carro.placa)]||acPorPlaca[placaChaveML(carro._id)]||null;
+      const {anuncio,avisos}=montarAnuncioML(carro,site,ac,attrsCat,modelo);
+      const v=await validarML(anuncio,token);
+      saida.push({placa:carro.placa,carro:anuncio.title,preco:anuncio.price,fotos:anuncio.pictures.length,
+        jaNoMLpeloAutoconf:ac?ac.id:null,avisos,validacaoML:v,
+        ...(pedida?{anuncio}:{})});
+    }
+    res.json({total:saida.length,passam:saida.filter(s=>s.validacaoML.ok).length,carros:saida});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
