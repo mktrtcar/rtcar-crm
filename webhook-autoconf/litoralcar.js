@@ -50,6 +50,16 @@ function jsonAsciiSafe(obj){
 }
 // Limite seguro do header Content (Apache costuma aceitar ~8 KB por campo)
 const LIMITE_HEADER=7000;
+// Sequencia propria de cod_importacao (identifica o anuncio do nosso lado)
+async function proximoCodImportacao(){
+  const seqRef=db.collection('litoralcar_config').doc('seq');
+  return db.runTransaction(async tx=>{
+    const s=await tx.get(seqRef);
+    const proximo=((s.exists&&s.data().veiculoSeq)||0)+1;
+    tx.set(seqRef,{veiculoSeq:proximo},{merge:true});
+    return proximo;
+  });
+}
 async function litoralFetch(acao,metodo,parametro,body){
   const partes=[LITORAL_BASE,acao,metodo];
   if(parametro!==undefined&&parametro!==null)partes.push(parametro);
@@ -418,13 +428,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       if(mapSnap.exists&&mapSnap.data().codVeiculo){
         alterados.push({...payload,cod_importacao:mapSnap.data().codImportacao,cod_veiculo:mapSnap.data().codVeiculo});
       }else{
-        const seqRef=db.collection('litoralcar_config').doc('seq');
-        const codImportacao=await db.runTransaction(async tx=>{
-          const s=await tx.get(seqRef);
-          const proximo=((s.exists&&s.data().veiculoSeq)||0)+1;
-          tx.set(seqRef,{veiculoSeq:proximo},{merge:true});
-          return proximo;
-        });
+        const codImportacao=await proximoCodImportacao();
         novos.push({...payload,cod_importacao:codImportacao});
       }
     }
@@ -445,8 +449,18 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       if(!Array.isArray(itens))itens=(itens&&typeof itens==='object')?Object.values(itens):[itens];
       for(const item of itens){
         const vlt=item.veiculo||{};
-        const placa=limparPlaca(vlt.placa);
+        // Resposta de erro nao traz a placa - com 1 veiculo por chamada, e' a do lote
+        const placa=limparPlaca(vlt.placa)||(lote.length===1?limparPlaca(lote[0].placa):'');
         const ok=/sucesso/i.test(vlt.status||'');
+        // Anuncio que sumiu da LitoralCar (excluido la', ou o codigo guardado
+        // ficou velho - Tiguans, 05/11/2026): em vez de falhar, publica de novo
+        // como anuncio novo (cod_importacao novo) e atualiza o nosso registro.
+        if(!ok&&acao==='alterar'&&lote.length===1&&/Nenhum ve[ií]culo encontrado/i.test(vlt.erro||'')){
+          await db.collection('litoralcar_veiculos').doc(placa).set({codVeiculo:admin.firestore.FieldValue.delete(),codAntigoSumiu:Number(lote[0].cod_veiculo)||null},{merge:true});
+          const {cod_veiculo,...semCod}=lote[0];
+          await processarLote('salvar',[{...semCod,cod_importacao:await proximoCodImportacao()}]);
+          continue;
+        }
         resultados.push({placa:porPlaca[placa]||placa,ok,status:vlt.status,alertas:vlt.alertas||[],debug:ok?undefined:JSON.stringify(item)});
         if(ok&&vlt.cod_veiculo){
           await db.collection('litoralcar_veiculos').doc(placa).set({
