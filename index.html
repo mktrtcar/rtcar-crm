@@ -3261,6 +3261,10 @@ async function initPlataformasAnuncio(){
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
     // Versao do site (copias do Autoconf) - sugestao quando o sistema nao tem (05/11/2026)
+    // Versao FIPE da Avaliacao do sistema (fipeModelo) - melhor fonte quando o
+    // estoque nao tem versao (05/11/2026). Se nao conseguir ler, segue sem.
+    G.pf.versaoAval={};
+    try{(await db.collection('avaliacoes').get()).docs.forEach(d=>{const x=(d.data()||{}).veiculo||{};if(x.pl&&x.fipeModelo)G.pf.versaoAval[pfChavePlaca(x.pl)]=pfLimparVersao(x.fipeModelo,x.fipeMarca||x.mk,x.mo);});}catch(e){console.warn('avaliacoes',e);}
     G.pf.versaoSite={};
     siteSnap.docs.forEach(d=>{const s=d.data();const vs=pfLimparVersao(s.versao,s.marca,s.modelo);if(!vs)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=pfChavePlaca(k);if(!G.pf.versaoSite[k])G.pf.versaoSite[k]=vs;});});
   }catch(e){
@@ -3276,7 +3280,7 @@ async function initPlataformasAnuncio(){
 // Placa Mercosul x antiga: 5o caractere A=0 ... J=9 (mesma placa)
 function pfChavePlaca(p){const s=String(p||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return s.length===7&&/[A-J]/.test(s[4])?s.slice(0,4)+(s.charCodeAt(4)-65)+s.slice(5):s;}
 // Tira marca/modelo do comeco ("VolksWagen Gol 1.0 12V" -> "1.0 12V")
-function pfLimparVersao(vs,marca,modelo){vs=String(vs||'').trim();const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');for(const p of [marca,modelo]){const w=vs.split(/\s+/);if(p&&w.length>1&&n(w[0])===n(p))vs=w.slice(1).join(' ');}return vs.trim();}
+function pfLimparVersao(vs,marca,modelo){vs=String(vs||'').trim();if(modelo&&String(modelo).trim().split(/\s+/).length>1)modelo=String(modelo).trim().split(/\s+/)[0];const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');for(const p of [marca,modelo]){const w=vs.split(/\s+/);if(p&&w.length>1&&n(w[0])===n(p))vs=w.slice(1).join(' ');}return vs.trim();}
 async function carregarStatusMercadoLivre(){
   G.pf.mlMap=null;G.pf.mlErro='';
   try{const r=await litoralCarFetch('mercadoLivreAnunciosStatus');G.pf.mlMap={};(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
@@ -3287,6 +3291,7 @@ function pfAnuncioML(v){return G.pf.mlMap?G.pf.mlMap[pfChavePlaca(v.placa)]||nul
 // Versao sugerida: sistema > anuncio do ML > site. Sempre editavel antes de publicar.
 function versaoSugerida(v){
   if(String(v.versao||'').trim())return{txt:String(v.versao).trim(),fonte:'cadastro do sistema'};
+  const av=(G.pf.versaoAval||{})[pfChavePlaca(v.placa)];if(av)return{txt:av,fonte:'Avaliação (tabela FIPE)'};
   const ml=pfAnuncioML(v);if(ml&&ml.versao)return{txt:ml.versao,fonte:'anúncio do Mercado Livre'};
   const s=(G.pf.versaoSite||{})[pfChavePlaca(v.placa)];if(s)return{txt:s,fonte:'site'};
   return{txt:'',fonte:''};
@@ -3496,12 +3501,13 @@ async function abrirPublicarPlataforma(placa,plataformaId){
       <div class="field"><label>Categoria</label><select id="pp-categoria" style="width:100%" onchange="ppAtualizarMarcas()">${categorias.map(c=>`<option ${c===categoriaSugerida?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="field"><label>Marca</label><select id="pp-marca" style="width:100%" onchange="ppAtualizarModelos()"></select></div>
       <div class="field"><label>Modelo</label><select id="pp-modelo" style="width:100%"></select></div>
-      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${String(litoralVersao(v,versaoSugerida(v).txt)).replace(/"/g,'&quot;')}" style="width:100%">${versaoSugerida(v).fonte&&versaoSugerida(v).fonte!=='cadastro do sistema'?`<div style="font-size:11px;color:var(--tx3);margin-top:4px">💡 Sugestão puxada do ${versaoSugerida(v).fonte} — confira e corrija se precisar.</div>`:(versaoSugerida(v).txt?'':'<div style="font-size:11px;color:var(--tx3);margin-top:4px">Sem versão no sistema, no Mercado Livre ou no site — preencha.</div>')}</div>
+      <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${String(litoralVersao(v,versaoSugerida(v).txt)).replace(/"/g,'&quot;')}" style="width:100%"><select id="pp-versao-fipe" onchange="ppEscolherFipe(this)" style="width:100%;margin-top:6px;font-size:12px"><option value="">Carregando tabela FIPE...</option></select>${versaoSugerida(v).fonte&&versaoSugerida(v).fonte!=='cadastro do sistema'?`<div style="font-size:11px;color:var(--tx3);margin-top:4px">💡 Sugestão puxada do ${versaoSugerida(v).fonte} — confira e corrija se precisar.</div>`:(versaoSugerida(v).txt?'':'<div style="font-size:11px;color:var(--tx3);margin-top:4px">Sem versão no sistema, no Mercado Livre ou no site — preencha.</div>')}</div>
       <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c===(litoralCombustivel(v)||'Flex')?'selected':''}>${c}</option>`).join('')}</select></div>
       ${v.preco?'':'<p style="color:var(--red);font-size:12px;margin-top:8px">⚠️ Este veículo está sem preço no estoque — a LitoralCar vai recusar.</p>'}`;
     _ppMarcasModelos=mm;
     popularSelectLitoral('pp-marca',mm.marcas,marcaSugerida);
     popularSelectLitoral('pp-modelo',modelosDaMarca,modeloSugerido);
+    ppCarregarFipe(v);
   }catch(e){
     body.innerHTML=`<p style="color:var(--red)">Erro: ${e.message}</p>`;
   }
@@ -3518,6 +3524,30 @@ function ppAtualizarModelos(){
   const modelos=(_ppMarcasModelos?.modelos||[]).filter(m=>m.marca===marca).map(m=>m.modelo);
   popularSelectLitoral('pp-modelo',modelos,modelos[0]);
 }
+/* Lista de versoes da tabela FIPE (parallelum, gratuita) pra escolher em vez
+   de digitar - igual ao Autoconf (05/11/2026). So' sugere: o campo continua
+   editavel. Cache por marca. */
+const FIPE_BASE='https://parallelum.com.br/fipe/api/v1';
+async function fipeJson(p){G.pf.fipeCache=G.pf.fipeCache||{};if(!G.pf.fipeCache[p])G.pf.fipeCache[p]=fetch(FIPE_BASE+p).then(r=>{if(!r.ok)throw new Error('FIPE '+r.status);return r.json();}).catch(e=>{delete G.pf.fipeCache[p];throw e;});return G.pf.fipeCache[p];}
+async function ppCarregarFipe(v){
+  const sel=document.getElementById('pp-versao-fipe');if(!sel)return;
+  const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
+  try{
+    const tipo=litoralCarCategoriaSugerida(v.marca)==='Moto'?'motos':'carros';
+    const marcas=await fipeJson('/'+tipo+'/marcas');
+    const ALIAS={MERCEDES:'MERCEDESBENZ',HARLEY:'HARLEYDAVIDSON',HARLEYDAVISON:'HARLEYDAVIDSON',CAOACHERY:'CHERY',GWM:'GWM'};
+    let alvo=n(v.marca).replace(/^(VW|GM)/,'');alvo=ALIAS[alvo]||alvo;
+    const marca=marcas.find(m=>n(m.nome).replace(/^(VW|GM)/,'')===alvo)||marcas.find(m=>{const x=n(m.nome).replace(/^(VW|GM)/,'');return x&&(x.includes(alvo)||alvo.includes(x));});
+    if(!marca){sel.innerHTML='<option value="">Marca não achada na FIPE</option>';return;}
+    const mods=(await fipeJson('/'+tipo+'/marcas/'+marca.codigo+'/modelos')).modelos||[];
+    const m1=n(String(v.modelo||'').trim().split(/s+/)[0]);
+    const lista=mods.filter(m=>m1&&n(m.nome).startsWith(m1));
+    if(!lista.length){sel.innerHTML='<option value="">Modelo não achado na FIPE</option>';return;}
+    sel.innerHTML=`<option value="">📋 Escolher da tabela FIPE (${lista.length} versões)...</option>`+lista.map(m=>{const t=pfLimparVersao(m.nome,'',v.modelo);return`<option value="${t.replace(/"/g,'&quot;')}">${m.nome}</option>`;}).join('');
+  }catch(e){console.warn(e);sel.innerHTML='<option value="">Tabela FIPE indisponível agora</option>';}
+}
+function ppEscolherFipe(sel){if(!sel.value)return;const i=document.getElementById('pp-versao');if(i){const v=(G.pf.veiculos||[]).find(x=>_pfPublicarCtx&&x.placa===_pfPublicarCtx.placa);i.value=v?litoralVersao(v,sel.value):sel.value;}}
+window.ppEscolherFipe=ppEscolherFipe;
 window.ppAtualizarMarcas=ppAtualizarMarcas;
 window.ppAtualizarModelos=ppAtualizarModelos;
 async function confirmarPublicarPlataforma(){
