@@ -1513,7 +1513,7 @@ function renderKanbanMk(cnt){
         </div>`:''}
         ${col.id==='vendido'?`<div style="margin:6px 0 2px">
           <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">🔀 Tipo de negociação:</div>
-          <div style="display:flex;gap:3px;flex-wrap:wrap">${Object.entries(TIPOS_NEG).map(([k,rot])=>`<button class="card-btn card-btn-label" onclick="setTipoNegociacao('${l.id}','${k}',event)" style="${tipoNegociacaoAtual(l)===k?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">${tipoNegociacaoAtual(l)===k?'✓ ':''}${rot}</button>`).join('')}</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap">${tiposNegDoUsuario(tipoNegociacaoAtual(l)).map(([k,rot])=>`<button class="card-btn card-btn-label" onclick="setTipoNegociacao('${l.id}','${k}',event)" style="${tipoNegociacaoAtual(l)===k?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">${tipoNegociacaoAtual(l)===k?'✓ ':''}${rot}</button>`).join('')}</div>
         </div>`:''}
         <div class="card-footer">
           <div class="card-actions" style="flex-wrap:wrap">
@@ -3840,11 +3840,21 @@ function fecharTimersAbertosMk(lead,extras){
    a origem pra "Compra" ou "Consignado" - e guarda o canal original (origemCanal)
    pra voltar quando escolher Venda de novo. */
 const TIPOS_NEG={venda:'Venda',compra:'Compra',consignacao:'Consignação'};
+// Quem ve cada tipo (pedido do Rafa via Aline, 05/11/2026): vendedor so'
+// vende; a Milena (perfil coordenadora) so' compra e consigna; master/dev
+// veem os tres. O tipo ja' gravado no lead aparece sempre (so' pra mostrar).
+function tipoNegPermitido(k){
+  const r=G.user?.r||'seller';
+  if(r==='master'||r==='dev'||r==='manager')return true;
+  if(r==='coordenadora')return k==='compra'||k==='consignacao';
+  return k==='venda';
+}
+function tiposNegDoUsuario(atual){return Object.entries(TIPOS_NEG).filter(([k])=>tipoNegPermitido(k)||k===atual);}
 function tipoNegociacaoAtual(l){return l.origem==='Compra'?'compra':(l.origem==='Consignado'?'consignacao':'venda');}
 function rotuloTipoNeg(l){return l.st==='vendido'?TIPOS_NEG[tipoNegociacaoAtual(l)]:'—';}
 async function setTipoNegociacao(id,tipo,e){
   if(e&&e.stopPropagation)e.stopPropagation();
-  const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo])return;
+  const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo]||!tipoNegPermitido(tipo))return;
   if(tipoNegociacaoAtual(l)===tipo)return;
   await aplicarTipoNegociacao(l,tipo);
   toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
@@ -3883,7 +3893,7 @@ function prepararTipoNegVenda(l){
 function desenharTipoNegVenda(){
   const wrap=document.getElementById('vend-tiponeg-wrap');if(!wrap)return;
   wrap.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔀 Tipo de negociação *</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+
-    Object.entries(TIPOS_NEG).map(([k,rot])=>`<button type="button" class="btn btn-sm ${_tipoNegVenda===k?'btn-green':'btn-outline'}" onclick="escolherTipoNegVenda('${k}')">${_tipoNegVenda===k?'✓ ':''}${rot}</button>`).join('')+'</div>';
+    tiposNegDoUsuario(_tipoNegVenda).map(([k,rot])=>`<button type="button" class="btn btn-sm ${_tipoNegVenda===k?'btn-green':'btn-outline'}" onclick="escolherTipoNegVenda('${k}')">${_tipoNegVenda===k?'✓ ':''}${rot}</button>`).join('')+'</div>';
   const t=document.querySelector('#ov-vendido .mod-head h3');
   if(t&&_tipoNegVenda)t.textContent=_tipoNegVenda==='compra'?'✅ Confirmar Compra (gera o Termo de Compra)':_tipoNegVenda==='consignacao'?'✅ Confirmar Consignado (gera o Termo)':'✅ Marcar como Vendido';
 }
@@ -3895,12 +3905,12 @@ function abrirTipoNegNegociacao(id){
   }
   ov.innerHTML=`<div class="mod" style="max-width:420px"><div class="mod-head"><h3>🤝 Mover para Negociação</h3><button class="mod-close" onclick="fecharModal('ov-tiponeg')"><i class="ti ti-x"></i></button></div>
     <div class="mod-body"><p style="font-size:13px;color:var(--tx2);margin-bottom:14px;line-height:1.6">Qual é o <strong>tipo de negociação</strong> deste cliente?</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${Object.entries(TIPOS_NEG).map(([k,rot])=>`<button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="confirmarTipoNegNegociacao('${id}','${k}')">${rot}</button>`).join('')}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${tiposNegDoUsuario().map(([k,rot])=>`<button type="button" class="btn btn-outline" style="flex:1;justify-content:center" onclick="confirmarTipoNegNegociacao('${id}','${k}')">${rot}</button>`).join('')}</div></div>
     <div class="mod-foot"><button class="btn btn-outline" onclick="fecharModal('ov-tiponeg')">Cancelar</button></div></div>`;
   ov.classList.remove('hidden');
 }
 async function confirmarTipoNegNegociacao(id,tipo){
-  const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo])return;
+  const l=G.mk.leads.find(x=>x.id===id);if(!l||!TIPOS_NEG[tipo]||!tipoNegPermitido(tipo))return;
   fecharModal('ov-tiponeg');
   await aplicarTipoNegociacao(l,tipo);
   l.tipoNegDefinido=true;await salvarCamposMk(id,{tipoNegDefinido:true});
@@ -3908,7 +3918,7 @@ async function confirmarTipoNegNegociacao(id,tipo){
   toast('Tipo de negociação: '+TIPOS_NEG[tipo]);
 }
 window.abrirTipoNegNegociacao=abrirTipoNegNegociacao;window.confirmarTipoNegNegociacao=confirmarTipoNegNegociacao;
-function escolherTipoNegVenda(k){if(!TIPOS_NEG[k])return;_tipoNegVenda=k;desenharTipoNegVenda();}
+function escolherTipoNegVenda(k){if(!TIPOS_NEG[k]||!tipoNegPermitido(k))return;_tipoNegVenda=k;desenharTipoNegVenda();}
 window.escolherTipoNegVenda=escolherTipoNegVenda;
 // Abre o Termo certo (compra, consignado ou venda) pra um lead ja vendido. Fica numa funcao
 // propria pra o 2o veiculo de uma negociacao (lead extra) gerar o proprio termo depois -
