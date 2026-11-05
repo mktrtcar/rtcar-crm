@@ -2758,7 +2758,7 @@ async function initPlataformasAnuncio(){
   const tb=document.getElementById('tb');
   cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   cnt.innerHTML='<div style="padding:40px;text-align:center;color:var(--tx3)"><i class="ti ti-loader-2"></i> Carregando estoque...</div>';
-  tb.innerHTML=`<div class="tb-title"><i class="ti ti-apps" style="color:var(--red)"></i> Anúncios</div><div class="tb-sep"></div><div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar por marca, modelo ou placa..." value="${G.pf.busca}" oninput="__G().pf.busca=this.value;renderPlataformasAnuncio()"></div><div class="tb-spacer"></div><button class="btn btn-outline btn-sm" onclick="abrirPublicarTodosLitoralCar(true)"><i class="ti ti-refresh"></i> Atualizar publicados</button><button class="btn btn-red btn-sm" onclick="abrirPublicarTodosLitoralCar()"><i class="ti ti-upload"></i> Publicar todos na LitoralCar</button>`;
+  tb.innerHTML=`<div class="tb-title"><i class="ti ti-apps" style="color:var(--red)"></i> Anúncios</div><div class="tb-sep"></div><div class="tb-search"><i class="ti ti-search"></i><input type="text" placeholder="Buscar por marca, modelo ou placa..." value="${G.pf.busca}" oninput="__G().pf.busca=this.value;renderPlataformasAnuncio()"></div><div class="tb-spacer"></div><button class="btn btn-outline btn-sm" onclick="abrirPublicarTodosLitoralCar(true)"><i class="ti ti-refresh"></i> Atualizar publicados</button><button class="btn btn-red btn-sm" onclick="abrirPublicarTodosLitoralCar()"><i class="ti ti-upload"></i> Publicar todos na LitoralCar</button><button class="btn btn-sm" style="background:#2d3277;color:#fff" onclick="publicarPendentesMercadoLivre(this)"><i class="ti ti-upload"></i> Publicar pendentes no Mercado Livre</button>`;
   try{
     const[estoqueSnap,mapSnap,siteSnap]=await Promise.all([
       db.collection('rtcar_estoque_publico').where('status','in',['disponivel','em_preparacao']).get(),
@@ -2798,6 +2798,62 @@ async function carregarStatusMercadoLivre(){
   catch(e){console.error(e);G.pf.mlErro=e.message||'erro';}
   renderPlataformasAnuncio();
 }
+/* Publicar no Mercado Livre pelo nosso sistema (05/11/2026 - 1o teste OK com o
+   Fiorino MLB5517365969). Antes de publicar, pede a previa ao ML (mesma montagem
+   do anuncio) e mostra o titulo/preco pra confirmar; o servidor ainda trava se o
+   carro ja tiver anuncio (Autoconf) ou faltar dado. */
+function mlMotivoPt(e){e=String(e||'');
+  if(/minimum of price|without price|Sem preço/i.test(e))return'sem preço (ou abaixo de R$ 3.000) - defina no admin do site';
+  if(/FUEL_TYPE|DOORS|Sem combustível|portas/i.test(e))return'sem combustível/portas - preencha no admin do site';
+  if(/pictures|Sem fotos/i.test(e))return'sem fotos - suba as fotos no admin do site';
+  if(/[Mm]oto/.test(e))return'moto - categoria de motos ainda não está pronta';
+  if(/não existe na lista/.test(e))return e+' - avise a Aline';
+  return e;}
+async function mlPreviaCarro(placa){
+  const r=await litoralCarFetch('mercadoLivrePrevia?placa='+encodeURIComponent(placa));
+  const c=(r.carros||[])[0];if(!c)throw new Error('carro não encontrado');
+  const bloq=(c.avisos||[]).filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|[Mm]oto/.test(a));
+  const motivos=[...new Set([...bloq,...((c.validacaoML&&!c.validacaoML.ok)?(c.validacaoML.erros||[]):[])].map(mlMotivoPt))];
+  return{ok:!motivos.length,motivos,titulo:(c.anuncio&&c.anuncio.title)||c.carro,preco:c.preco,fotos:c.fotos};
+}
+async function mlPublicarCarro(placa){
+  const token=await fbAuth.currentUser.getIdToken();
+  const resp=await fetch(LITORALCAR_FN_BASE+'/mercadoLivrePublicar?placa='+encodeURIComponent(placa),{method:'POST',headers:{Authorization:'Bearer '+token}});
+  const j=await resp.json().catch(()=>({}));
+  if(!resp.ok||!j.ok)throw new Error(j.erro==='Faltam dados'?(j.avisos||[]).map(mlMotivoPt).join('; '):(j.erro||('Erro '+resp.status))+(j.validacaoML?': '+(j.validacaoML.erros||[]).map(mlMotivoPt).join('; '):''));
+  return j;
+}
+async function publicarMercadoLivre(placa,btn){
+  const txt=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Conferindo...';}
+  try{
+    const p=await mlPreviaCarro(placa);
+    if(!p.ok){alert('Não dá pra publicar '+placa+' no Mercado Livre ainda:\n\n- '+p.motivos.join('\n- '));return;}
+    if(!confirm('Publicar no Mercado Livre?\n\n'+p.titulo+'\nR$ '+Number(p.preco).toLocaleString('pt-BR')+' - '+p.fotos+' fotos'))return;
+    if(btn)btn.innerHTML='<span class="spin"></span> Publicando...';
+    const j=await mlPublicarCarro(placa);
+    toast('Publicado no Mercado Livre! ('+j.itemId+') - o ML leva alguns minutos pra ativar','green',6000);
+    carregarStatusMercadoLivre();
+  }catch(e){console.error(e);alert('Erro ao publicar no Mercado Livre: '+e.message);}
+  finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.innerHTML=txt;}}
+}
+async function publicarPendentesMercadoLivre(btn){
+  if(!G.pf.mlMap){toast('Aguarde carregar o status do Mercado Livre','gold');return;}
+  const pend=(G.pf.veiculos||[]).filter(v=>!pfAnuncioML(v));
+  if(!pend.length){toast('Todos os carros já estão no Mercado Livre');return;}
+  if(!confirm(pend.length+' carro(s) do estoque não estão no Mercado Livre.\n\nVou conferir um por um e publicar só os que estiverem completos (preço, fotos, combustível e portas). Os outros aparecem numa lista no final.\n\nContinuar?'))return;
+  const txt=btn.innerHTML;btn.disabled=true;const ok=[],falha=[];
+  for(let i=0;i<pend.length;i++){
+    const v=pend[i];btn.innerHTML='<span class="spin"></span> '+(i+1)+'/'+pend.length+'...';
+    try{const p=await mlPreviaCarro(v.placa);
+      if(!p.ok){falha.push(v.placa+' '+[v.marca,v.modelo].filter(Boolean).join(' ')+': '+p.motivos.join('; '));continue;}
+      await mlPublicarCarro(v.placa);ok.push(v.placa+' '+p.titulo);
+    }catch(e){falha.push(v.placa+': '+e.message);}
+  }
+  btn.disabled=false;btn.innerHTML=txt;
+  alert('Mercado Livre:\n\nPublicados ('+ok.length+'):\n'+(ok.join('\n')||'-')+'\n\nNão publicados ('+falha.length+'):\n'+(falha.join('\n')||'-'));
+  carregarStatusMercadoLivre();
+}
+window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
 function pfAnuncioML(v){return G.pf.mlMap?G.pf.mlMap[pfChavePlaca(v.placa)]||null:null;}
 // Versao sugerida: sistema > anuncio do ML > site. Sempre editavel antes de publicar.
 function versaoSugerida(v){
@@ -2840,7 +2896,7 @@ function renderPlataformasAnuncio(){
             if(G.pf.mlErro)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(G.pf.mlErro).replace(/"/g,'')}">${p.nome}: indisponível</span>`;
             if(!G.pf.mlMap)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: carregando...</span>`;
             if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':'Pausado'}</a>`;
-            return`<span style="background:var(--bg3);color:var(--tx2);border-radius:6px;padding:5px 10px;font-size:11px" title="Publicação pelo nosso sistema: em teste">${p.nome}: não publicado</span>`;
+            return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarMercadoLivre('${v.placa}',this)">${p.nome}: Publicar</button>`;
           }
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
