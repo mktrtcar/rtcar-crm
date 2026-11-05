@@ -4285,6 +4285,23 @@ function renderSubStatusRel(c,col){
       <button class="card-btn card-btn-label" onclick="marcarRetiradoRel('${c.id}','d2anos_retirado',event)"><i class="ti ti-check"></i> Marcar como retirado</button>
     </div>`;
   }
+  // 2 anos Agendado: data da visita + Compareceu/Nao compareceu, igual ao
+  // Agendamento do Funil (pedido da Aline, 05/11/2026). Nao move o card:
+  // a Milena continua arrastando pra "2 anos retirado" (conta o presente).
+  if(col.id==='d2anos_agendado'){
+    const hj=new Date().toISOString().split('T')[0];
+    return `<div style="margin:6px 0 2px">
+      <div style="display:flex;align-items:center;gap:5px">
+        <i class="ti ti-calendar" style="font-size:12px;color:var(--tx3)"></i>
+        <input type="date" value="${c.agendamento2anosData||''}" onclick="event.stopPropagation()" onchange="setAgendamento2anosData('${c.id}',this.value,event)" style="font-size:11px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-family:var(--f)">
+      </div>
+      ${c.agendamento2anosData&&!c.agendamento2anosStatus&&c.agendamento2anosData<hj?'<div style="color:#e8431e;font-weight:700;font-size:11px;margin-top:2px">⚠ Atrasado</div>':''}
+    </div>
+    <div style="display:flex;gap:3px;margin:4px 0;flex-wrap:wrap">
+      <button class="card-btn card-btn-label" onclick="setAgendamento2anosStatus('${c.id}','compareceu',event)" style="${c.agendamento2anosStatus==='compareceu'?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">✅ Compareceu</button>
+      <button class="card-btn card-btn-label" onclick="setAgendamento2anosStatus('${c.id}','nao_compareceu',event)" style="${c.agendamento2anosStatus==='nao_compareceu'?'background:#fff0ec;color:#e8431e;border-color:#e8431e;font-weight:600':''}">❌ Não compareceu</button>
+    </div>`;
+  }
   if(col.id==='d3anos'){
     return `<div style="display:flex;gap:6px;margin:6px 0 2px">
       <button class="card-btn card-btn-label${c.d3anosEnviado?' card-btn-on':''}" onclick="toggleCampoRel('${c.id}','d3anosEnviado',event)" style="${c.d3anosEnviado?'background:#e8f5ee;color:#1a6b3c;border-color:#1a6b3c;font-weight:600':''}">
@@ -5160,6 +5177,25 @@ function copiarMsg(id){
 async function moverCliente(id,novaCol){
   const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
   await moverClienteParaCol(c,novaCol);abrirDetailCliente(id);renderRelacionamento();
+}
+async function setAgendamento2anosData(id,valor,e){
+  if(e)e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c.agendamento2anosData=valor;
+  await salvarCamposRel(id,{agendamento2anosData:valor});
+  await regHistRel(c,'Data do agendamento (2 anos) definida',valor?isoParaBR(valor):'(removida)',G.user?.n||'','📅');
+  renderRelacionamento();
+}
+async function setAgendamento2anosStatus(id,valor,e){
+  if(e)e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  c.agendamento2anosStatus=c.agendamento2anosStatus===valor?'':valor;
+  const campos={agendamento2anosStatus:c.agendamento2anosStatus};
+  if(c.agendamento2anosStatus==='compareceu'){c.agendamento2anosCompareceuEm=new Date().toISOString();campos.agendamento2anosCompareceuEm=c.agendamento2anosCompareceuEm;}
+  await salvarCamposRel(id,campos);
+  const txt=c.agendamento2anosStatus==='compareceu'?['Compareceu — visita de 2 anos','✅']:c.agendamento2anosStatus==='nao_compareceu'?['Não compareceu — visita de 2 anos','❌']:['Status do agendamento (2 anos) desmarcado','↩️'];
+  await regHistRel(c,txt[0],'',G.user?.n||'',txt[1]);
+  renderRelacionamento();
 }
 async function regHistRel(c,acao,obs,by,emoji='📝'){if(!c.historico)c.historico=[];c.historico.push({dt:hoje(),emoji,acao,obs,by});await salvarCamposRel(c.id,{historico:c.historico});}
 async function salvarCamposRel(id,campos){
