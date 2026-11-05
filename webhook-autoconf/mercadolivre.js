@@ -301,7 +301,11 @@ const placaChaveML=p=>{
   return s.length===7&&/[A-J]/.test(s[4])?s.slice(0,4)+(s.charCodeAt(4)-65)+s.slice(5):s;
 };
 const normML=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
-const COMB_ML={'Flex':'Flex','Gasolina':'Gasolina','Diesel':'Diesel','Elétrico':'Elétrico','Híbrido':'Híbrido/Gasolina','Gasolina e Elétrico':'Híbrido/Gasolina'};
+// Nomes da lista FUEL_TYPE do ML (1o que existir na lista vence). Flex no ML
+// e' "Gasolina e álcool" (igual aos anuncios do Autoconf); hibrido tenta
+// manter a palavra "Híbrido" (pedido da Aline) e cai em "Gasolina e elétrico".
+const COMB_ML={'Flex':['Gasolina e álcool'],'Gasolina':['Gasolina'],'Diesel':['Diesel'],'Elétrico':['Elétrico'],'Híbrido':['Híbrido/Gasolina','Híbrido','Gasolina e elétrico'],'Gasolina e Elétrico':['Híbrido/Gasolina','Híbrido','Gasolina e elétrico']};
+const MOTO_ML=/^(HARLEY|DUCATI|TRIUMPH|KAWASAKI|YAMAHA|KTM|ROYAL ENFIELD)/i;
 const MARCA_ALIAS={'MERCEDES':'Mercedes-Benz','MERCEDESBENZ':'Mercedes-Benz','KIAMOTORS':'Kia','HARLEY':'Harley-Davidson','HARLEYDAVIDSON':'Harley-Davidson','CAOACHERYCHERY':'Chery','CAOACHERY':'Chery','GM':'Chevrolet','VW':'Volkswagen','LANDROVER':'Land Rover'};
 const titulo60=s=>{s=String(s||'').replace(/\s+/g,' ').trim();if(s.length<=60)return s;const c=s.slice(0,60);const i=c.lastIndexOf(' ');return (i>30?c.slice(0,i):c).trim();};
 const capitaliza=s=>String(s||'').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
@@ -340,8 +344,10 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   const anoMod=Number(carro.anoModelo)||Number(String(site&&site.ano||'').split('/')[1])||'';
   const km=Number(String(carro.km!=null?carro.km:(site&&site.km)||'').replace(/\D/g,''));
   const zeroKm=km===0;
-  const comb=COMB_ML[site&&site.combustivel]||'';
-  const fuel=comb?val('FUEL_TYPE',comb):doAc('FUEL_TYPE');
+  const cands=COMB_ML[site&&site.combustivel]||[];
+  let fuel=null;
+  for(const n of cands){const v=val('FUEL_TYPE',n);if(v&&v.value_id){fuel=v;break;}}
+  if(!fuel)fuel=doAc('FUEL_TYPE');
   if(!fuel)avisos.push('Sem combustível (nem na Avaliação nem no anúncio do Autoconf)');
   const portas=(site&&site.portas)||(doAc('DOORS')||{}).value_name||'';
   if(!portas)avisos.push('Sem número de portas');
@@ -349,7 +355,8 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   const versao=String(carro.versao||'').trim();
   const precoSite=Number(site&&site.preco)||0, precoSis=Number(carro.preco)||0;
   const preco=precoSite>1?precoSite:precoSis;
-  if(!(preco>1))avisos.push('Sem preço (o ML não aceita "Consulte o preço")');
+  if(!(preco>=3000))avisos.push('Sem preço (o ML não aceita "Consulte o preço")');
+  if(MOTO_ML.test(String(carro.marca||'')))avisos.push('Moto: vai na categoria de motos do ML (ainda não feita)');
   const fotos=((site&&site.fotos)||[]).map(u=>typeof u==='string'?u:u&&u.url).filter(Boolean).slice(0,25);
   if(!fotos.length)avisos.push('Sem fotos no site');
   const cor=(site&&site.cor)||carro.cor||'';
@@ -369,8 +376,10 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   // Opcionais e medidas que so' o anuncio do Autoconf tem (ar, direcao...):
   // aproveita o que nao montamos acima.
   const ja=new Set(attrs.map(a=>a.id));
+  const editavel=new Set(attrsCat.filter(a=>!(a.tags&&(a.tags.read_only||a.tags.fixed||a.tags.inferred))).map(a=>a.id));
   for(const a of (ac&&ac.attributes)||[]){
-    if(ja.has(a.id)||!(a.value_id||a.value_name))continue;
+    if(ja.has(a.id)||!(a.value_id||a.value_name)||!editavel.has(a.id))continue;
+    if(/^(IS_OFFERED_BY_BRAND|VERIFIED_VEHICLES|HAS_HISTORIC_INFORMATION|HAS_VEHICLE_INSPECTION|INSURANCE_DEREGISTRATION_NUMBER|MARKET|PREVIOUS_PRICE)$/.test(a.id))continue;
     if(/^(FIPE_|CURRENCY|SELLER_SKU|GTIN|ITEM_CONDITION)/.test(a.id))continue;
     attrs.push({id:a.id,value_id:a.value_id||undefined,value_name:a.value_name});
   }
@@ -396,7 +405,7 @@ async function validarML(anuncio,token){
   const j=await r.json().catch(()=>({}));
   const causas=(j.cause||[]).filter(c=>c.type!=='warning').map(c=>c.message||c.code);
   const alertas=(j.cause||[]).filter(c=>c.type==='warning').map(c=>c.message||c.code);
-  return{ok:false,status:r.status,erros:causas.length?causas:[j.message||JSON.stringify(j).slice(0,300)],alertas};
+  return{ok:false,status:r.status,erros:causas.length?causas:[j.message||JSON.stringify(j).slice(0,300)],alertas,bruto:JSON.stringify(j).slice(0,1500)};
 }
 exports.mercadoLivrePrevia=onRequest({region:'southamerica-east1',timeoutSeconds:300,memory:'512MiB',cors:true},async(req,res)=>{
   try{
