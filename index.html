@@ -3274,6 +3274,37 @@ async function initPlataformasAnuncio(){
   }
   renderPlataformasAnuncio();
   carregarStatusMercadoLivre();
+  carregarLitoralNoAr();
+}
+/* LitoralCar: o que esta' DE FATO no ar (05/11/2026, "tem que deixar o botao
+   certo"). Antes o botao so' via o que o NOSSO sistema publicou; anuncio feito
+   por fora (Autoconf/antigo) aparecia como "Publicar" e virava duplicado, e
+   anuncio que sumiu de la' continuava "Despublicar". Agora:
+   - nosso e no ar  -> Despublicar (como antes)
+   - feito por fora -> "Publicado (fora do sistema)" (sem botao de publicar)
+   - os dois        -> aviso de duplicado
+   - nosso sumiu    -> volta pra "Publicar" (o servidor republica como novo). */
+async function carregarLitoralNoAr(){
+  G.pf.lcNoAr=null;
+  try{const r=await litoralCarFetch('litoralcarNoAr');G.pf.lcNoAr=r.anuncios||[];}
+  catch(e){console.warn('litoralcarNoAr',e);G.pf.lcNoAr=null;}
+  renderPlataformasAnuncio();
+}
+function pfLitoralStatus(v){
+  const reg=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
+  const nosso=!!(reg&&reg.codVeiculo);
+  const noAr=G.pf.lcNoAr;
+  if(!noAr)return{st:nosso?'nosso':'nao',fora:[]};
+  const cods=new Set(noAr.map(a=>a.cod));
+  const nossos=new Set(Object.values(G.pf.litoralcarMap||{}).filter(x=>x&&x.codVeiculo).map(x=>String(x.codVeiculo)));
+  const nossoVivo=nosso&&cods.has(String(reg.codVeiculo));
+  const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
+  const chave=pfChavePlaca(v.placa);const fim=chave.slice(-1);
+  const anos=[String(v.anoModelo||v.anoFabricacao||'')].filter(Boolean); // a LitoralCar mostra o ano modelo
+  const fora=noAr.filter(a=>{if(nossos.has(a.cod))return false;
+    if(a.finalPlaca!==fim||!anos.includes(a.ano))return false;
+    const m1=n(String(a.modelo||'').split(/\s+/)[0]);return m1&&(n(v.modelo).includes(m1)||n(v.versao).includes(m1));});
+  return{st:nossoVivo?'nosso':(fora.length?'fora':'nao'),fora,duplicado:nossoVivo&&fora.length>0,nossoSumiu:nosso&&!nossoVivo};
 }
 /* Mercado Livre na tela Anuncios (05/11/2026): mostra quem ja' esta' anunciado
    la' (hoje pelo Autoconf) e usa a versao do anuncio do ML como sugestao. */
@@ -3368,10 +3399,10 @@ function renderPlataformasAnuncio(){
   const totalPlataformas=PLATAFORMAS_ANUNCIO.length;
   if(!veiculos.length){cnt.innerHTML='<p style="color:var(--tx3);padding:20px">Nenhum veículo encontrado.</p>';return;}
   cnt.innerHTML=veiculos.map(v=>{
-    const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
-    const publicadoLitoral=!!(litoral&&litoral.codVeiculo);
+    const lcSt=pfLitoralStatus(v);
+    const publicadoLitoral=lcSt.st==='nosso';
     const ml=pfAnuncioML(v);
-    const publicadas=(publicadoLitoral?1:0)+(ml&&ml.status==='active'?1:0);
+    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
@@ -3387,6 +3418,8 @@ function renderPlataformasAnuncio(){
             if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':'Pausado'}</a>`;
             return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarMercadoLivre('${v.placa}',this)">${p.nome}: Publicar</button>`;
           }
+          if(p.id==='litoralcar'&&lcSt.st==='fora')return`<span class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};cursor:default" title="Anúncio feito fora do nosso sistema (Autoconf ou antigo) - nº ${lcSt.fora.map(a=>a.cod).join(', ')}. Não publique de novo: ficaria duplicado."><i class="ti ti-check"></i> ${p.nome}: Publicado (fora do sistema)</span>`;
+          if(p.id==='litoralcar'&&publicadoLitoral&&lcSt.duplicado)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#b8860b;color:#b8860b" title="Duplicado: além do nosso anúncio, existe outro feito por fora (nº ${lcSt.fora.map(a=>a.cod).join(', ')}) - excluir o de fora no painel da LitoralCar/Autoconf" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-alert-triangle"></i> ${p.nome}: Despublicar (duplicado)</button>`;
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
         }).join('')}
@@ -3397,9 +3430,9 @@ function renderPlataformasAnuncio(){
 
 function litoralCarPendentes(atualizar){
   return(G.pf.veiculos||[]).filter(v=>{
-    const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
-    const publicado=!!(litoral&&litoral.codVeiculo);
-    return atualizar?publicado:!publicado;
+    // Feito por fora fica de fora dos dois (nem republica, nem atualiza) - evita duplicar
+    const st=pfLitoralStatus(v).st;
+    return atualizar?st==='nosso':st==='nao';
   });
 }
 // Combustivel do site convertido para a lista da LitoralCar ('' = nao achou)

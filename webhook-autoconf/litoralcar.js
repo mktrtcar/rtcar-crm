@@ -584,3 +584,30 @@ exports.sitePuxarFotosAutoconf=onSchedule({region:'southamerica-east1',schedule:
     console.log(`sitePuxarFotosAutoconf ${d.id}: ${fotos.length} foto(s) do Autoconf (${semFoto?'estava sem foto':'fotos mudaram la'})`);
   }
 });
+
+/* O que esta' DE FATO no ar na LitoralCar (05/11/2026, pedido da Aline: "tem
+   que deixar o botao certo"). O CRM so' sabia dos anuncios que ELE publicou
+   (litoralcar_veiculos); anuncio feito por fora (Autoconf/antigo) aparecia
+   como "Publicar" e virava duplicado. Le a vitrine publica da loja (a mesma
+   que o site deles usa) e, de quebra, tenta a API (buscar/estoque) pra ver se
+   ela devolve placa/cod_importacao - so' leitura. */
+exports.litoralcarNoAr=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:120},async(req,res)=>{
+  try{
+    await exigirGestor(req);
+    const anuncios=[];
+    for(let off=0;off<600;off+=15){
+      const r=await fetch('https://www.litoralcar.com.br/site/acoesFiltro.php?envio=buscarEstoque',{method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':headersLitoral()['User-Agent']},
+        body:`cod_loja=${COD_LOJA}&limite=15&limitePaginacao=${off}`});
+      const j=await r.json().catch(()=>[]);
+      const itens=(Array.isArray(j)?j:[]).flat();
+      let novo=0;
+      for(const x of itens){if(x&&x.cod_veiculo&&!anuncios.find(a=>a.cod===String(x.cod_veiculo))){novo++;
+        anuncios.push({cod:String(x.cod_veiculo),marca:x.marca,modelo:x.modelo,versao:x.versao,ano:String(x.ano||''),km:x.km,valor:Number(x.valor)||0,finalPlaca:String(x.final_placa||''),combustivel:x.combustivel});}}
+      if(!novo)break;
+    }
+    let api=null;
+    if(req.query.api==='1'){try{const r=await litoralFetch('buscar','estoque');api={status:r.status,amostra:JSON.stringify(r.body).slice(0,1500)};}catch(e){api={erro:String(e.message||e)};}}
+    res.json({total:anuncios.length,anuncios,api});
+  }catch(e){console.error(e);res.status(e.status||500).json({erro:e.message||String(e)});}
+});
