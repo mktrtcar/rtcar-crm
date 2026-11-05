@@ -352,7 +352,15 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   const portas=(site&&site.portas)||(doAc('DOORS')||{}).value_name||'';
   if(!portas)avisos.push('Sem número de portas');
   const camb=site&&site.cambio==='Automático'?'Automática':site&&site.cambio==='Manual'?'Manual':'';
-  const versao=String(carro.versao||'').trim();
+  // Titulo sempre completo (pedido da Aline, 05/11/2026): usa a versao MAIS
+  // COMPLETA entre o sistema e o site (ex.: sistema "ENDURANCE", site "1.3
+  // FIREFLY FLEX ENDURANCE MANUAL"), sem repetir marca/modelo no comeco nem
+  // palavras que ja estao no nome do modelo.
+  const palavrasModelo=new Set(modeloTxt.split(/\s+/).map(normML).filter(Boolean));
+  const limpaVs=vs=>{let w=String(vs||'').trim().split(/\s+/).filter(Boolean);
+    while(w.length&&(normML(w[0])===normML(marcaTxt)||normML(w[0])===normML(carro.marca)||palavrasModelo.has(normML(w[0]))))w=w.slice(1);
+    return w.join(' ');};
+  const versao=[carro.versao,site&&site.versao].map(limpaVs).filter(Boolean).sort((a,b)=>b.length-a.length)[0]||'';
   const precoSite=Number(site&&site.preco)||0, precoSis=Number(carro.preco)||0;
   const preco=precoSite>1?precoSite:precoSis;
   if(!(preco>=3000))avisos.push('Sem preço (o ML não aceita "Consulte o preço")');
@@ -385,7 +393,7 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   }
   const ano=(site&&site.ano)||`${carro.anoFabricacao||''}/${carro.anoModelo||''}`;
   const anuncio={
-    title:titulo60(`${capitaliza(marcaTxt)} ${capitaliza(modeloTxt)} ${capitaliza(versao)} ${ano}`),
+    title:titulo60(`${capitaliza(marcaTxt)} ${capitaliza(modeloTxt)} ${capitaliza(versao)} ${anoMod||ano}`),
     category_id:CATEGORIA_CARROS,
     price:preco,currency_id:'BRL',available_quantity:1,
     buying_mode:'classified',listing_type_id:'silver',
