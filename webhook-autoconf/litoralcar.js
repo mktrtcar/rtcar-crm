@@ -607,7 +607,16 @@ exports.litoralcarNoAr=onRequest({region:'southamerica-east1',cors:true,timeoutS
       if(!novo)break;
     }
     let api=null;
-    if(req.query.api==='1'){try{const r=await litoralFetch('buscar','estoque');api={status:r.status,amostra:JSON.stringify(r.body).slice(0,1500)};}catch(e){api={erro:String(e.message||e)};}}
+    // A API (buscar/estoque) devolve TODOS os anuncios da loja com cod_importacao
+    // (inclusive os feitos pelo Autoconf) - e' o que permite identificar pela
+    // placa e excluir duplicados. Se responder, completa cada anuncio.
+    try{
+      const r=await litoralFetch('buscar','estoque');
+      let vs=(r.body&&r.body.veiculos)||[];if(!Array.isArray(vs))vs=Object.values(vs||{});
+      const porCod={};vs.forEach(x=>{if(x&&x.cod_veiculo)porCod[String(x.cod_veiculo)]=x;});
+      anuncios.forEach(a=>{const x=porCod[a.cod];if(x){a.codImportacao=x.cod_importacao!=null?String(x.cod_importacao):'';a.placa=limparPlaca(x.placa||'');}});
+      api={status:r.status,total:vs.length,campos:vs[0]?Object.keys(vs[0]):[]};
+    }catch(e){api={erro:String(e.message||e)};}
     res.json({total:anuncios.length,anuncios,api});
   }catch(e){console.error(e);res.status(e.status||500).json({erro:e.message||String(e)});}
 });

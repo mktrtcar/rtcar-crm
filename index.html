@@ -3302,6 +3302,7 @@ function pfLitoralStatus(v){
   const chave=pfChavePlaca(v.placa);const fim=chave.slice(-1);
   const anos=[String(v.anoModelo||v.anoFabricacao||'')].filter(Boolean); // a LitoralCar mostra o ano modelo
   const fora=noAr.filter(a=>{if(nossos.has(a.cod))return false;
+    if(a.placa)return pfChavePlaca(a.placa)===chave; // placa da API da LitoralCar: exato
     if(a.finalPlaca!==fim||!anos.includes(a.ano))return false;
     const m1=n(String(a.modelo||'').split(/\s+/)[0]);return m1&&(n(v.modelo).includes(m1)||n(v.versao).includes(m1));});
   return{st:nossoVivo?'nosso':(fora.length?'fora':'nao'),fora,duplicado:nossoVivo&&fora.length>0,nossoSumiu:nosso&&!nossoVivo};
