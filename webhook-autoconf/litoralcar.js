@@ -620,3 +620,27 @@ exports.litoralcarNoAr=onRequest({region:'southamerica-east1',cors:true,timeoutS
     res.json({total:anuncios.length,anuncios,api});
   }catch(e){console.error(e);res.status(e.status||500).json({erro:e.message||String(e)});}
 });
+
+/* Exclui da LitoralCar um anuncio feito FORA do nosso sistema (duplicado do
+   Autoconf/antigo, ou de carro vendido) - 05/11/2026, limpeza pedida pela
+   Aline. POST {codVeiculo}. Pega o cod_importacao na propria API deles; recusa
+   se o anuncio for um dos NOSSOS (esses saem pelo Despublicar normal). */
+exports.litoralcarExcluirAnuncioFora=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:300},async(req,res)=>{
+  if(req.method!=='POST'){res.status(405).send('Method not allowed');return;}
+  try{
+    await exigirGestor(req);
+    const codVeiculo=String((req.body&&req.body.codVeiculo)||'').replace(/\D/g,'');
+    if(!codVeiculo){res.status(400).json({erro:'Informe codVeiculo'});return;}
+    const nossos=(await db.collection('litoralcar_veiculos').where('codVeiculo','==',Number(codVeiculo)).get());
+    if(!nossos.empty){res.status(409).json({erro:'Esse anúncio é do nosso sistema - use Despublicar'});return;}
+    const r=await litoralFetch('buscar','estoque');
+    let vs=(r.body&&r.body.veiculos)||[];if(!Array.isArray(vs))vs=Object.values(vs||{});
+    const x=vs.find(v=>String(v.cod_veiculo)===codVeiculo);
+    if(!x){res.status(404).json({erro:'Anúncio não está mais na LitoralCar'});return;}
+    const e=await litoralFetch('excluir','estoque',undefined,{veiculos:[{cod_importacao:Number(x.cod_importacao)||0,cod_veiculo:Number(codVeiculo)}]});
+    console.log(`litoralcar excluir-fora ${codVeiculo} status=${e.status} body=`,JSON.stringify(e.body));
+    let itens=(e.body&&e.body.veiculos)||[];if(!Array.isArray(itens))itens=Object.values(itens||{});
+    const vlt=(itens[0]&&itens[0].veiculo)||{};
+    res.json({ok:/exclu[ií]do/i.test(vlt.status||''),status:vlt.status||'',erro:vlt.erro||'',placa:x.placa,modelo:x.modelo});
+  }catch(err){console.error(err);res.status(err.status||500).json({erro:err.message||String(err)});}
+});
