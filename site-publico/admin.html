@@ -55,6 +55,7 @@ h2{font-size:15px;margin-bottom:10px}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase}
 .badge-oculto{background:var(--redl);color:var(--red)}
 .badge-ok{background:var(--greenl);color:var(--green)}
+.badge-0km{background:#1d4ed8;color:#fff;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:5px;padding:2px 7px;margin-left:6px;vertical-align:middle;white-space:nowrap}
 .badge-clique{cursor:pointer;user-select:none}
 .badge-clique:hover{outline:1px solid currentColor}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
@@ -149,6 +150,7 @@ h2{font-size:15px;margin-bottom:10px}
     <div class="sub">Clique num veículo pra editar os dados, fotos ou ocultar do site.</div>
     <button class="btn btn-sm" onclick="novoVeiculo()" style="margin-bottom:12px">+ Adicionar carro</button>
     <button class="btn btn-sm" onclick="puxarUmCarroAutoconf()" style="margin-bottom:12px" title="Traz só um carro do catálogo do Autoconf, sem mexer nos outros">⬇ Puxar 1 carro do Autoconf</button>
+    <button class="btn btn-sm" onclick="novoVeiculo(true)" style="margin-bottom:12px;background:#1d4ed8" title="Carro 0 km sob encomenda: aparece no site e nas plataformas, mas NÃO entra no estoque do sistema">+ Adicionar carro 0 km (fora do estoque)</button>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <input id="busca-veiculos" type="search" placeholder="🔍 Pesquisar carro (marca, modelo, ano, cor ou placa)" oninput="renderListaVeiculos()" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
       <span id="busca-veiculos-qtd" style="font-size:12px;color:#8a8580;white-space:nowrap"></span>
@@ -165,6 +167,7 @@ h2{font-size:15px;margin-bottom:10px}
         <div class="field"><label>Marca</label><input id="ed-marca" onchange="salvarCampo('marca',this.value)"></div>
         <div class="field"><label>Modelo</label><input id="ed-modelo" onchange="salvarCampo('modelo',this.value)"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:13px;cursor:pointer;background:#eef2ff;border-radius:8px;padding:8px 10px"><input type="checkbox" id="ed-zeroKm" style="width:auto" onchange="salvarZeroKm(this.checked)"> <b>0 km · fora do estoque</b> <span style="color:#6b7280">— comprado do fornecedor só quando o cliente compra. Só aparece aqui no admin; no site é um anúncio normal.</span></label>
       <div class="field"><label>Versão</label><input id="ed-versao" onchange="salvarCampo('versao',this.value)"></div>
       <div class="field-row">
         <div class="field"><label>Preço (R$)</label><input id="ed-preco" onchange="salvarCampo('preco',this.value)"></div>
@@ -313,13 +316,14 @@ function renderListaVeiculos(){
     const alvo = `${v.marca||''} ${v.modelo||''} ${v.versao||''} ${v.ano||''} ${v.cor||''} ${v.id} ${v.placaSistema||''}`.toLowerCase();
     return termos.every(t => alvo.includes(t));
   });
-  document.getElementById('busca-veiculos-qtd').textContent = termos.length ? `${filtrados.length} de ${veiculosCache.length}` : `${veiculosCache.length} veículos`;
+  const n0km = veiculosCache.filter(v => v.zeroKm && !v.oculto).length;
+  document.getElementById('busca-veiculos-qtd').textContent = (termos.length ? `${filtrados.length} de ${veiculosCache.length}` : `${veiculosCache.length} veículos`) + (n0km ? ` · ${n0km} 0 km fora do estoque` : '');
   if (!filtrados.length) { lista.innerHTML = '<div style="font-size:12px;color:#8a8580">Nenhum veículo encontrado.</div>'; return; }
   lista.innerHTML = filtrados.map(v => `
     <div class="veiculo-item">
       <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
       <div class="info">
-        <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
+        <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}${v.zeroKm?'<span class="badge-0km" title="Não conta no estoque do sistema">0 KM · FORA DO ESTOQUE</span>':''}</div>
         <div class="preco">${fmtBRL(v.preco)||'Sem preço'} · ${(v.fotos||[]).length} foto(s)</div>
         ${v.precoManual && !v.preco && !v.oculto ? `<div style="font-size:13px;font-weight:800;color:var(--red);margin-top:2px">💲 DEFINA O PREÇO — entrou do sistema sem preço (no site: Consulte o preço)</div>` : ''}
       </div>
@@ -439,7 +443,7 @@ function renderPrecoKm(){
     return `<div class="veiculo-item" style="flex-wrap:wrap;gap:8px">
       <img src="${(v.fotos&&v.fotos[0])||''}" onerror="this.style.visibility='hidden'">
       <div class="info" style="min-width:200px;flex:1 1 200px">
-        <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}</div>
+        <div class="titulo">${v.marca||''} ${v.modelo||''} ${v.versao?'— '+v.versao:''}${v.zeroKm?'<span class="badge-0km" title="Não conta no estoque do sistema">0 KM · FORA DO ESTOQUE</span>':''}</div>
         <div class="preco">${v.ano||'—'} · km ${digitos(v.km)?digitos(v.km).toLocaleString('pt-BR'):'—'} · ${fmtBRL(v.preco)||'sem preço'}</div>
       </div>
       ${aviso}
@@ -621,10 +625,15 @@ async function puxarUmCarroAutoconf(){
 // nunca mexer nele (nem apagar/ocultar por "sumiu da fonte", ja que ele
 // nunca esteve na fonte pra comecar - ver webhook-autoconf/migrar-site.js).
 const CAMPOS_VEICULO = ['marca','modelo','versao','preco','precoDe','ano','km','cor','cambio','potencia','garantia','descricao'];
-async function novoVeiculo(){
-  const id = 'manual-' + Date.now();
+// zeroKm (06/11/2026, pedido da Aline): 0 km sob encomenda - so' no site e nas
+// plataformas, nunca no estoque do sistema principal (ela so' compra do
+// fornecedor quando o cliente compra). Etiqueta so' aparece no admin.
+async function novoVeiculo(zeroKm){
+  zeroKm = zeroKm === true;
+  const id = (zeroKm ? 'zerokm-' : 'manual-') + Date.now();
   const dados = { manual:true, oculto:false, fotos:[], opcionais:[], fotosBloqueadas:true, camposBloqueados:[...CAMPOS_VEICULO,'opcionais'] };
   CAMPOS_VEICULO.forEach(c => dados[c] = '');
+  if (zeroKm) { dados.zeroKm = true; dados.km = '0'; }
   await db.collection('site_veiculos').doc(id).set(dados);
   veiculosCache.push({ id, ...dados });
   abrirVeiculo(id);
@@ -647,6 +656,7 @@ function abrirVeiculo(id){
   });
   document.getElementById('ed-oculto').checked = !!veiculoAtual.oculto;
   document.getElementById('ed-precoOculto').checked = !!veiculoAtual.precoOculto;
+  document.getElementById('ed-zeroKm').checked = !!veiculoAtual.zeroKm;
   renderOpcionais();
   renderFotosVeiculo();
 }
@@ -685,6 +695,15 @@ async function alternarOculto(id, el){
   el.className = 'badge badge-clique ' + (novo ? 'badge-oculto' : 'badge-ok');
   el.textContent = novo ? 'Oculto' : 'Visível';
   el.title = 'Clique para ' + (novo ? 'mostrar no site' : 'ocultar do site');
+  mostrarOk();
+}
+
+// Marca/desmarca 0 km fora do estoque. Num carro que veio do Autoconf, tambem
+// impede que ele suma do site quando o Autoconf deixar de existir.
+async function salvarZeroKm(valor){
+  if (!editandoId) return;
+  await db.collection('site_veiculos').doc(editandoId).set({ zeroKm: !!valor }, { merge: true });
+  veiculoAtual.zeroKm = !!valor;
   mostrarOk();
 }
 
