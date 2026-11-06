@@ -3196,8 +3196,13 @@ const LITORALCAR_FN_BASE='https://southamerica-east1-rtcarprograma.cloudfunction
 // Marcas de moto conhecidas - so pra sugerir a categoria de partida no
 // dropdown (o usuario confirma/corrige antes de publicar, nunca vai direto).
 const LITORALCAR_MARCAS_MOTO=['honda','yamaha','suzuki','kawasaki','ducati','harley davidson','triumph','ktm','dafra','shineray','haojue','bmw motorrad','royal enfield','kymco','piaggio','vespa'];
-function litoralCarCategoriaSugerida(marca){
-  return LITORALCAR_MARCAS_MOTO.includes((marca||'').trim().toLowerCase())?'Moto':'Carro/Camionetas';
+// Honda/Suzuki/BMW fazem carro E moto: decide pelo modelo (05/11/2026 - Civic e HR-V iam para Moto)
+const LITORALCAR_MARCAS_MISTAS=['honda','suzuki','bmw'];
+const LITORALCAR_MODELO_MOTO=new RegExp('\\b(CG|CB|CBR|CRF|XRE|NXR|BROS|BIZ|POP|PCX|ADV|SH|ELITE|XR|NC|AFRICA|GOLD ?WING|HORNET|TITAN|FAN|LEAD|BURGMAN|V-?STROM|GSX|GSR|HAYABUSA|INTRUDER|GS|F ?\\d{3,4}|R ?\\d{4}|S ?1000|G ?310|K ?1600|C ?400)\\b','i');
+function litoralCarCategoriaSugerida(marca,modelo){
+  const m=String(marca||'').trim().toLowerCase().replace(/-/g,' ');
+  if(LITORALCAR_MARCAS_MISTAS.includes(m))return LITORALCAR_MODELO_MOTO.test(String(modelo||''))?'Moto':'Carro/Camionetas';
+  return LITORALCAR_MARCAS_MOTO.some(x=>x!=='honda'&&x!=='suzuki'&&(m===x||m.includes(x)))?'Moto':'Carro/Camionetas';
 }
 async function litoralCarFetch(path,opts={}){
   const token=await fbAuth.currentUser.getIdToken();
@@ -3218,7 +3223,11 @@ function melhorCorrespondenciaLitoral(valor,lista){
   const direta=lista.find(x=>normalizarTextoLitoral(x)===alvo);
   if(direta)return direta;
   const parcial=lista.find(x=>alvo.includes(normalizarTextoLitoral(x))||normalizarTextoLitoral(x).includes(alvo));
-  return parcial||lista[0];
+  if(parcial)return parcial;
+  // Palavra a palavra ("208 GRIFFE EAT6" -> "208"). Sem achar: fica em branco para escolher -
+  // antes caia no 1o da lista ("Acura Integra") e publicava errado (05/11/2026)
+  const palavras=String(valor||'').split(/[^A-Za-z0-9]+/).map(normalizarTextoLitoral).filter(w=>w.length>=2);
+  return lista.find(x=>palavras.includes(normalizarTextoLitoral(x)))||'';
 }
 async function litoralCarMarcasModelos(categoria){
   G.pf.litoralcarMM=G.pf.litoralcarMM||{};
@@ -3238,7 +3247,7 @@ function mensagemErroLitoral(r){
 }
 function popularSelectLitoralEl(el,lista,selecionado){
   if(!el)return;
-  el.innerHTML=lista.map(x=>`<option ${x===selecionado?'selected':''}>${x}</option>`).join('');
+  el.innerHTML=(selecionado?'':'<option value="" selected>selecione...</option>')+lista.map(x=>`<option ${x===selecionado?'selected':''}>${x}</option>`).join('');
 }
 function popularSelectLitoral(id,lista,selecionado){popularSelectLitoralEl(document.getElementById(id),lista,selecionado);}
 
@@ -3257,7 +3266,7 @@ async function initPlataformasAnuncio(){
     G.pf.veiculos=estoqueSnap.docs.map(d=>({placa:d.id,...d.data()}));
     // Combustivel do site (vem da Avaliacao do sistema, ou editado no admin) - 03/11/2026
     G.pf.combSite={};
-    siteSnap.docs.forEach(d=>{const s=d.data();if(!s.combustivel)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=k.replace(/[^A-Za-z0-9]/g,'').toUpperCase();if(!G.pf.combSite[k]||(s.camposBloqueados||[]).includes('combustivel'))G.pf.combSite[k]=s.combustivel;});});
+    siteSnap.docs.forEach(d=>{const s=d.data();if(!s.combustivel)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=pfChavePlaca(k);if(!G.pf.combSite[k]||(s.camposBloqueados||[]).includes('combustivel'))G.pf.combSite[k]=s.combustivel;});});
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
     // Versao do site (copias do Autoconf) - sugestao quando o sistema nao tem (05/11/2026)
@@ -3438,7 +3447,7 @@ function litoralCarPendentes(atualizar){
 }
 // Combustivel do site convertido para a lista da LitoralCar ('' = nao achou)
 function litoralCombustivel(v){
-  const nome=(G.pf.combSite||{})[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()];
+  const nome=(G.pf.combSite||{})[pfChavePlaca(v.placa)];
   if(!nome)return'';
   const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
   const lista=((G.pf.litoralcarRefs||{}).combustiveis)||[];
@@ -3446,18 +3455,18 @@ function litoralCombustivel(v){
 }
 // A lista da LitoralCar nao tem "Híbrido" (so' Gasolina/Elétrico) - a palavra vai na versao, que e' texto livre
 function litoralVersao(v,versao){
-  const ehHibrido=/^(Híbrido|Gasolina e Elétrico)$/.test((G.pf.combSite||{})[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||'');
+  const ehHibrido=/^(Híbrido|Gasolina e Elétrico)$/.test((G.pf.combSite||{})[pfChavePlaca(v.placa)]||'');
   versao=String(versao||'').trim();
   return ehHibrido&&!/H[IÍ]B/i.test(versao)?(versao+' Híbrido').trim():versao;
 }
 function lcbPadrao(v){
   const litoral=G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{};
-  const categoria=litoral.categoria||litoralCarCategoriaSugerida(v.marca);
+  const categoria=litoral.categoria||litoralCarCategoriaSugerida(v.marca,v.modelo);
   const mm=G.pf.litoralcarMM[categoria];
   const marca=litoral.marca||melhorCorrespondenciaLitoral(v.marca,mm.marcas);
   const modelosDaMarca=mm.modelos.filter(m=>m.marca===marca).map(m=>m.modelo);
   const modelo=litoral.modelo||melhorCorrespondenciaLitoral(v.modelo,modelosDaMarca);
-  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'Flex',versao:litoralVersao(v,litoral.versao!==undefined&&litoral.versao!==''?litoral.versao:versaoSugerida(v).txt)};
+  return{categoria,mm,marca,modelosDaMarca,modelo,combustivel:litoralCombustivel(v)||litoral.combustivel||'',versao:litoralVersao(v,litoral.versao!==undefined&&litoral.versao!==''?litoral.versao:versaoSugerida(v).txt)};
 }
 async function abrirPublicarTodosLitoralCar(atualizar){
   atualizar=atualizar===true;
@@ -3472,7 +3481,7 @@ async function abrirPublicarTodosLitoralCar(atualizar){
   try{
     if(!G.pf.litoralcarRefs)G.pf.litoralcarRefs=await litoralCarFetch('litoralcarReferencias');
     const{categorias=[],combustiveis=[]}=G.pf.litoralcarRefs;
-    const categoriasNecessarias=[...new Set(pendentes.map(v=>(G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{}).categoria||litoralCarCategoriaSugerida(v.marca)))];
+    const categoriasNecessarias=[...new Set(pendentes.map(v=>(G.pf.litoralcarMap[v.placa.replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{}).categoria||litoralCarCategoriaSugerida(v.marca,v.modelo)))];
     await Promise.all(categoriasNecessarias.map(c=>litoralCarMarcasModelos(c)));
     body.innerHTML=`
       <p style="font-size:12px;color:var(--tx3);margin-bottom:10px">${pendentes.length} veículo(s) ${atualizar?'publicado(s). Os dados e as fotos serão reenviados conforme o cadastro atual e as fotos do site.':'ainda não publicado(s).'} Confira marca, modelo, categoria e combustível de cada um (${atualizar?'preenchidos com o que foi usado na última publicação, ou sugeridos se for a primeira atualização':'sugeridos automaticamente'}) — a LitoralCar só aceita marca/modelo de uma lista fechada dela, então corrija se a sugestão não bater.</p>
@@ -3547,6 +3556,8 @@ async function confirmarPublicarTodosLitoralCar(){
   });
   const semCombustivel=veiculos.filter(v=>!v.combustivel);
   if(semCombustivel.length){toast(`Selecione o combustível de todos os veículos (faltou em ${semCombustivel.length}).`,'red');return;}
+  const semMarcaModelo=veiculos.filter(v=>!v.marca||!v.modelo);
+  if(semMarcaModelo.length){toast(`Selecione marca e modelo de todos (faltou em ${semMarcaModelo.length}).`,'red');return;}
   const btn=document.getElementById('btn-lcb-confirmar');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Publicando...';
   try{
@@ -3588,7 +3599,7 @@ async function abrirPublicarPlataforma(placa,plataformaId){
   try{
     if(!G.pf.litoralcarRefs)G.pf.litoralcarRefs=await litoralCarFetch('litoralcarReferencias');
     const{categorias=[],combustiveis=[]}=G.pf.litoralcarRefs;
-    const categoriaSugerida=litoralCarCategoriaSugerida(v.marca);
+    const categoriaSugerida=litoralCarCategoriaSugerida(v.marca,v.modelo);
     const mm=await litoralCarMarcasModelos(categoriaSugerida);
     const marcaSugerida=melhorCorrespondenciaLitoral(v.marca,mm.marcas);
     const modelosDaMarca=mm.modelos.filter(m=>m.marca===marcaSugerida).map(m=>m.modelo);
@@ -3599,7 +3610,7 @@ async function abrirPublicarPlataforma(placa,plataformaId){
       <div class="field"><label>Marca</label><select id="pp-marca" style="width:100%" onchange="ppAtualizarModelos()"></select></div>
       <div class="field"><label>Modelo</label><select id="pp-modelo" style="width:100%"></select></div>
       <div class="field"><label>Versão</label><input type="text" id="pp-versao" value="${String(litoralVersao(v,versaoSugerida(v).txt)).replace(/"/g,'&quot;')}" style="width:100%"><select id="pp-versao-fipe" onchange="ppEscolherFipe(this)" style="width:100%;margin-top:6px;font-size:12px"><option value="">Carregando tabela FIPE...</option></select>${versaoSugerida(v).fonte&&versaoSugerida(v).fonte!=='cadastro do sistema'?`<div style="font-size:11px;color:var(--tx3);margin-top:4px">💡 Sugestão puxada do ${versaoSugerida(v).fonte} — confira e corrija se precisar.</div>`:(versaoSugerida(v).txt?'':'<div style="font-size:11px;color:var(--tx3);margin-top:4px">Sem versão no sistema, no Mercado Livre ou no site — preencha.</div>')}</div>
-      <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c===(litoralCombustivel(v)||'Flex')?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Combustível</label><select id="pp-combustivel" style="width:100%"><option value="">selecione...</option>${combustiveis.map(c=>`<option ${c===litoralCombustivel(v)?'selected':''}>${c}</option>`).join('')}</select></div>
       ${v.preco?'':'<p style="color:var(--red);font-size:12px;margin-top:8px">⚠️ Este veículo está sem preço no estoque — a LitoralCar vai recusar.</p>'}`;
     _ppMarcasModelos=mm;
     popularSelectLitoral('pp-marca',mm.marcas,marcaSugerida);
@@ -3630,7 +3641,7 @@ async function ppCarregarFipe(v){
   const sel=document.getElementById('pp-versao-fipe');if(!sel)return;
   const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
   try{
-    const tipo=litoralCarCategoriaSugerida(v.marca)==='Moto'?'motos':'carros';
+    const tipo=litoralCarCategoriaSugerida(v.marca,v.modelo)==='Moto'?'motos':'carros';
     const marcas=await fipeJson('/'+tipo+'/marcas');
     const ALIAS={MERCEDES:'MERCEDESBENZ',HARLEY:'HARLEYDAVIDSON',HARLEYDAVISON:'HARLEYDAVIDSON',CAOACHERY:'CHERY',GWM:'GWM'};
     let alvo=n(v.marca).replace(/^(VW|GM)/,'');alvo=ALIAS[alvo]||alvo;
@@ -3659,6 +3670,7 @@ async function confirmarPublicarPlataforma(){
   const versao=document.getElementById('pp-versao').value.trim();
   const combustivel=document.getElementById('pp-combustivel').value;
   if(!combustivel){toast('Selecione o combustível','red');return;}
+  if(!marca||!modelo){toast('Selecione a marca e o modelo','red');return;}
   const btn=document.getElementById('btn-pp-confirmar');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Publicando...';
   try{
