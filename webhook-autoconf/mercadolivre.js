@@ -558,3 +558,51 @@ exports.mercadoLivreEncerrar=onRequest({region:'southamerica-east1',timeoutSecon
     res.json({ok:true,itemId,status:j.status,titulo:it.title});
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
+
+/* Alerta de carro SEM ANUNCIO (05/11/2026, pedido da Aline): todo dia as 9h
+   confere os carros disponiveis no sistema, com preco e visiveis no site, e
+   manda pra Aline pelo WhatsApp da Eva (mensagens_avulsas, destino "Aline")
+   a lista dos que nao estao na LitoralCar e/ou no Mercado Livre - ela
+   publica manual pela tela Anuncios. Sem pendencia, nao manda nada.
+   alertaSemAnuncioVer (gestor) mostra a mesma lista sem mandar WhatsApp. */
+async function carrosSemAnuncio(){
+  const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
+    .filter(f=>f.status==='disponivel');
+  const site={};
+  (await db.collection('site_veiculos').get()).docs.forEach(d=>{const s=d.data();
+    for(const k of [d.id,s.placaSistema].filter(Boolean)){const c=placaChaveML(k);if(!site[c]||(site[c].oculto&&!s.oculto))site[c]=s;}});
+  const c=await obterToken();
+  const ml=new Set((await listarAnunciosML(c.accessToken,c.userId)).filter(a=>a.status==='active').map(a=>a.chave));
+  const {litoralFetch}=require('./litoralcar')._interno;
+  const r=await litoralFetch('buscar','estoque');
+  let vs=(r.body&&r.body.veiculos)||[];if(!Array.isArray(vs))vs=Object.values(vs||{});
+  if(!vs.length)throw new Error('LitoralCar nao respondeu a lista de anuncios');
+  const lc=new Set(vs.map(x=>placaChaveML(x&&x.placa)).filter(Boolean));
+  const faltando=[];
+  for(const f of feed){
+    const k=placaChaveML(f.placa||f._id);const s=site[k]||site[placaChaveML(f._id)];
+    if(!s||s.oculto)continue;
+    const preco=Number(s.preco)>1?Number(s.preco):Number(f.preco)||0;
+    if(!(preco>1))continue;
+    const falta=[];if(!lc.has(k))falta.push('LitoralCar');if(!ml.has(k))falta.push('Mercado Livre');
+    if(falta.length)faltando.push({placa:String(f.placa||f._id).toUpperCase(),carro:[f.marca,f.modelo].filter(Boolean).join(' '),falta});
+  }
+  return faltando;
+}
+function textoSemAnuncio(l){
+  return `📢 Carros SEM ANÚNCIO (${l.length}) - publicar na tela Anúncios:\n`+
+    l.map(x=>`• ${x.carro} ${x.placa} - falta ${x.falta.join(' e ')}`).join('\n');
+}
+exports.alertaSemAnuncio=onSchedule({region:'southamerica-east1',schedule:'0 9 * * *',timeZone:'America/Sao_Paulo',timeoutSeconds:300},async()=>{
+  const l=await carrosSemAnuncio();
+  if(!l.length)return;
+  await db.collection('mensagens_avulsas').add({destino:'Aline',texto:textoSemAnuncio(l),enviadaEm:'',criadaEm:new Date().toISOString(),origem:'alertaSemAnuncio'});
+});
+exports.alertaSemAnuncioVer=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:300},async(req,res)=>{
+  try{
+    const dec=await admin.auth().verifyIdToken(String(req.headers.authorization||'').replace(/^Bearer /,''));
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const l=await carrosSemAnuncio();
+    res.json({total:l.length,carros:l,texto:textoSemAnuncio(l)});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});

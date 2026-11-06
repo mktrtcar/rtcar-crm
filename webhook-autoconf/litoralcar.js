@@ -644,3 +644,7 @@ exports.litoralcarExcluirAnuncioFora=onRequest({region:'southamerica-east1',cors
     res.json({ok:/exclu[ií]do/i.test(vlt.status||''),status:vlt.status||'',erro:vlt.erro||'',placa:x.placa,modelo:x.modelo});
   }catch(err){console.error(err);res.status(err.status||500).json({erro:err.message||String(err)});}
 });
+
+// Uso interno de outros modulos (alerta de carro sem anuncio). Nao enumeravel:
+// o Object.assign do index.js nao copia, entao nao vira funcao no deploy.
+Object.defineProperty(exports,'_interno',{enumerable:false,value:{litoralFetch,limparPlaca}});
