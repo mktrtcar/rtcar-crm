@@ -560,14 +560,14 @@ exports.mercadoLivreEncerrar=onRequest({region:'southamerica-east1',timeoutSecon
 });
 
 /* Alerta de carro SEM ANUNCIO (05/11/2026, pedido da Aline): todo dia as 9h
-   confere os carros disponiveis no sistema, com preco e visiveis no site, e
+   confere os carros disponiveis (ou em preparacao ja com foto), com preco e visiveis no site, e
    manda pra Aline pelo WhatsApp da Eva (mensagens_avulsas, destino "Aline")
    a lista dos que nao estao na LitoralCar e/ou no Mercado Livre - ela
    publica manual pela tela Anuncios. Sem pendencia, nao manda nada.
    alertaSemAnuncioVer (gestor) mostra a mesma lista sem mandar WhatsApp. */
 async function carrosSemAnuncio(){
   const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
-    .filter(f=>f.status==='disponivel');
+    .filter(f=>['disponivel','em_preparacao'].includes(f.status));
   const site={};
   (await db.collection('site_veiculos').get()).docs.forEach(d=>{const s=d.data();
     for(const k of [d.id,s.placaSistema].filter(Boolean)){const c=placaChaveML(k);if(!site[c]||(site[c].oculto&&!s.oculto))site[c]=s;}});
@@ -584,6 +584,8 @@ async function carrosSemAnuncio(){
     if(!s||s.oculto)continue;
     const preco=Number(s.preco)>1?Number(s.preco):Number(f.preco)||0;
     if(!(preco>1))continue;
+    // Em preparacao: so' entra se ja' tem foto no site (Aline publica igual, 05/11)
+    if(f.status!=='disponivel'&&!((s.fotos||[]).length))continue;
     const falta=[];if(!lc.has(k))falta.push('LitoralCar');if(!ml.has(k))falta.push('Mercado Livre');
     if(falta.length)faltando.push({placa:String(f.placa||f._id).toUpperCase(),carro:[f.marca,f.modelo].filter(Boolean).join(' '),falta});
   }
