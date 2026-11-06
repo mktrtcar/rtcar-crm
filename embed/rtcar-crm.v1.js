@@ -2845,7 +2845,8 @@ function pfChavePlaca(p){const s=String(p||'').toUpperCase().replace(/[^A-Z0-9]/
 function pfLimparVersao(vs,marca,modelo){vs=String(vs||'').trim();if(modelo&&String(modelo).trim().split(/\s+/).length>1)modelo=String(modelo).trim().split(/\s+/)[0];const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');for(const p of [marca,modelo]){const w=vs.split(/\s+/);if(p&&w.length>1&&n(w[0])===n(p))vs=w.slice(1).join(' ');}return vs.trim();}
 async function carregarStatusMercadoLivre(){
   G.pf.mlMap=null;G.pf.mlErro='';
-  try{const r=await litoralCarFetch('mercadoLivreAnunciosStatus');G.pf.mlMap={};G.pf.mlLista=r.anuncios||[];(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
+  try{let r;try{r=await litoralCarFetch('mercadoLivreAnunciosStatus');}catch(e1){console.warn('ML status: tentando de novo',e1);await new Promise(x=>setTimeout(x,2500));r=await litoralCarFetch('mercadoLivreAnunciosStatus');} // 1 nova tentativa: falha passageira deixava 'indisponivel' (06/11/2026)
+    G.pf.mlMap={};G.pf.mlLista=r.anuncios||[];(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
   catch(e){console.error(e);G.pf.mlErro=e.message||'erro';}
   renderPlataformasAnuncio();
 }
