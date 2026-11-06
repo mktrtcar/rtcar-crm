@@ -533,3 +533,28 @@ exports.mercadoLivrePublicar=onRequest({region:'southamerica-east1',timeoutSecon
     res.json({ok:true,itemId:item.id,link:item.permalink,status:item.status,descricaoOk,titulo:anuncio.title,preco:anuncio.price,avisos});
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
+
+/* Encerrar (ou pausar) um anuncio do ML da conta - inclusive os feitos pelo
+   Autoconf (mesma conta). 05/11/2026, limpeza pedida pela Aline: "deixa apenas
+   os anuncios ativos no nosso site". POST {itemId, acao:'closed'|'paused'}.
+   Encerrado nao volta (o ML nao reativa) - o CRM so' chama apos confirmacao. */
+exports.mercadoLivreEncerrar=onRequest({region:'southamerica-east1',timeoutSeconds:120,cors:true},async(req,res)=>{
+  try{
+    if(req.method!=='POST'){res.status(405).json({erro:'Use POST'});return;}
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const itemId=String((req.body&&req.body.itemId)||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    const acao=(req.body&&req.body.acao)==='paused'?'paused':'closed';
+    if(!/^MLB\d+$/.test(itemId)){res.status(400).json({erro:'itemId inválido'});return;}
+    const c=await obterToken();
+    const it=await apiML('/items/'+itemId,c.accessToken);
+    if(String(it.seller_id)!==String(c.userId)){res.status(403).json({erro:'Anúncio não é da conta RT Car'});return;}
+    const r=await fetch(API+'/items/'+itemId,{method:'PUT',headers:{Authorization:'Bearer '+c.accessToken,'Content-Type':'application/json'},body:JSON.stringify({status:acao})});
+    const j=await r.json().catch(()=>({}));
+    console.log('ml encerrar',itemId,acao,r.status,JSON.stringify(j).slice(0,300));
+    if(!r.ok){res.status(502).json({erro:'O ML recusou',status:r.status,ml:j});return;}
+    await db.collection('ml_encerrados').add({itemId,acao,titulo:it.title||'',placa:((it.attributes||[]).find(a=>a.id==='LICENSE_PLATE')||{}).value_name||'',por:dec.email||'',em:new Date().toISOString()});
+    res.json({ok:true,itemId,status:j.status,titulo:it.title});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
