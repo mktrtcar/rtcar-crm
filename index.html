@@ -4550,8 +4550,23 @@ async function setAgendamentoStatusMk(id,valor,e){
   else await regHistMk(lead,'↩️ Status do agendamento desmarcado','',G.user?.n||'','gold');
   renderMarketing();
 }
+// Data digitada/escolhida no card (Agendamento do CRM, "2 anos agendado" do
+// Relacionamento): ano ainda sendo digitado (0002, 0020...) e' ignorado, e
+// uma data completa SOLTA o foco do campo - sem isso a trava de "campo de
+// data focado" (renderMarketing/renderRelacionamento) pulava o redesenho e o
+// card ficava vermelho/desatualizado mesmo depois de a Milena ajustar a data
+// (13/11/2026). Devolve false quando e' pra ignorar (ano incompleto).
+function dataCardCompleta(valor,e){
+  if(valor){
+    const ano=parseInt(valor.slice(0,4),10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(valor)||ano<2000||ano>2100)return false;
+    if(e&&e.target&&typeof e.target.blur==='function')e.target.blur();
+  }
+  return true;
+}
 async function setAgendamentoDataMk(id,valor,e){
   if(e)e.stopPropagation();
+  if(!dataCardCompleta(valor,e))return;
   const lead=G.mk.leads.find(l=>l.id===id);if(!lead)return;
   lead.agendamentoData=valor;
   await salvarCamposMk(id,{agendamentoData:valor});
@@ -5873,6 +5888,7 @@ async function moverCliente(id,novaCol){
 }
 async function setAgendamento2anosData(id,valor,e){
   if(e)e.stopPropagation();
+  if(!dataCardCompleta(valor,e))return;
   const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
   c.agendamento2anosData=valor;
   await salvarCamposRel(id,{agendamento2anosData:valor});
@@ -7253,6 +7269,10 @@ window.salvarNps=salvarNps;
 window.salvarObs=salvarObs;
 window.salvarObsWs=salvarObsWs;
 window.setAgendamentoDataMk=setAgendamentoDataMk;
+window.setAgendamento2anosData=setAgendamento2anosData;
+window.setAgendamento2anosStatus=setAgendamento2anosStatus;
+window.toggleLoginSenhaVisivel=toggleLoginSenhaVisivel;
+window.renderPlataformasAnuncio=renderPlataformasAnuncio;
 window.editarDataVendaMk=editarDataVendaMk;
 window.setAgendamentoStatusMk=setAgendamentoStatusMk;
 window.setSimNaoRel=setSimNaoRel;
