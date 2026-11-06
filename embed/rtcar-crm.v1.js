@@ -914,7 +914,11 @@ function mkLeadsFiltrados(){
   // pra um segundo vendedor, pedido da Aline 08/09/2026).
   if(isSeller())ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n);
   // CONTROLE DE ACESSO: coordenadora ve so os leads de Compra
-  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n);
+  // + o que ELA encaminhou (Transferir) pra um vendedor: continua no Kanban dela pra
+  // acompanhar se o cliente compra (06/11/2026, pedido da Aline - Milena -> Maicon,
+  // cliente deixando HB20 e querendo comprar). O que o vendedor encaminha pra ela
+  // NAO volta pro vendedor (regra de 22/10 continua pra eles).
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n||l.acompanhaPor===G.user.n||(l.by===G.user.n&&l.captador&&l.captador!==G.user.n));
   // CONTROLE DE ACESSO: RT Cred (resgate BV) ve so os leads que ela mesma
   // cadastrou - mesmo mecanismo da coordenadora, agora pro canal BV
   // (pedido da Aline, 08/09/2026).
@@ -1054,7 +1058,7 @@ function renderKanbanMk(cnt){
           </div>
           ${isManager()?`<div class="card-actions" style="margin-top:4px"><button class="card-btn card-btn-label" onclick="abrirTransferirLead('${l.id}',event)"><i class="ti ti-arrows-exchange"></i> Transferir</button></div>`:''}
         </div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}${l.captadorReplicado?` + ${l.captadorReplicado}`:''}</div>`;
+        <div style="font-size:10px;color:var(--tx3);margin-top:5px;display:flex;align-items:center;gap:3px"><i class="ti ti-user" style="font-size:10px"></i>${l.captador||l.by||'—'}${l.captadorReplicado?` + ${l.captadorReplicado}`:''}${G.user?.r==='coordenadora'&&l.captador&&l.captador!==G.user.n&&l.captadorReplicado!==G.user.n?`<span style="margin-left:4px;background:#e0e7ff;color:#3730a3;border-radius:4px;padding:0 5px;font-weight:700" title="Você encaminhou - só acompanhando">↗ encaminhado p/ ${l.captador}</span>`:''}</div>`;
       body.appendChild(c);
     });
     const add=document.createElement('div');add.className='kb-add';add.innerHTML='<i class="ti ti-plus"></i> Novo lead';add.onclick=()=>abrirModalLead(null,col.id);
@@ -3435,8 +3439,13 @@ async function confirmarTransferencia(id,vendedor){
   if(_transferPopup){_transferPopup.remove();_transferPopup=null;}
   const lead=G.mk.leads.find(l=>l.id===id);
   if(!lead)return;
+  const antes=lead.captador||lead.by||'';
   lead.captador=vendedor;
-  await salvarCamposMk(id,{captador:vendedor});
+  const campos={captador:vendedor};
+  // Coordenadora (Milena) que encaminha continua acompanhando o lead (06/11/2026)
+  if(G.user?.r==='coordenadora'&&vendedor!==G.user.n){lead.acompanhaPor=G.user.n;campos.acompanhaPor=G.user.n;}
+  await salvarCamposMk(id,campos);
+  try{await regHistMk(lead,'↗️ Encaminhado',`De ${antes||'—'} para ${vendedor}${campos.acompanhaPor?` (${G.user.n} continua acompanhando)`:''}.`,G.user?.n||'','blue');}catch(e){console.warn(e);}
   renderMarketing();
   toast(`Lead transferido para ${vendedor}`);
 }
