@@ -406,6 +406,23 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   else avisos.push('Sem anúncio modelo para copiar endereço/contato');
   return{anuncio,avisos};
 }
+/* 0 km fora do estoque (06/11/2026, pedido da Aline): carro que so' existe no
+   site (site_veiculos com zeroKm:true), nunca no estoque do sistema. A tela
+   Anuncios usa a chave "ZK<id do site>" no lugar da placa. */
+async function zeroKmDoSite(pedida){
+  const m=String(pedida||'').match(/^ZK(\d+)$/);if(!m)return null;
+  const d=await db.collection('site_veiculos').doc(m[1]).get();
+  if(!d.exists||!d.data().zeroKm)return null;
+  const s=d.data();const anos=String(s.ano||'').split('/');
+  return{carro:{_id:pedida,placa:'',marca:s.marca,modelo:s.modelo,versao:'',anoFabricacao:anos[0]||'',anoModelo:anos[1]||anos[0]||'',km:0,preco:s.preco,cor:s.cor},site:{...s}};
+}
+// Anuncio de 0 km ja' existente (nao tem placa): mesma marca, mesmo modelo e mesmo ano no titulo
+function mesmoZeroKm(a,site){
+  const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
+  const t=n(a.titulo),marca=n(MARCA_ALIAS[normML(site.marca)]||site.marca),mod=n(String(site.modelo||'').split(/\s+/)[0]);
+  const ano=String(site.ano||'').split('/').pop();
+  return !!marca&&!!mod&&(n(a.marca)===marca||t.startsWith(marca))&&(n(a.modelo).startsWith(mod)||t.includes(mod))&&(!ano||t.includes(ano)||/\.\.\.$/.test(String(a.titulo||'')));
+}
 async function validarML(anuncio,token){
   const {description,...corpo}=anuncio; // descricao vai em chamada separada ao publicar
   const r=await fetch(API+'/items/validate',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(corpo)});
@@ -426,10 +443,13 @@ exports.mercadoLivrePrevia=onRequest({region:'southamerica-east1',timeoutSeconds
     const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
       .filter(f=>['disponivel','em_preparacao'].includes(f.status));
     const pedida=req.query.placa?placaChaveML(req.query.placa):'';
-    const alvo=pedida?feed.filter(f=>placaChaveML(f.placa)===pedida||placaChaveML(f._id)===pedida):feed;
+    const zk=await zeroKmDoSite(pedida);
+    const alvo=zk?[{...zk.carro,_zkSite:zk.site}]:pedida?feed.filter(f=>placaChaveML(f.placa)===pedida||placaChaveML(f._id)===pedida):feed;
     if(!alvo.length){res.status(404).json({erro:'Placa não encontrada no estoque disponível'});return;}
     const saida=[];
     for(const carro of alvo){
+      if(carro._zkSite){const {anuncio,avisos}=montarAnuncioML(carro,carro._zkSite,null,attrsCat,modelo);const v=await validarML(anuncio,token);
+        saida.push({placa:pedida,carro:anuncio.title,preco:anuncio.price,fotos:anuncio.pictures.length,jaNoMLpeloAutoconf:null,avisos,validacaoML:v,anuncio});continue;}
       const docs=[];
       const s0=await db.collection('site_veiculos').doc(carro._id).get();
       if(s0.exists)docs.push(s0.data());
@@ -502,8 +522,23 @@ exports.mercadoLivrePublicar=onRequest({region:'southamerica-east1',timeoutSecon
     const pedida=placaChaveML(req.query.placa||(req.body&&req.body.placa));
     if(!pedida){res.status(400).json({erro:'Informe a placa'});return;}
     const c=await obterToken();const token=c.accessToken;
-    const existentes=(await listarAnunciosML(token,c.userId)).filter(a=>a.chave===pedida);
+    const zk=await zeroKmDoSite(pedida);
+    const existentes=(await listarAnunciosML(token,c.userId)).filter(a=>zk?mesmoZeroKm(a,zk.site):a.chave===pedida);
     if(existentes.length){res.status(409).json({erro:'Esse carro já tem anúncio no Mercado Livre',anuncios:existentes.map(a=>({id:a.id,status:a.status,link:a.link}))});return;}
+    if(zk){
+      const attrsZ=await atributosCarros(token);const {modelo:modZ}=await anunciosAutoconfPorPlaca(token);
+      const {anuncio,avisos}=montarAnuncioML(zk.carro,zk.site,null,attrsZ,modZ);
+      const bq=avisos.filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|moto/i.test(a));
+      if(bq.length){res.status(422).json({erro:'Faltam dados',avisos:bq});return;}
+      const vz=await validarML(anuncio,token);if(!vz.ok){res.status(422).json({erro:'O Mercado Livre recusou na validação',validacaoML:vz});return;}
+      const {description,...corpo}=anuncio;
+      const r=await fetch(API+'/items',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+      const item=await r.json().catch(()=>({}));
+      if(!r.ok||!item.id){res.status(502).json({erro:'Falha ao publicar',status:r.status,ml:item});return;}
+      let descricaoOk=false;try{const d=await fetch(API+'/items/'+item.id+'/description',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(description)});descricaoOk=d.ok;}catch(e){console.error(e);}
+      await db.collection('ml_anuncios').doc(pedida).set({itemId:item.id,link:item.permalink||'',status:item.status||'',origem:'rtcar',zeroKm:true,siteId:pedida.slice(2),titulo:anuncio.title,preco:anuncio.price,publicadoEm:new Date().toISOString(),publicadoPor:dec.email||''},{merge:true});
+      res.json({ok:true,itemId:item.id,link:item.permalink,status:item.status,descricaoOk,titulo:anuncio.title,preco:anuncio.price,avisos});return;
+    }
     const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
       .filter(f=>['disponivel','em_preparacao'].includes(f.status));
     const carro=feed.find(f=>placaChaveML(f.placa)===pedida||placaChaveML(f._id)===pedida);

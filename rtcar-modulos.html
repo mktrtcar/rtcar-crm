@@ -3267,6 +3267,11 @@ async function initPlataformasAnuncio(){
     // Combustivel do site (vem da Avaliacao do sistema, ou editado no admin) - 03/11/2026
     G.pf.combSite={};
     siteSnap.docs.forEach(d=>{const s=d.data();if(!s.combustivel)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=pfChavePlaca(k);if(!G.pf.combSite[k]||(s.camposBloqueados||[]).includes('combustivel'))G.pf.combSite[k]=s.combustivel;});});
+    // 0 km fora do estoque (06/11/2026): so' existe no site (admin, zeroKm) - entra
+    // aqui com a chave ZK<id do site> no lugar da placa, nunca no estoque do sistema
+    siteSnap.docs.forEach(d=>{const s=d.data();if(!s.zeroKm||s.oculto)return;const an=String(s.ano||'').split('/');
+      G.pf.veiculos.push({placa:'ZK'+d.id,zeroKm:true,zeroKmSiteId:d.id,marca:s.marca,modelo:s.modelo,versao:pfLimparVersao(s.versao,s.marca,s.modelo),preco:s.preco,km:0,anoFabricacao:an[0]||'',anoModelo:an[1]||an[0]||'',cor:s.cor,status:'0km'});
+      if(s.combustivel)G.pf.combSite['ZK'+d.id]=s.combustivel;});
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
     // Versao do site (copias do Autoconf) - sugestao quando o sistema nao tem (05/11/2026)
@@ -3307,6 +3312,7 @@ function pfLitoralStatus(v){
   const cods=new Set(noAr.map(a=>a.cod));
   const nossos=new Set(Object.values(G.pf.litoralcarMap||{}).filter(x=>x&&x.codVeiculo).map(x=>String(x.codVeiculo)));
   const nossoVivo=nosso&&cods.has(String(reg.codVeiculo));
+  if(v.zeroKm)return{st:nossoVivo?'nosso':'nao',fora:[],duplicado:false,nossoSumiu:nosso&&!nossoVivo}; // 0 km: sem placa pra casar
   const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
   const chave=pfChavePlaca(v.placa);const fim=chave.slice(-1);
   const anos=[String(v.anoModelo||v.anoFabricacao||'')].filter(Boolean); // a LitoralCar mostra o ano modelo
@@ -3324,7 +3330,7 @@ function pfChavePlaca(p){const s=String(p||'').toUpperCase().replace(/[^A-Z0-9]/
 function pfLimparVersao(vs,marca,modelo){vs=String(vs||'').trim();if(modelo&&String(modelo).trim().split(/\s+/).length>1)modelo=String(modelo).trim().split(/\s+/)[0];const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');for(const p of [marca,modelo]){const w=vs.split(/\s+/);if(p&&w.length>1&&n(w[0])===n(p))vs=w.slice(1).join(' ');}return vs.trim();}
 async function carregarStatusMercadoLivre(){
   G.pf.mlMap=null;G.pf.mlErro='';
-  try{const r=await litoralCarFetch('mercadoLivreAnunciosStatus');G.pf.mlMap={};(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
+  try{const r=await litoralCarFetch('mercadoLivreAnunciosStatus');G.pf.mlMap={};G.pf.mlLista=r.anuncios||[];(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
   catch(e){console.error(e);G.pf.mlErro=e.message||'erro';}
   renderPlataformasAnuncio();
 }
@@ -3384,7 +3390,16 @@ async function publicarPendentesMercadoLivre(btn){
   carregarStatusMercadoLivre();
 }
 window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
-function pfAnuncioML(v){return G.pf.mlMap?G.pf.mlMap[pfChavePlaca(v.placa)]||null:null;}
+function pfAnuncioML(v){
+  if(!G.pf.mlMap)return null;
+  if(v.zeroKm){ // 0 km nao tem placa: mesma marca + modelo + ano no titulo (igual ao servidor)
+    const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
+    const marca=n(v.marca),mod=n(String(v.modelo||'').split(/\s+/)[0]),ano=String(v.anoModelo||'');
+    const ls=(G.pf.mlLista||[]).filter(a=>{const t=n(a.titulo);return marca&&mod&&(n(a.marca)===marca||t.startsWith(marca))&&(n(a.modelo).startsWith(mod)||t.includes(mod))&&(!ano||t.includes(ano)||/\.\.\.$/.test(String(a.titulo||'')));});
+    return ls.find(a=>a.status==='active')||ls[0]||null;
+  }
+  return G.pf.mlMap[pfChavePlaca(v.placa)]||null;
+}
 // Versao sugerida: sistema > anuncio do ML > site. Sempre editavel antes de publicar.
 function versaoSugerida(v){
   if(String(v.versao||'').trim())return{txt:String(v.versao).trim(),fonte:'cadastro do sistema'};
@@ -3416,7 +3431,7 @@ function renderPlataformasAnuncio(){
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
-        <div style="font-size:11px;color:var(--tx3)">${v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.preco?'R$ '+v.preco:'sem preço'}</div>
+        <div style="font-size:11px;color:var(--tx3)">${v.zeroKm?'<b style="color:#1d4ed8">0 KM · fora do estoque</b>':v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.preco?'R$ '+v.preco:'sem preço'}</div>
       </div>
       <div style="font-size:10px;color:var(--tx3);background:var(--bg3);border-radius:20px;padding:3px 10px;white-space:nowrap">${publicadas}/${totalPlataformas} plataformas</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">

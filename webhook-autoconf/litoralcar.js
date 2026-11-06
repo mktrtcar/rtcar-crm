@@ -299,6 +299,8 @@ async function fotosParaVeiculo(v){
 }
 async function fotosDoProprioVeiculo(v){
   const catalogo=await catalogoSite();
+  // 0 km fora do estoque (06/11/2026): so' existe no site - fotos do proprio card
+  if(v.zeroKmSiteId){const c=catalogo.find(x=>String(x.id)===String(v.zeroKmSiteId));return(c&&c.fotos)||[];}
   // 1) Mesmo carro no site: criado pelo sistema (id = placa), vinculado no
   // admin (placaSistema) ou com placaReal informada.
   const placaAlvo=limparPlaca(v.placa);
@@ -398,6 +400,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
     const alterados=[];
     const porPlaca={};
     const escolhidosPorPlaca={};
+    let chaveAtual=''; // chave do nosso registro (placa, ou ZK<id> no 0 km sem placa)
 
     for(const v of veiculos){
       const placa=limparPlaca(v.placa);
@@ -412,7 +415,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       const fotos=await fotosParaVeiculo(v);
       const payload={
         categoria:v.categoria,marca:v.marca,modelo:v.modelo,versao:v.versao||'',
-        combustivel:v.combustivel,cor,ano,km:parseKm(v.km),placa,
+        combustivel:v.combustivel,cor,ano,km:parseKm(v.km),placa:v.zeroKmSiteId?'':placa, // 0 km: sem placa
         valor,situacao:'exibir',
       };
       if(fotos.length)payload.fotos=fotos;
@@ -426,10 +429,10 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       const mapRef=db.collection('litoralcar_veiculos').doc(placa);
       const mapSnap=await mapRef.get();
       if(mapSnap.exists&&mapSnap.data().codVeiculo){
-        alterados.push({...payload,cod_importacao:mapSnap.data().codImportacao,cod_veiculo:mapSnap.data().codVeiculo});
+        alterados.push({x:{...payload,cod_importacao:mapSnap.data().codImportacao,cod_veiculo:mapSnap.data().codVeiculo},chave:placa});
       }else{
         const codImportacao=await proximoCodImportacao();
-        novos.push({...payload,cod_importacao:codImportacao});
+        novos.push({x:{...payload,cod_importacao:codImportacao},chave:placa});
       }
     }
 
@@ -450,7 +453,7 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
       for(const item of itens){
         const vlt=item.veiculo||{};
         // Resposta de erro nao traz a placa - com 1 veiculo por chamada, e' a do lote
-        const placa=limparPlaca(vlt.placa)||(lote.length===1?limparPlaca(lote[0].placa):'');
+        const placa=chaveAtual||limparPlaca(vlt.placa)||(lote.length===1?limparPlaca(lote[0].placa):'');
         const ok=/sucesso/i.test(vlt.status||'');
         // Anuncio que sumiu da LitoralCar (excluido la', ou o codigo guardado
         // ficou velho - Tiguans, 05/11/2026): em vez de falhar, publica de novo
@@ -480,8 +483,8 @@ exports.litoralcarPublicarEstoque=onRequest({region:'southamerica-east1',cors:tr
     }
 
     // Um veiculo por chamada: varios juntos estouram o limite do header (05/11/2026)
-    for(const x of novos)await processarLote('salvar',[x]);
-    for(const x of alterados)await processarLote('alterar',[x]);
+    for(const n of novos){chaveAtual=n.chave;await processarLote('salvar',[n.x]);}
+    for(const n of alterados){chaveAtual=n.chave;await processarLote('alterar',[n.x]);}
 
     res.json({resultados});
   }catch(e){
