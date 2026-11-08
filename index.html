@@ -5325,6 +5325,66 @@ function renderImportarRel(cnt){
   `;
   cnt.appendChild(wrap);
 }
+/* Pedido x recebido de Feedback e Indicacao (08/11/2026, Aline): no detalhe do
+   cliente o antigo Sim/Nao virou Pedi / Deu / Nao deu, guardando quando ela
+   pediu (<campo>PedidoEm). NPS e indicacao lancados ficam ligados ao cliente
+   (relId - escolhido na lista, ou achado pelo telefone/nome) e marcam "Deu"
+   sozinhos, pra nunca ter recebido sem pedido. */
+const REL_CAMPOS_FB=['feedbackGeral','feedback1ano','feedback2anos','feedback3anos','feedback4anos'];
+const REL_CAMPOS_IND=['indicacaoGeral','indicacao1ano','indicacao2anos','indicacao3anos','indicacao4anos'];
+const REL_MOMENTO={Geral:'7 dias / outros','1ano':'Visita 1 ano','2anos':'Visita 2 anos','3anos':'3 anos','4anos':'4 anos'};
+function relHojeISO(){return new Date().toISOString().split('T')[0];}
+function relNorm(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+function relClientePorTel(tel){const k=String(tel||'').replace(/\D/g,'').slice(-8);if(k.length<8)return null;const ls=G.rel.clientes.filter(c=>String(c.clienteTel||'').replace(/\D/g,'').slice(-8)===k);return ls.length===1?ls[0]:null;}
+function relClientePorNome(nome){const n=relNorm(nome);if(n.length<4)return null;let ls=G.rel.clientes.filter(c=>relNorm(c.clienteNome)===n);if(!ls.length)ls=G.rel.clientes.filter(c=>{const cn=relNorm(c.clienteNome);return cn.length>=4&&(n.startsWith(cn+' ')||cn.startsWith(n+' '));});return ls.length===1?ls[0]:null;}
+function relClienteDoRegistro(r,tipo){if(r.relId){const c=G.rel.clientes.find(x=>x.id===r.relId);if(c)return c;}return tipo==='nps'?(relClientePorTel(r.tel)||relClientePorNome(r.nome)):relClientePorNome(r.indicadoPor);}
+function toggleIFRel(c,campo,label,icone){
+  const val=c[campo];const ped=c[campo+'PedidoEm'];
+  const est=[['pedido','📨 Pedi','#e8f0fb','#1e4d8c'],['sim','✅ Deu','#e8f5ee','#1a6b3c'],['nao','❌ Não deu','#fff0ec','#e8431e']];
+  return `<div style="margin:6px 0 2px">
+    <div style="font-size:10px;color:var(--tx3);margin-bottom:4px">${icone} ${label}${ped?` · pedido em ${isoParaBR(ped)}`:''}:</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">${est.map(([v,t,bg,cor])=>`<button class="card-btn card-btn-label" onclick="setIFRel('${c.id}','${campo}','${v}',event)" style="${val===v?`background:${bg};color:${cor};border-color:${cor};font-weight:600`:''}">${t}</button>`).join('')}</div>
+  </div>`;
+}
+async function setIFRel(id,campo,valor,e){
+  if(e)e.stopPropagation();
+  const c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
+  const hj=relHojeISO();
+  c[campo]=c[campo]===valor?'':valor;
+  const campos={[campo]:c[campo]};
+  if(c[campo]){if(!c[campo+'PedidoEm']){c[campo+'PedidoEm']=hj;campos[campo+'PedidoEm']=hj;}}
+  else{c[campo+'PedidoEm']='';campos[campo+'PedidoEm']='';}
+  c[campo+'Data']=c[campo]==='sim'?(c[campo+'Data']||hj):'';campos[campo+'Data']=c[campo+'Data'];
+  if(fbOk())await salvarCamposRel(id,campos);
+  renderRelacionamento();
+}
+// recebido (NPS / indicacao lancada) -> marca "Deu" no cliente, com pedido na mesma data se nao tinha
+async function relMarcarRecebido(c,tipo){
+  if(!c)return;
+  const col=colAtualRel(c);const campo=camposIndicFeedbackRel(col)[tipo==='nps'?'fb':'ind'];
+  if(c[campo]==='sim')return;
+  const hj=relHojeISO();
+  const campos={[campo]:'sim',[campo+'Data']:hj};if(!c[campo+'PedidoEm'])campos[campo+'PedidoEm']=hj;
+  Object.assign(c,campos);
+  try{if(fbOk())await salvarCamposRel(c.id,campos);}catch(e){console.warn(e);}
+}
+// lista de clientes no modal de NPS / indicacao (o HTML do modal vem de fora no sistema principal)
+function relInjetarPicker(antesDeId,pickerId,rotulo,aoEscolher){
+  const ref=document.getElementById(antesDeId);if(!ref)return;
+  let inp=document.getElementById(pickerId);
+  if(!inp){
+    const campo=ref.closest('.field')||ref.parentNode;
+    const div=document.createElement('div');div.className='field';
+    div.innerHTML=`<label>${rotulo}</label><input id="${pickerId}" list="${pickerId}-dl" placeholder="Digite o nome do cliente…" autocomplete="off"><datalist id="${pickerId}-dl"></datalist>`;
+    campo.parentNode.insertBefore(div,campo);
+    inp=document.getElementById(pickerId);
+    inp.addEventListener('change',()=>{const m=inp.value.match(/(REL-\d+)\s*$/);const c=m&&G.rel.clientes.find(x=>x.id===m[1]);inp.dataset.relId=c?c.id:'';if(c)aoEscolher(c);});
+  }
+  document.getElementById(pickerId+'-dl').innerHTML=G.rel.clientes.filter(c=>c.st!=='perdido').map(c=>`<option value="${String(c.clienteNome||'').replace(/"/g,'')} — ${c.id}"></option>`).join('');
+  inp.value='';inp.dataset.relId='';
+  return inp;
+}
+function relPickerValor(pickerId,relIdAtual){const inp=document.getElementById(pickerId);if(!inp)return relIdAtual||'';const m=inp.value.match(/(REL-\d+)\s*$/);return m?m[1]:(inp.value.trim()?'':(relIdAtual||''));}
 function camposIndicFeedbackRel(col){
   const base=col.baseId||col.id;
   if(base==='d1ano')return{ind:'indicacao1ano',fb:'feedback1ano'};
@@ -5494,7 +5554,7 @@ function renderDashboardRel(cnt){
   // Relacionamento nao carrega o Funil) e ficam em cache ate o F5.
   if(G.rel._recompraLeads===undefined&&!G.rel.modoDemo&&typeof db!=='undefined'){
     G.rel._recompraLeads=null;
-    Promise.all([db.collection('leads').where('captadorReplicado','==','Milena').get(),db.collection('leads').where('origem','==','Relacionamento').get()])
+    Promise.all([db.collection('leads').where('captadorReplicado','==','Milena').get(),db.collection('leads').where('origem','==','Relacionamento').get(),db.collection('leads').where('origem','==','Recompra').get()])
       .then(rs=>{const m={};rs.forEach(r=>r.docs.forEach(d=>{m[d.id]={id:d.id,...d.data()};}));G.rel._recompraLeads=Object.values(m);if(G.rel.view==='dashboard')renderRelacionamento();})
       .catch(e=>{console.warn('recompra',e);G.rel._recompraLeads=[];});
   }
@@ -5525,17 +5585,39 @@ function renderDashboardRel(cnt){
   const acoesNoPeriodo=re=>{let n=0;G.rel.clientes.forEach(c=>{if((c.historico||[]).some(h=>re.test(h.acao||'')&&noPeriodo(brISO(h.dt))))n++;});return n;};
   const convCesta=acoesNoPeriodo(/Avançou para 1 ano enviado/);
   const convVitri=acoesNoPeriodo(/Avançou para 2 anos enviado/);
-  const pedFeedback=acoesNoPeriodo(/Feedback solicitado/);
-  const pedIndicacao=acoesNoPeriodo(/Indicação solicitada/);
+  // Pedidos (08/11/2026): cliente com Pedi/Deu/Nao deu marcado no periodo, ou
+  // "Feedback/Indicacao solicitado" no Registrar; NPS/indicacao recebido no
+  // periodo de cliente que nao tem pedido marcado tambem conta como pedido
+  // (lancamentos antigos) - assim pedidos nunca fica menor que recebidos.
+  function funilIF(campos,reHist,recs,tipo){
+    const set=new Set();const mom={};
+    G.rel.clientes.forEach(c=>{
+      let ok=false;
+      campos.forEach(f=>{const d=c[f+'PedidoEm']||(c[f]==='sim'?c[f+'Data']:'');if(c[f]&&noPeriodo(d)){ok=true;const k=REL_MOMENTO[f.replace(/^(feedback|indicacao)/,'')]||'outros';mom[k]=(mom[k]||0)+1;}});
+      if(!ok&&(c.historico||[]).some(h=>reHist.test(h.acao||'')&&noPeriodo(brISO(h.dt)))){ok=true;mom['Registrar']=(mom['Registrar']||0)+1;}
+      if(ok)set.add(c.id);
+    });
+    let extra=0,semCli=0;recs.forEach(r=>{const c=relClienteDoRegistro(r,tipo);if(!c){extra++;semCli++;}else if(!set.has(c.id)){extra++;set.add(c.id);}});
+    if(extra)mom['lançados sem pedido marcado']=extra;
+    return{n:set.size+semCli,mom};
+  }
+  const npsPer=G.rel.nps.filter(n=>dentroDoMes(n.dt));
+  const indPer=G.rel.indicacoes.filter(n=>dentroDoMes(n.dt));
+  const fFb=funilIF(REL_CAMPOS_FB,/Feedback solicitado/,npsPer,'nps');
+  const fInd=funilIF(REL_CAMPOS_IND,/Indicação solicitada/,indPer,'ind');
+  const momTxt=f=>Object.entries(f.mom).map(([k,v])=>k+': '+v).join(' · ');
+  const pedFeedback=fFb.n;
+  const pedIndicacao=fInd.n;
   const bigCard=(val,label,sub,cor,bg)=>`<div style="background:${bg};border:1px solid var(--bdr);border-top:4px solid ${cor};border-radius:var(--r2);padding:22px 14px;text-align:center">
       <div style="font-size:42px;font-weight:700;line-height:1;color:${cor}">${val}</div>
       <div style="font-size:15px;font-weight:700;color:${cor};margin-top:10px">${label}</div>
       <div style="font-size:12px;color:var(--tx2);margin-top:2px">${sub}</div>
     </div>`;
-  const acao=(emoji,label,n,res,resLabel,cor)=>{const pct=n?Math.min(100,Math.round(res/n*100)):0;return `<div style="background:var(--bg3);border-radius:var(--r2);padding:12px 14px">
+  const acao=(emoji,label,n,res,resLabel,cor,det)=>{const pct=n?Math.min(100,Math.round(res/n*100)):0;return `<div style="background:var(--bg3);border-radius:var(--r2);padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:12.5px;font-weight:600;color:${cor}">${emoji} ${label}</span><strong style="font-size:22px;color:${cor}">${n}</strong></div>
       <div style="font-size:11px;color:var(--tx3);margin:2px 0 6px">${resLabel}: <b>${res}</b>${n?` (${pct}%)`:''}</div>
       <div style="height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>
+      ${det?`<div style="font-size:10.5px;color:var(--tx3);margin-top:6px">${det}</div>`:''}
     </div>`;};
   cnt.innerHTML=`
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px">
@@ -5555,10 +5637,10 @@ function renderDashboardRel(cnt){
       <div style="font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px">
         <i class="ti ti-chart-bar" style="color:var(--purple)"></i> Acompanhamento de Ações
       </div>
-      <div style="font-size:11.5px;color:var(--tx3);margin-bottom:14px">Quantos clientes a Milena acionou no período. Convites contam quando o card vai pra "1 ano enviado" / "2 anos enviado"; feedback e indicação contam pelo botão Registrar do cliente.</div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-bottom:14px">Quantos clientes a Milena acionou no período. Convites contam quando o card vai pra "1 ano enviado" / "2 anos enviado". Feedback e indicação: Pedi / Deu / Não deu no cliente (e NPS ou indicação lançado conta como pedido também).</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-        ${acao('💬','Feedback solicitado',pedFeedback,npsMes,'NPS recebidos','#1e4d8c')}
-        ${acao('🤝','Indicação solicitada',pedIndicacao,indicacoesMes,'Indicações recebidas','#1a6b3c')}
+        ${acao('💬','Feedback – pedidos',pedFeedback,npsMes,'NPS recebidos','#1e4d8c',momTxt(fFb))}
+        ${acao('🤝','Indicação – pedidos',pedIndicacao,indicacoesMes,'Indicações recebidas','#1a6b3c',momTxt(fInd))}
         ${acao('🎁','Convite Cesta enviado',convCesta,visitas1anoMes,'Cestas retiradas','#6b3db8')}
         ${acao('✨','Convite Vitrificação enviado',convVitri,vitrificacoesMes,'Vitrificações feitas','#0b7ba8')}
       </div>
@@ -5690,6 +5772,8 @@ function abrirModalNps(id=null){
   document.getElementById('rc-nps-nome').value=n?.nome||'';
   document.getElementById('rc-nps-tel').value=n?.tel||'';
   document.getElementById('rc-nps-obs').value=n?.obs||'';
+  const pk=relInjetarPicker('rc-nps-nome','rc-nps-cli','Cliente do Relacionamento (quem deu o feedback)',c=>{document.getElementById('rc-nps-nome').value=c.clienteNome||'';if(c.clienteTel)document.getElementById('rc-nps-tel').value=c.clienteTel;});
+  if(pk&&n?.relId){const c=G.rel.clientes.find(x=>x.id===n.relId);if(c){pk.value=`${c.clienteNome} — ${c.id}`;pk.dataset.relId=c.id;}}
   document.getElementById('btn-salvar-nps-txt').textContent=id?'Salvar Alterações':'Salvar';
   document.getElementById('ov-nps').classList.remove('hidden');setTimeout(()=>document.getElementById('rc-nps-nome').focus(),50);
 }
@@ -5698,9 +5782,11 @@ async function salvarNps(){
   if(!nome){toast('Informe o nome','red');return;}
   const btn=document.getElementById('btn-salvar-nps');btn.disabled=true;document.getElementById('btn-salvar-nps-txt').innerHTML='<span class="spin"></span>';
   const data={nome,tel:document.getElementById('rc-nps-tel').value.trim(),obs:document.getElementById('rc-nps-obs').value.trim()};
+  { const ant=G.rel.editandoNpsId?G.rel.nps.find(x=>x.id===G.rel.editandoNpsId):null; let rid=relPickerValor('rc-nps-cli',ant?.relId); if(!rid){const c=relClientePorTel(data.tel)||relClientePorNome(nome);if(c)rid=c.id;} data.relId=rid||''; }
   try{
     if(G.rel.editandoNpsId){Object.assign(G.rel.nps.find(x=>x.id===G.rel.editandoNpsId),data);if(!G.rel.modoDemo)await fbUpdate('nps_rel',G.rel.editandoNpsId,data);toast('Registro atualizado!');}
     else{const id=await proximoId('NPS',G.rel.nps,'rel_config/seq','npsSeq');const n={id,dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.nps.push(n);if(!G.rel.modoDemo)await fbCreate('nps_rel',id,n);toast(`${nome} adicionado ao NPS!`);}
+    if(data.relId)await relMarcarRecebido(G.rel.clientes.find(x=>x.id===data.relId),'nps');
     fecharModal('ov-nps');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-nps-txt').textContent=G.rel.editandoNpsId?'Salvar Alterações':'Salvar';}
@@ -5719,6 +5805,8 @@ function abrirModalIndicacao(id=null){
   document.getElementById('ri-tel').value=n?.telIndicado||'';
   document.getElementById('ri-por').value=n?.indicadoPor||'';
   document.getElementById('ri-obs').value=n?.obs||'';
+  const pk=relInjetarPicker('ri-por','ri-por-cli','Cliente que indicou (do Relacionamento)',c=>{document.getElementById('ri-por').value=c.clienteNome||'';});
+  if(pk&&n?.relId){const c=G.rel.clientes.find(x=>x.id===n.relId);if(c){pk.value=`${c.clienteNome} — ${c.id}`;pk.dataset.relId=c.id;}}
   document.getElementById('btn-salvar-ind-txt').textContent=id?'Salvar Alterações':'Salvar';
   document.getElementById('ov-ind').classList.remove('hidden');setTimeout(()=>document.getElementById('ri-nome').focus(),50);
 }
@@ -5727,9 +5815,11 @@ async function salvarIndicacao(){
   if(!nomeIndicado){toast('Informe o nome indicado','red');return;}
   const btn=document.getElementById('btn-salvar-ind');btn.disabled=true;document.getElementById('btn-salvar-ind-txt').innerHTML='<span class="spin"></span>';
   const data={nomeIndicado,telIndicado:document.getElementById('ri-tel').value.trim(),indicadoPor:document.getElementById('ri-por').value.trim(),obs:document.getElementById('ri-obs').value.trim()};
+  { const ant=G.rel.editandoIndId?G.rel.indicacoes.find(x=>x.id===G.rel.editandoIndId):null; let rid=relPickerValor('ri-por-cli',ant?.relId); if(!rid){const c=relClientePorNome(data.indicadoPor);if(c)rid=c.id;} data.relId=rid||''; }
   try{
     if(G.rel.editandoIndId){Object.assign(G.rel.indicacoes.find(x=>x.id===G.rel.editandoIndId),data);if(!G.rel.modoDemo)await fbUpdate('indicacoes_rel',G.rel.editandoIndId,data);toast('Indicação atualizada!');}
     else{const id=await proximoId('IND',G.rel.indicacoes,'rel_config/seq','indSeq');const n={id,tag:'',dt:new Date().toISOString().split('T')[0],by:G.user?.n||'',...data};G.rel.indicacoes.push(n);if(!G.rel.modoDemo)await fbCreate('indicacoes_rel',id,n);toast(`${nomeIndicado} adicionado!`);}
+    if(data.relId)await relMarcarRecebido(G.rel.clientes.find(x=>x.id===data.relId),'ind');
     fecharModal('ov-ind');renderRelacionamento();
   }catch(e){console.error(e);toast('Erro ao salvar','red');}
   finally{btn.disabled=false;document.getElementById('btn-salvar-ind-txt').textContent=G.rel.editandoIndId?'Salvar Alterações':'Salvar';}
@@ -5924,7 +6014,7 @@ function abrirDetailCliente(id){
         </div>
         ${c.obs?`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--tx2);line-height:1.6;margin-top:8px;white-space:pre-wrap">${c.obs}</div>`:''}
       </div>
-      ${col.id!=='perdido'?`<div class="d-section"><div class="d-section-title">Indicação e Feedback</div>${toggleSimNaoRel(c,camposIndicFeedbackRel(col).ind,'Indicação','🤝')}${toggleSimNaoRel(c,camposIndicFeedbackRel(col).fb,'Feedback','💬')}${toggleSimNaoRel(c,'recompra','Recompra','🔁')}</div>`:''}
+      ${col.id!=='perdido'?`<div class="d-section"><div class="d-section-title">Indicação e Feedback</div>${toggleIFRel(c,camposIndicFeedbackRel(col).ind,'Indicação','🤝')}${toggleIFRel(c,camposIndicFeedbackRel(col).fb,'Feedback','💬')}${toggleSimNaoRel(c,'recompra','Recompra','🔁')}</div>`:''}
       <div class="d-section"><div class="d-section-title">Mover na jornada</div><div class="col-select">${movBtns}</div></div>
       <div class="d-section"><div class="d-section-title">Histórico (${hist.length})</div>${histHtml}</div>
     </div>
