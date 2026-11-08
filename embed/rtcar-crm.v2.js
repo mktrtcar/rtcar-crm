@@ -2475,105 +2475,27 @@ function renderDashboardRel(cnt){
   const indCompareceuMes=G.rel.indicacoes.filter(n=>n.tag==='compareceu'&&dentroDoMes(n.dt)).length;
   const indNaoCompareceuMes=G.rel.indicacoes.filter(n=>n.tag==='nao_compareceu'&&dentroDoMes(n.dt)).length;
 
+  // 08/11/2026 (Aline): dashboard da Milena enxuto - so' os 4 numeros do
+  // periodo escolhido no filtro de datas (sem datas = mes atual). O resto
+  // (etapas, barras, sim/nao por marco, aniversarios) saiu por ficar confuso.
+  const bigCard=(val,label,sub,cor,bg)=>`<div style="background:${bg};border:1px solid var(--bdr);border-radius:var(--r2);padding:22px 14px;text-align:center">
+      <div style="font-size:40px;font-weight:700;line-height:1;color:${cor}">${val}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--tx);margin-top:8px">${label}</div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:2px">${sub}</div>
+    </div>`;
   cnt.innerHTML=`
-    <!-- KPIs do mês (Milena) -->
-    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-calendar-stats" style="color:var(--purple)"></i> Este mês
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-calendar-stats" style="color:var(--purple)"></i> ${tituloPeriodo}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
-        ${kpiCard(visitas1anoMes,'🎁 Visitas 1 ano','#6b3db8','#f3e8fb')}
-        ${kpiCard(indicacoesMes,'🤝 Indicações','#1a6b3c','#e8f5ee')}
-        ${kpiCard(npsMes,'💬 NPS (feedbacks)','#1e4d8c','#e8f0fb')}
-        ${kpiCard(vitrificacoesMes,'✨ Vitrificações','#0b7ba8','#e8f8fb')}
-      </div>
-    </div>
-
-    <!-- Contagem NPS e Indicações — colunas do Jornada (Milena) -->
-    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-clipboard-list" style="color:var(--purple)"></i> NPS e Indicações (colunas do Jornada)
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
-        ${kpiCard(npsHoje,'📊 NPS pedidos hoje','#0b7ba8','#e8f8fb')}
-        ${kpiCard(npsMesRegistrado,'📊 NPS pedidos no mês','#0b7ba8','#e8f8fb')}
-        ${kpiCard(indHoje,'🎯 Indicações hoje','#c2185b','#fde8f0')}
-        ${kpiCard(indMesRegistrado,'🎯 Indicações no mês','#c2185b','#fde8f0')}
-        ${kpiCard(indCompareceuMes,'✅ Compareceram no mês','#1a6b3c','#e8f5ee')}
-        ${kpiCard(indNaoCompareceuMes,'❌ Não compareceram no mês','#e8431e','#fff0ec')}
+      <div style="font-size:11.5px;color:var(--tx3);margin-bottom:14px">Escolha as datas no topo pra ver outro período.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+        ${bigCard(npsMes,'💬 Feedback','NPS','#1e4d8c','#e8f0fb')}
+        ${bigCard(indicacoesMes,'🤝 Indicação','Indicações','#1a6b3c','#e8f5ee')}
+        ${bigCard(visitas1anoMes,'🎁 Cesta','Visita 1 ano','#6b3db8','#f3e8fb')}
+        ${bigCard(vitrificacoesMes,'✨ Vitrificação','Visita 2 anos','#0b7ba8','#e8f8fb')}
       </div>
     </div>
-
-    <!-- KPIs totais -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
-      ${kpiCard(total,'Total de Clientes','var(--red)','')}
-      ${COLS_REL.filter(c=>!['aniversario','d3anos','d4anos'].includes(c.id)).map(c=>kpiCard(porEtapa[c.id]||0,c.emoji+' '+c.label,c.cor,c.bg)).join('')}
-      ${kpiCard(anivProximos.length,'🎂 Aniv. 30 dias','#b8860b','#fff8e1')}
-      ${kpiCard(recompras,'🔁 Recompras','var(--purple)','var(--purplel)')}
-    </div>
-
-    <!-- Acompanhamento de mensagens -->
-    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-chart-bar" style="color:var(--purple)"></i> Acompanhamento de Ações por Etapa
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-        <!-- 7 dias -->
-        <div>
-          <div style="font-size:12px;font-weight:600;color:#1e4d8c;margin-bottom:8px">💬 7 dias (${d7total} clientes)</div>
-          <div style="display:flex;justify-content:space-between;font-size:11px"><span>Mensagem enviada</span><span style="font-weight:600">${d7env}/${d7total}</span></div>
-          ${barFill(d7env,d7total,'#1e4d8c')}
-          <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span>Feedback recebido</span><span style="font-weight:600">${d7rec}/${d7total}</span></div>
-          ${barFill(d7rec,d7total,'#1a6b3c')}
-        </div>
-        <!-- 90 dias -->
-        <div>
-          <div style="font-size:12px;font-weight:600;color:#b8860b;margin-bottom:8px">🔧 90 dias (${d90total} clientes)</div>
-          <div style="display:flex;justify-content:space-between;font-size:11px"><span>Aviso de garantia enviado</span><span style="font-weight:600">${d90env}/${d90total}</span></div>
-          ${barFill(d90env,d90total,'#b8860b')}
-        </div>
-      </div>
-    </div>
-
-    <!-- Visitas -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-      ${visitaCard('🎁','Cesta 1 ano',v1total,v1real,v1nao,'#6b3db8')}
-      ${visitaCard('✨','Vitrificação 2 anos',v2total,v2real,v2nao,'#0b7ba8')}
-    </div>
-
-    <!-- Indicações e Feedback (KPIs Milena) -->
-    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-thumb-up" style="color:var(--purple)"></i> Indicações e Feedback por Marco
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-        ${simNaoCard('🤝 Indicação · 1 ano',ind1.sim,ind1.nao)}
-        ${simNaoCard('💬 Feedback · 1 ano',fb1.sim,fb1.nao)}
-        ${simNaoCard('🤝 Indicação · 2 anos',ind2.sim,ind2.nao)}
-        ${simNaoCard('💬 Feedback · 2 anos',fb2.sim,fb2.nao)}
-        ${simNaoCard('🤝 Indicação · Geral',indG.sim,indG.nao)}
-        ${simNaoCard('💬 Feedback · Geral',fbG.sim,fbG.nao)}
-      </div>
-    </div>
-
-    <!-- Aniversários próximos -->
-    ${anivProximos.length?`
-    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-cake" style="color:#b8860b"></i> Aniversários nos próximos 30 dias
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
-        ${anivProximos.map(c=>`
-        <div style="background:${c._dias<=7?'#fff8e1':'var(--bg3)'};border:1px solid ${c._dias<=7?'#f0c040':'var(--bdr)'};border-radius:var(--r2);padding:10px 12px;display:flex;gap:10px;align-items:center">
-          <div style="font-size:22px">🎂</div>
-          <div>
-            <div style="font-size:12px;font-weight:500">${c.clienteNome||'—'}</div>
-            <div style="font-size:11px;color:var(--tx3)">${c._dias===0?'Hoje!':c._dias===1?'Amanhã':'Em '+c._dias+' dias'}</div>
-            <div style="font-size:11px;color:var(--tx3)">${c.responsavel||'—'}</div>
-          </div>
-        </div>`).join('')}
-      </div>
-    </div>`:''}
   `;
 }
 
