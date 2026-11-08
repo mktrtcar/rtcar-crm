@@ -5500,14 +5500,26 @@ function renderDashboardRel(cnt){
   const indCompareceuMes=G.rel.indicacoes.filter(n=>n.tag==='compareceu'&&dentroDoMes(n.dt)).length;
   const indNaoCompareceuMes=G.rel.indicacoes.filter(n=>n.tag==='nao_compareceu'&&dentroDoMes(n.dt)).length;
 
-  // 08/11/2026 (Aline): dashboard da Milena enxuto - so' os 4 numeros do
-  // periodo escolhido no filtro de datas (sem datas = mes atual). O resto
-  // (etapas, barras, sim/nao por marco, aniversarios) saiu por ficar confuso.
-  const bigCard=(val,label,sub,cor,bg)=>`<div style="background:${bg};border:1px solid var(--bdr);border-radius:var(--r2);padding:22px 14px;text-align:center">
-      <div style="font-size:40px;font-weight:700;line-height:1;color:${cor}">${val}</div>
-      <div style="font-size:14px;font-weight:600;color:var(--tx);margin-top:8px">${label}</div>
-      <div style="font-size:11.5px;color:var(--tx3);margin-top:2px">${sub}</div>
+  // 08/11/2026 (Aline): dashboard da Milena enxuto - 4 quadros grandes com o
+  // resultado do periodo escolhido (sem datas = mes atual) + o acompanhamento
+  // das 4 acoes que ela faz (convite cesta, convite vitrificacao, pedido de
+  // feedback, pedido de indicacao). O resto saiu por ficar confuso.
+  const brISO=d=>{const m=String(d||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+'-'+m[2]+'-'+m[1]:'';};
+  const acoesNoPeriodo=re=>{let n=0;G.rel.clientes.forEach(c=>{if((c.historico||[]).some(h=>re.test(h.acao||'')&&noPeriodo(brISO(h.dt))))n++;});return n;};
+  const convCesta=acoesNoPeriodo(/Avançou para 1 ano enviado/);
+  const convVitri=acoesNoPeriodo(/Avançou para 2 anos enviado/);
+  const pedFeedback=acoesNoPeriodo(/Feedback solicitado/);
+  const pedIndicacao=acoesNoPeriodo(/Indicação solicitada/);
+  const bigCard=(val,label,sub,cor,bg)=>`<div style="background:${bg};border:1px solid var(--bdr);border-top:4px solid ${cor};border-radius:var(--r2);padding:22px 14px;text-align:center">
+      <div style="font-size:42px;font-weight:700;line-height:1;color:${cor}">${val}</div>
+      <div style="font-size:15px;font-weight:700;color:${cor};margin-top:10px">${label}</div>
+      <div style="font-size:12px;color:var(--tx2);margin-top:2px">${sub}</div>
     </div>`;
+  const acao=(emoji,label,n,res,resLabel,cor)=>{const pct=n?Math.min(100,Math.round(res/n*100)):0;return `<div style="background:var(--bg3);border-radius:var(--r2);padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:12.5px;font-weight:600;color:${cor}">${emoji} ${label}</span><strong style="font-size:22px;color:${cor}">${n}</strong></div>
+      <div style="font-size:11px;color:var(--tx3);margin:2px 0 6px">${resLabel}: <b>${res}</b>${n?` (${pct}%)`:''}</div>
+      <div style="height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>
+    </div>`;};
   cnt.innerHTML=`
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px">
@@ -5515,10 +5527,22 @@ function renderDashboardRel(cnt){
       </div>
       <div style="font-size:11.5px;color:var(--tx3);margin-bottom:14px">Escolha as datas no topo pra ver outro período.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-        ${bigCard(npsMes,'💬 Feedback','NPS','#1e4d8c','#e8f0fb')}
-        ${bigCard(indicacoesMes,'🤝 Indicação','Indicações','#1a6b3c','#e8f5ee')}
-        ${bigCard(visitas1anoMes,'🎁 Cesta','Visita 1 ano','#6b3db8','#f3e8fb')}
-        ${bigCard(vitrificacoesMes,'✨ Vitrificação','Visita 2 anos','#0b7ba8','#e8f8fb')}
+        ${bigCard(npsMes,'💬 Feedback – NPS','recebidos no período','#1e4d8c','#e8f0fb')}
+        ${bigCard(indicacoesMes,'🤝 Indicação','recebidas no período','#1a6b3c','#e8f5ee')}
+        ${bigCard(visitas1anoMes,'🎁 Cesta – Visita 1 ano','retiradas no período','#6b3db8','#f3e8fb')}
+        ${bigCard(vitrificacoesMes,'✨ Vitrificação – Visita 2 anos','feitas no período','#0b7ba8','#e8f8fb')}
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-chart-bar" style="color:var(--purple)"></i> Acompanhamento de Ações
+      </div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-bottom:14px">Quantos clientes a Milena acionou no período. Convites contam quando o card vai pra "1 ano enviado" / "2 anos enviado"; feedback e indicação contam pelo botão Registrar do cliente.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+        ${acao('💬','Feedback solicitado',pedFeedback,npsMes,'NPS recebidos','#1e4d8c')}
+        ${acao('🤝','Indicação solicitada',pedIndicacao,indicacoesMes,'Indicações recebidas','#1a6b3c')}
+        ${acao('🎁','Convite Cesta enviado',convCesta,visitas1anoMes,'Cestas retiradas','#6b3db8')}
+        ${acao('✨','Convite Vitrificação enviado',convVitri,vitrificacoesMes,'Vitrificações feitas','#0b7ba8')}
       </div>
     </div>
   `;
@@ -5800,7 +5824,8 @@ async function excluirIndicacao(id){
   try{if(!G.rel.modoDemo)await db.collection('indicacoes_rel').doc(id).delete();}catch(e){console.error(e);}
   toast('Indicação removida');renderRelacionamento();
 }
-function abrirModalInt(id){G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);document.getElementById('int-titulo').textContent=`Registrar — ${c?.clienteNome||id}`;document.getElementById('int-tipo').value='📞 Ligação realizada';document.getElementById('int-obs').value='';document.getElementById('ov-int').classList.remove('hidden');setTimeout(()=>document.getElementById('int-obs').focus(),50);}
+function relGarantirOpcoesInt(){const s=document.getElementById('int-tipo');if(!s)return;['💬 Feedback solicitado','🤝 Indicação solicitada'].forEach((t,i)=>{if(![...s.options].some(o=>o.text===t)){const o=document.createElement('option');o.text=t;s.insertBefore(o,s.options[2+i]||null);}});}
+function abrirModalInt(id){relGarantirOpcoesInt();G.rel.detailId=id;const c=G.rel.clientes.find(x=>x.id===id);document.getElementById('int-titulo').textContent=`Registrar — ${c?.clienteNome||id}`;document.getElementById('int-tipo').value='📞 Ligação realizada';document.getElementById('int-obs').value='';document.getElementById('ov-int').classList.remove('hidden');setTimeout(()=>document.getElementById('int-obs').focus(),50);}
 async function salvarInteracao(){
   const id=G.rel.detailId,c=G.rel.clientes.find(x=>x.id===id);if(!c)return;
   const tipo=document.getElementById('int-tipo').value,obs=document.getElementById('int-obs').value.trim();
