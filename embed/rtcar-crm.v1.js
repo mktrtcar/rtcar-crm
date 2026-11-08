@@ -4998,6 +4998,23 @@ function renderDashboardRel(cnt){
   function contarMes(campo){return clis.filter(c=>c[campo]==='sim'&&dentroDoMes(c[campo+'Data'])).length;}
   const visitas1anoMes=clis.filter(c=>c.visita1ano==='realizada'&&dentroDoMes(c.visita1anoData)).length;
   const vitrificacoesMes=clis.filter(c=>c.visita2anos==='realizada'&&dentroDoMes(c.visita2anosData)).length;
+  // Recompra (08/11/2026, Aline): venda no periodo que conta tambem pro
+  // Relacionamento - lead do Funil com a Milena junto (Replicar, ex.: Amanda
+  // LEAD-1261 com o Janderson) ou de origem Relacionamento - mais cliente
+  // marcado "Recompra: Sim" no card. Os leads vem do banco (o modulo de
+  // Relacionamento nao carrega o Funil) e ficam em cache ate o F5.
+  if(G.rel._recompraLeads===undefined&&!G.rel.modoDemo&&typeof db!=='undefined'){
+    G.rel._recompraLeads=null;
+    Promise.all([db.collection('leads').where('captadorReplicado','==','Milena').get(),db.collection('leads').where('origem','==','Relacionamento').get()])
+      .then(rs=>{const m={};rs.forEach(r=>r.docs.forEach(d=>{m[d.id]={id:d.id,...d.data()};}));G.rel._recompraLeads=Object.values(m);if(G.rel.view==='dashboard')renderRelacionamento();})
+      .catch(e=>{console.warn('recompra',e);G.rel._recompraLeads=[];});
+  }
+  const brParaISO2=d=>{const m=String(d||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+'-'+m[2]+'-'+m[1]:'';};
+  const telK=t=>String(t||'').replace(/\D/g,'').slice(-8);
+  const recompraLista=[];const _vistos=new Set();
+  (G.rel._recompraLeads||[]).filter(l=>l.st==='vendido'&&noPeriodo(brParaISO2(l.dtVenda))).forEach(l=>{_vistos.add(telK(l.clienteTel)||l.id);recompraLista.push(`${l.clienteNome||l.id}${l.veiculo?' ('+l.veiculo+')':''}${l.captador&&l.captador!=='Milena'?' · com '+l.captador:''}`);});
+  clis.filter(c=>c.recompra==='sim'&&noPeriodo(c.recompraData)&&!_vistos.has(telK(c.clienteTel)||c.id)).forEach(c=>recompraLista.push(c.clienteNome||c.id));
+  const recomprasPer=recompraLista.length;
   // Indicacoes e NPS vem das colunas do Jornada (onde a equipe registra de fato)
   const indicacoesMes=G.rel.indicacoes.filter(n=>dentroDoMes(n.dt)).length;
   const npsMes=G.rel.nps.filter(n=>dentroDoMes(n.dt)).length;
@@ -5042,6 +5059,7 @@ function renderDashboardRel(cnt){
         ${bigCard(indicacoesMes,'🤝 Indicação','recebidas no período','#1a6b3c','#e8f5ee')}
         ${bigCard(visitas1anoMes,'🎁 Cesta – Visita 1 ano','retiradas no período','#6b3db8','#f3e8fb')}
         ${bigCard(vitrificacoesMes,'✨ Vitrificação – Visita 2 anos','feitas no período','#0b7ba8','#e8f8fb')}
+        ${bigCard(G.rel._recompraLeads===null?'…':recomprasPer,'🔁 Recompra',recompraLista.length?recompraLista.join(' · '):'vendas no período','#b8860b','#fff8e1')}
       </div>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:18px">
