@@ -652,14 +652,23 @@ const COLS_REL=[
 
 
 /* COLUNAS WORKSHOP */
+// Ordem combinada com a Aline em 08/11/2026: assim da' pra ver quem recebeu o
+// convite e ainda nao respondeu (fica parado em "Convite enviado").
+// Os ids antigos continuam (convidado/contato_feito/presente/nao_compareceu) pra
+// nao sumir ninguem; "Feedback" deixou de existir e esses cards aparecem em
+// "Compareceu" (alias).
 const COLS_WS=[
-  {id:'convidado',label:'Convidado',emoji:'🎯',cor:'#4a4a4a',bg:'#f0f0f0'},
-  {id:'contato_feito',label:'Contato Feito',emoji:'📲',cor:'#1e4d8c',bg:'#e8f0fb'},
-  {id:'confirmado',label:'Confirmado',emoji:'✅',cor:'#1a6b3c',bg:'#e8f5ee'},
-  {id:'presente',label:'Presente',emoji:'🏆',cor:'#b8860b',bg:'#faf6e8'},
-  {id:'nao_compareceu',label:'Não Compareceu',emoji:'❌',cor:'#e8431e',bg:'#fff0ec'},
-  {id:'feedback',label:'Feedback',emoji:'💬',cor:'#6b3db8',bg:'#f3e8fb'},
+  {id:'convidado',label:'Leads',emoji:'📋',cor:'#4a4a4a',bg:'#f0f0f0',entra:'Lista importada, ainda sem convite',passo:'Enviar o convite'},
+  {id:'contato_feito',label:'Convite enviado',emoji:'📨',cor:'#1e4d8c',bg:'#e8f0fb',entra:'Convite enviado, aguardando resposta',passo:'Sem resposta: mandar lembrete e anotar na Obs'},
+  {id:'confirmado',label:'Confirmado',emoji:'✅',cor:'#1a6b3c',bg:'#e8f5ee',entra:'Respondeu que vem',passo:'Lembrete no D-1 e no dia'},
+  {id:'nao_vem',label:'Não vem',emoji:'🚫',cor:'#b8860b',bg:'#faf6e8',entra:'Respondeu que não pode',passo:'Agradecer e guardar para o próximo evento'},
+  {id:'presente',label:'Compareceu',emoji:'🏆',cor:'#1a7f6b',bg:'#e6f6f2',entra:'Confirmou e veio',passo:'Follow-up em até 48h',alias:['feedback']},
+  {id:'nao_compareceu',label:'Faltou',emoji:'❌',cor:'#e8431e',bg:'#fff0ec',entra:'Confirmou e não veio',passo:'Mensagem leve e convite para uma conversa na loja'},
 ];
+function wsColDe(st){return COLS_WS.find(c=>c.id===st||(c.alias||[]).includes(st))||COLS_WS[0];}
+// o select do modal vem do HTML (no sistema principal, do HTML da Marcela) -
+// refaz as opcoes a partir das colunas pra sempre bater com o kanban
+function wsPreencherSelectSt(){const s=document.getElementById('wcv-st');if(!s)return;s.innerHTML=COLS_WS.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('');}
 
 /* ESTADO GLOBAL */
 const G={
@@ -6043,8 +6052,8 @@ function renderWsEventos(cnt){
     evs.forEach(ev=>{
       const convs=G.ws.convidados.filter(c=>c.eventoId===ev.id);
       const total=convs.length;
-      const confirmados=convs.filter(c=>['confirmado','presente'].includes(c.st)).length;
-      const presentes=convs.filter(c=>c.st==='presente').length;
+      const confirmados=convs.filter(c=>['confirmado','presente','feedback'].includes(c.st)).length;
+      const presentes=convs.filter(c=>['presente','feedback'].includes(c.st)).length;
       const taxa=total?Math.round(presentes/total*100):0;
       const card=document.createElement('div');
       card.className='ws-evento-card';
@@ -6073,8 +6082,8 @@ function renderWsKanban(cnt){
   if(!ev){G.ws.eventoAtualId=null;renderWorkshop();return;}
   const convs=G.ws.convidados.filter(c=>c.eventoId===ev.id);
   const total=convs.length;
-  const confirmados=convs.filter(c=>['confirmado','presente'].includes(c.st)).length;
-  const presentes=convs.filter(c=>c.st==='presente').length;
+  const confirmados=convs.filter(c=>['confirmado','presente','feedback'].includes(c.st)).length;
+  const presentes=convs.filter(c=>['presente','feedback'].includes(c.st)).length;
   const taxa=total?Math.round(presentes/total*100):0;
   cnt.innerHTML='';
 
@@ -6102,7 +6111,7 @@ function renderWsKanban(cnt){
   const kb=document.createElement('div');
   kb.className='ws-kb';
   COLS_WS.forEach(col=>{
-    const cards=convs.filter(c=>c.st===col.id);
+    const cards=convs.filter(c=>wsColDe(c.st).id===col.id);
     const colEl=document.createElement('div');
     colEl.className='ws-col';
     colEl.addEventListener('dragover',e=>e.preventDefault());
@@ -6110,8 +6119,10 @@ function renderWsKanban(cnt){
     // header
     const colHd=document.createElement('div');
     colHd.className='ws-col-hd';
-    colHd.innerHTML=`<span class="ws-col-title" style="color:${col.cor}">${col.emoji} ${col.label}</span><span class="ws-col-cnt">${cards.length}</span>`;
-    colEl.appendChild(colHd);
+    colHd.innerHTML=`<span class="ws-col-title" style="color:${col.cor}" title="Entra quando: ${col.entra||''}&#10;Próximo passo: ${col.passo||''}">${col.emoji} ${col.label}</span><span class="ws-col-cnt">${cards.length}</span>`;
+    colHd.style.borderTop=`3px solid ${col.cor}`;
+    if(col.passo){const dica=document.createElement('div');dica.style.cssText='font-size:10.5px;color:var(--tx3);padding:2px 10px 6px;line-height:1.3';dica.innerHTML=`<b>Próximo passo:</b> ${col.passo}`;colEl.appendChild(colHd);colEl.appendChild(dica);}
+    if(!colHd.parentNode)colEl.appendChild(colHd);
     // body — direct reference, no setTimeout
     const body=document.createElement('div');
     body.className='ws-col-body';
@@ -6166,7 +6177,7 @@ async function dropConvidado(novaCol){
   conv.st=novaCol;
   if(!G.ws.modoDemo)await fbUpdate('convidados_ws',conv.id,{st:novaCol});
   renderWorkshop();
-  const col=COLS_WS.find(c=>c.id===novaCol);
+  const col=wsColDe(novaCol);
   toast(`${conv.nome} → ${col?.emoji} ${col?.label}`);
 }
 
@@ -6195,7 +6206,7 @@ function abrirModalConvidado(stInicial){
   document.getElementById('wcv-nome').value='';
   document.getElementById('wcv-whatsapp').value='';
   document.getElementById('wcv-obs').value='';
-  document.getElementById('wcv-st').value=stInicial||'convidado';
+  wsPreencherSelectSt();document.getElementById('wcv-st').value=stInicial||'convidado';
 }
 function editarConvidado(id){
   const c=G.ws.convidados.find(x=>x.id===id);if(!c)return;
@@ -6204,7 +6215,7 @@ function editarConvidado(id){
   document.getElementById('wcv-nome').value=c.nome||'';
   document.getElementById('wcv-whatsapp').value=c.whatsapp||'';
   document.getElementById('wcv-obs').value=c.obs||'';
-  document.getElementById('wcv-st').value=c.st||'convidado';
+  wsPreencherSelectSt();document.getElementById('wcv-st').value=wsColDe(c.st).id;
 }
 async function salvarConvidado(){
   const nome=document.getElementById('wcv-nome').value.trim();
@@ -6263,8 +6274,8 @@ function renderWsDashboard(cnt){
   const convs=G.ws.convidados;
   const totalEvs=evs.length;
   const totalConvs=convs.length;
-  const totalPresentes=convs.filter(c=>c.st==='presente').length;
-  const totalConfirmados=convs.filter(c=>['confirmado','presente'].includes(c.st)).length;
+  const totalPresentes=convs.filter(c=>['presente','feedback'].includes(c.st)).length;
+  const totalConfirmados=convs.filter(c=>['confirmado','presente','feedback'].includes(c.st)).length;
   const taxaGeral=totalConvs?Math.round(totalPresentes/totalConvs*100):0;
 
   const wrap=document.createElement('div');
@@ -6293,8 +6304,8 @@ function renderWsDashboard(cnt){
     tbl.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">📊 Métricas por Evento</div>';
     evs.forEach(ev=>{
       const ec=convs.filter(c=>c.eventoId===ev.id);
-      const ep=ec.filter(c=>c.st==='presente').length;
-      const ec2=ec.filter(c=>['confirmado','presente'].includes(c.st)).length;
+      const ep=ec.filter(c=>['presente','feedback'].includes(c.st)).length;
+      const ec2=ec.filter(c=>['confirmado','presente','feedback'].includes(c.st)).length;
       const taxa=ec.length?Math.round(ep/ec.length*100):0;
       tbl.innerHTML+=`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <div style="flex:1;min-width:160px">

@@ -83,7 +83,9 @@ async function aplicarRespostaConvite(payload){
   const st = snap.data().st;
   const dados = {respostaConvite: resp==='SIM'?'sim':'nao', respostaConviteEm: new Date().toISOString()};
   // so' anda pra frente: quem ja' esta' como presente/feedback nao volta
-  if(resp==='SIM' && ['convidado','contato_feito'].includes(st)) dados.st = 'confirmado';
+  if(resp==='SIM' && ['convidado','contato_feito','nao_vem'].includes(st)) dados.st = 'confirmado';
+  // 08/11/2026: respondeu que nao pode -> coluna "Nao vem" (antes ficava parado)
+  if(resp==='NAO' && ['convidado','contato_feito','confirmado'].includes(st)) dados.st = 'nao_vem';
   await ref.set(dados,{merge:true});
 }
 
