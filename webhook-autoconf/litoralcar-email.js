@@ -103,6 +103,30 @@ function parsePropostaLitoral(corpoBruto){
   const link=(String(corpoBruto||'').match(/href=["']([^"']+)["'][^>]*>\s*Clique aqui para visualizar/i)||[])[1]||'';
   return{nome,email,telefone,cidade,link};
 }
+/* Parser do e-mail "Novo contato interessado em um anúncio" (09/11/2026,
+   formato real visto nos e-mails do João Victor de 08/11 e da Grazieli de
+   10/10). Chega sempre junto com a "Proposta de Negocio" da mesma pessoa,
+   mas traz o VEICULO e o valor (a proposta nao traz). Dois jeitos:
+   - botao WhatsApp: "Nome:", "Telefone:"
+   - botao Financiar: "Nome:", "E-mail:", "Celular:", "Valor entrada:",
+     "Número de parcelas:" (tambem vem CPF/nascimento - NAO guardamos). */
+function parseNovoContatoLitoral(corpoBruto){
+  const t=textoPlano(corpoBruto);
+  const campo=(rot)=>{const m=t.match(new RegExp('(?:^|[\\n\\s>])'+rot+'\\s*:\\s*([^\\n]*)','i'));
+    // se o HTML juntar dois campos na mesma linha, corta no proximo rotulo
+    return m?m[1].split(/\s(?=(?:Nome|E-?mail|Telefone|Celular|CPF|Data de nascimento|Valor|N[úu]mero de parcelas|Mensagem|Whatsapp|Informa[çc][õo]es|Categoria|Marca|Modelo|Vers[ãa]o FIPE|Ano|Cor|km)\b)/i)[0].trim():'';};
+  const nome=campo('Nome');
+  const email=(campo('E-?mail').match(/[^\s<>]+@[^\s<>]+/)||[''])[0];
+  const telefone=(campo('Telefone')||campo('Celular')).replace(/[^\d()\s+-]/g,'').trim();
+  const marca=campo('Marca'),modelo=campo('Modelo'),versao=campo('Vers[ãa]o FIPE'),ano=campo('Ano');
+  const veiculo=[marca,modelo,versao].filter(Boolean).join(' ')+(ano?' '+ano:'');
+  const vm=t.match(/Valor\s*-\s*(R\$\s*[\d.,]+)/i);const valor=vm?vm[1].replace(/\s+/g,' ').trim():'';
+  const kmm=t.match(/km\s*-\s*([\d.]+)\s*km/i);const km=kmm?kmm[1]+' km':'';
+  const financiar=/bot[ãa]o de Financiar/i.test(t)||/quer financiar/i.test(t);
+  const entrada=campo('Valor entrada'),parcelas=campo('N[úu]mero de parcelas');
+  const link=(String(corpoBruto||'').match(/href=["']([^"']+)["'][^>]*>\s*Ver An[úu]ncio/i)||[])[1]||'';
+  return{nome,email,telefone,veiculo:veiculo.trim(),valor,km,financiar,entrada,parcelas,link};
+}
 function normTel(tel){
   let d=String(tel||'').replace(/\D/g,'');
   if(d.startsWith('55')&&d.length>=12)d=d.slice(2);
@@ -121,6 +145,13 @@ async function criarLeadLitoral(p,emailId){
     const cand=await db.collection('leads').where('clienteTelNorm','==',telNorm).get();
     const ativo=cand.docs.map(d=>({_id:d.id,...d.data()})).find(l=>!['vendido','perdido'].includes(l.st));
     if(ativo){
+      // Par "Novo contato" + "Proposta" da LitoralCar (chegam no mesmo minuto):
+      // o lead ja' foi criado pelo outro e-mail - so' guarda o link da proposta.
+      const parLitoral=ativo.origem==='Litoral Car'&&(agora-new Date(ativo._criadoEm||0))<6*3600e3;
+      if(parLitoral){
+        if(p.link&&!String(ativo.obs||'').includes(p.link))await db.collection('leads').doc(ativo._id).update({obs:(ativo.obs?ativo.obs+' · ':'')+'Proposta: '+p.link});
+        return ativo._id+' (mesmo contato do e-mail Novo contato)';
+      }
       await db.collection('leads').doc(ativo._id).update({historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também mandou proposta pela LitoralCar. '+obs,by:'LitoralCar'}]});
       return ativo._id+' (mesclado)';
     }
@@ -144,9 +175,56 @@ async function criarLeadLitoral(p,emailId){
   });
   return novoId;
 }
+// "Novo contato interessado em um anúncio": cria o lead ja' com o veiculo, ou
+// completa o lead do mesmo telefone (a Proposta pode ter chegado antes).
+async function leadNovoContatoLitoral(p,emailId){
+  const agora=new Date();
+  const telNorm=normTel(p.telefone);
+  const det=[p.veiculo&&('Veículo: '+p.veiculo),p.km,p.valor&&('Anúncio '+p.valor),
+    p.financiar?('Quer FINANCIAR'+(p.entrada?' · entrada '+p.entrada:'')+(p.parcelas?' · '+p.parcelas+'x':'')):'Clicou no WhatsApp do anúncio',
+    p.link&&('Anúncio: '+p.link)].filter(Boolean).join(' · ');
+  if(telNorm){
+    const cand=await db.collection('leads').where('clienteTelNorm','==',telNorm).get();
+    const ativo=cand.docs.map(d=>({_id:d.id,...d.data()})).find(l=>!['vendido','perdido'].includes(l.st));
+    if(ativo){
+      const upd={historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:ativo.origem==='Litoral Car'?'🚗 Veículo de interesse (LitoralCar)':'🔗 Contato duplicado (outra plataforma)',obs:(ativo.origem==='Litoral Car'?'':'Cliente também chamou pela LitoralCar. ')+det,by:'LitoralCar'}]};
+      if(!ativo.veiculo&&p.veiculo)upd.veiculo=p.veiculo;
+      if(!ativo.valor&&p.valor)upd.valor=p.valor;
+      if(!ativo.clienteEmail&&p.email)upd.clienteEmail=p.email;
+      await db.collection('leads').doc(ativo._id).update(upd);
+      return ativo._id+' (completado com o veículo)';
+    }
+  }
+  let novoId='';
+  await db.runTransaction(async tx=>{
+    const refSeq=db.collection('leads_config').doc('mk');
+    const snap=await tx.get(refSeq);
+    const seq=((snap.exists&&snap.data().leadSeq)||0)+1;
+    novoId='LEAD-'+pad3(seq);
+    tx.set(refSeq,{leadSeq:seq},{merge:true});
+    tx.set(db.collection('leads').doc(novoId),{
+      id:novoId,dt:dataBR(agora),dtISO:agora.toISOString().slice(0,10),_criadoEm:agora.toISOString(),
+      st:'ia',by:'',captador:'',uid:'',origem:'Litoral Car',
+      clienteNome:p.nome,clienteTel:p.telefone,clienteTelNorm:telNorm,clienteEmail:p.email,
+      veiculo:p.veiculo,valor:p.valor,obs:'Contato pelo portal LitoralCar (e-mail). '+det,convertido:false,dtVenda:'',motivoPerda:'',
+      historico:[{dt:dataBR(agora)+' '+horaBR(agora),icone:'blue',acao:'Lead criado',obs:'Via LitoralCar (e-mail Novo contato'+(p.financiar?' — financiamento':'')+')',by:'LitoralCar'}],
+      pendente_at:'',pendente_end:'',atendimento_at:'',atendimento_end:'',notificacaoVendedorEm:'',
+      litoralEmailId:emailId,
+    });
+  });
+  return novoId;
+}
 // Processa um e-mail ja' salvo em litoralcar_emails_recebidos (so' uma vez).
 async function processarEmailSalvo(ref,dados){
   if(!dados||dados.processadoEm)return;
+  if(/novo contato interessado/i.test(dados.assunto||'')&&/sigveiculos|litoral/i.test(dados.de||'')){
+    const n=parseNovoContatoLitoral(dados.corpoHtml||dados.corpo||dados.snippet);
+    if(!n.nome&&!n.telefone){await ref.update({processadoEm:new Date().toISOString(),resultado:'sem nome/telefone no e-mail'});return;}
+    const r=await leadNovoContatoLitoral(n,ref.id);
+    await ref.update({processadoEm:new Date().toISOString(),resultado:r});
+    console.log('LitoralCar (novo contato): e-mail '+ref.id+' -> '+r);
+    return;
+  }
   const ehProposta=/proposta/i.test(dados.assunto||'')&&/sigveiculos|litoral/i.test(dados.de||'');
   if(!ehProposta){await ref.update({processadoEm:new Date().toISOString(),resultado:'ignorado (não é proposta)'});return;}
   const p=parsePropostaLitoral(dados.corpoHtml||dados.corpo||dados.snippet);
