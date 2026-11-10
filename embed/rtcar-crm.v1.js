@@ -2937,7 +2937,9 @@ function pfFiltrados(){
   let ls=G.pf.veiculos||[];
   if(G.pf.busca){
     const b=G.pf.busca.toLowerCase();
-    ls=ls.filter(v=>[v.marca,v.modelo,v.versao,v.placa].filter(Boolean).join(' ').toLowerCase().includes(b));
+    // placa Mercosul (SES5H91) acha o carro gravado no formato antigo (SES5791) e vice-versa - 10/11/2026
+    const bp=pfChavePlaca(G.pf.busca);
+    ls=ls.filter(v=>[v.marca,v.modelo,v.versao,v.placa].filter(Boolean).join(' ').toLowerCase().includes(b)||(bp.length>=3&&pfChavePlaca(v.placa).includes(bp)));
   }
   return ls;
 }
