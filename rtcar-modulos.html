@@ -3427,8 +3427,11 @@ function pfFiltrados(){
   if(G.pf.busca){
     const b=G.pf.busca.toLowerCase();
     // placa Mercosul (SES5H91) acha o carro gravado no formato antigo (SES5791) e vice-versa - 10/11/2026
-    const bp=pfChavePlaca(G.pf.busca);
-    ls=ls.filter(v=>[v.marca,v.modelo,v.versao,v.placa].filter(Boolean).join(' ').toLowerCase().includes(b)||(bp.length>=3&&pfChavePlaca(v.placa).includes(bp)));
+    // Cada palavra digitada tem que aparecer na marca/modelo/versao/placa,
+    // sem ligar pra traco, ponto, acento ou maiuscula (HR-V = HRV, SES5H91 = SES-5H91 = SES5791).
+    const nb=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
+    const palavras=String(G.pf.busca).split(/\s+/).map(nb).filter(Boolean);
+    ls=ls.filter(v=>{const t=nb([v.marca,v.modelo,v.versao,v.placa].join(' '))+'|'+pfChavePlaca(v.placa);return palavras.every(p=>t.includes(p)||t.includes(pfChavePlaca(p)));});
   }
   return ls;
 }
