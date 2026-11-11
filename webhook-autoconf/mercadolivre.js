@@ -306,7 +306,7 @@ const normML=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,
 // manter a palavra "Híbrido" (pedido da Aline) e cai em "Gasolina e elétrico".
 const COMB_ML={'Flex':['Gasolina e álcool'],'Gasolina':['Gasolina'],'Diesel':['Diesel'],'Elétrico':['Elétrico'],'Híbrido':['Híbrido/Gasolina','Híbrido','Gasolina e elétrico'],'Gasolina e Elétrico':['Híbrido/Gasolina','Híbrido','Gasolina e elétrico']};
 const MOTO_ML=/^(HARLEY|DUCATI|TRIUMPH|KAWASAKI|YAMAHA|KTM|ROYAL ENFIELD)/i;
-const MARCA_ALIAS={'MERCEDES':'Mercedes-Benz','MERCEDESBENZ':'Mercedes-Benz','KIAMOTORS':'Kia','HARLEY':'Harley-Davidson','HARLEYDAVIDSON':'Harley-Davidson','CAOACHERYCHERY':'Chery','CAOACHERY':'Chery','GM':'Chevrolet','GMCHEVROLET':'Chevrolet','VWVOLKSWAGEN':'Volkswagen','CAOACHERYCHERY':'Chery','VW':'Volkswagen','LANDROVER':'Land Rover'};
+const MARCA_ALIAS={'MERCEDES':'Mercedes-Benz','MERCEDESBENZ':'Mercedes-Benz','KIAMOTORS':'Kia','HARLEY':'Harley-Davidson','HARLEYDAVIDSON':'Harley-Davidson','CAOACHERYCHERY':'Chery','CAOACHERY':'Chery','GM':'Chevrolet','GMCHEVROLET':'Chevrolet','VWVOLKSWAGEN':'Volkswagen','CAOACHERYCHERY':'Chery','VW':'Volkswagen','LANDROVER':'Land Rover','GAC':'GAC Trumpchi','GACMOTOR':'GAC Trumpchi'};
 const titulo60=s=>{s=String(s||'').replace(/\s+/g,' ').trim();if(s.length<=60)return s;const c=s.slice(0,60);const i=c.lastIndexOf(' ');return (i>30?c.slice(0,i):c).trim();};
 const capitaliza=s=>String(s||'').toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
 let _attrsCarros=null;
@@ -339,7 +339,13 @@ function montarAnuncioML(carro,site,ac,attrsCat,modelo){
   let model=val('MODEL',modeloTxt);
   if(!model||!model.value_id){
     const m=modeloTxt.split(/\s+/)[0];const vm=val('MODEL',m);
-    if(vm&&vm.value_id)model=vm;else{const b=doAc('MODEL');if(b)model=b;else avisos.push(`Modelo "${modeloTxt}" não existe na lista do ML`);}
+    if(vm&&vm.value_id)model=vm;else{const b=doAc('MODEL');if(b)model=b;else{
+      // Modelo novo que ainda nao esta' na lista do ML (ex.: GAC Aion V, 11/11/2026):
+      // vai como texto ("Aion V") e quem decide e' a validacao do proprio ML.
+      const w=modeloTxt.replace(/\(.*?\)/g,' ').trim().split(/\s+/).filter(Boolean);
+      const txt=(w[1]&&w[1].length<=2?w.slice(0,2):w.slice(0,1)).join(' ').toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
+      if(txt){model={id:'MODEL',value_name:txt};avisos.push(`Modelo "${txt}" fora da lista do ML (enviado como texto)`);}
+      else avisos.push(`Modelo "${modeloTxt}" não existe na lista do ML`);}}
   }
   const anoMod=Number(carro.anoModelo)||Number(String(site&&site.ano||'').split('/')[1])||'';
   const km=Number(String(carro.km!=null?carro.km:(site&&site.km)||'').replace(/\D/g,''));

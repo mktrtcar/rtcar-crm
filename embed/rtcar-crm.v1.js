@@ -2835,7 +2835,10 @@ function pfLitoralStatus(v){
   if(!noAr)return{st:nosso?'nosso':'nao',fora:[]};
   const cods=new Set(noAr.map(a=>a.cod));
   const nossos=new Set(Object.values(G.pf.litoralcarMap||{}).filter(x=>x&&x.codVeiculo).map(x=>String(x.codVeiculo)));
-  const nossoVivo=nosso&&cods.has(String(reg.codVeiculo));
+  // Acabou de publicar: a lista "no ar" foi lida antes, entao o codigo novo ainda
+  // nao esta' nela - conta como no ar por 3h (botao ficava "Publicar", 11/11/2026)
+  const recente=nosso&&reg.ultimoEnvio&&(Date.now()-new Date(reg.ultimoEnvio).getTime())<3*3600e3;
+  const nossoVivo=nosso&&(cods.has(String(reg.codVeiculo))||!!recente);
   if(v.zeroKm)return{st:nossoVivo?'nosso':'nao',fora:[],duplicado:false,nossoSumiu:nosso&&!nossoVivo}; // 0 km: sem placa pra casar
   const n=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
   const chave=pfChavePlaca(v.placa);const fim=chave.slice(-1);
@@ -2881,6 +2884,9 @@ async function mlPublicarCarro(placa){
   const token=await fbAuth.currentUser.getIdToken();
   const resp=await fetch(LITORALCAR_FN_BASE+'/mercadoLivrePublicar?placa='+encodeURIComponent(placa),{method:'POST',headers:{Authorization:'Bearer '+token}});
   const j=await resp.json().catch(()=>({}));
+  // Ja' tem anuncio (ex.: o Autoconf publicou depois que a tela abriu): marca
+  // como publicado na hora, em vez de so' mostrar erro (11/11/2026)
+  if(resp.status===409&&(j.anuncios||[]).length){const a=j.anuncios.find(x=>x.status==='active')||j.anuncios[0];G.pf.mlMap=G.pf.mlMap||{};G.pf.mlMap[pfChavePlaca(placa)]={...a,chave:pfChavePlaca(placa)};renderPlataformasAnuncio();const e=new Error('JA_NO_ML');e.jaNoML=true;throw e;}
   if(!resp.ok||!j.ok)throw new Error(j.erro==='Faltam dados'?(j.avisos||[]).map(mlMotivoPt).join('; '):(j.erro||('Erro '+resp.status))+(j.validacaoML?': '+(j.validacaoML.erros||[]).map(mlMotivoPt).join('; '):''));
   return j;
 }
@@ -2894,7 +2900,7 @@ async function publicarMercadoLivre(placa,btn){
     const j=await mlPublicarCarro(placa);
     toast('Publicado no Mercado Livre! ('+j.itemId+') - o ML leva alguns minutos pra ativar','green',6000);
     carregarStatusMercadoLivre();
-  }catch(e){console.error(e);alert('Erro ao publicar no Mercado Livre: '+e.message);}
+  }catch(e){if(e.jaNoML){toast('Esse carro já está publicado no Mercado Livre (provavelmente pelo Autoconf) - marquei como publicado.','gold',7000);return;}console.error(e);alert('Erro ao publicar no Mercado Livre: '+e.message);}
   finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.innerHTML=txt;}}
 }
 async function publicarPendentesMercadoLivre(btn){
@@ -2974,7 +2980,7 @@ function renderPlataformasAnuncio(){
             return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarMercadoLivre('${v.placa}',this)">${p.nome}: Publicar</button>`;
           }
           if(p.id==='litoralcar'&&lcSt.st==='fora')return`<span class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};cursor:default" title="Anúncio feito fora do nosso sistema (Autoconf ou antigo) - nº ${lcSt.fora.map(a=>a.cod).join(', ')}. Não publique de novo: ficaria duplicado."><i class="ti ti-check"></i> ${p.nome}: Publicado (fora do sistema)</span>`;
-          if(p.id==='litoralcar'&&publicadoLitoral&&lcSt.duplicado)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#b8860b;color:#b8860b" title="Duplicado: além do nosso anúncio, existe outro feito por fora (nº ${lcSt.fora.map(a=>a.cod).join(', ')}) - excluir o de fora no painel da LitoralCar/Autoconf" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-alert-triangle"></i> ${p.nome}: Despublicar (duplicado)</button>`;
+          if(p.id==='litoralcar'&&publicadoLitoral&&lcSt.duplicado)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#b8860b;color:#b8860b" title="Duplicado: além do nosso anúncio, existe outro feito por fora (nº ${lcSt.fora.map(a=>a.cod).join(', ')}) - excluir o de fora no painel da LitoralCar/Autoconf" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Publicado <span style="background:#b8860b;color:#fff;border-radius:4px;padding:0 5px;margin-left:4px;font-size:10px">⚠ duplicado</span></button>`;
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
         }).join('')}
