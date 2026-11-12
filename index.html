@@ -1503,7 +1503,7 @@ function renderKanbanMk(cnt){
       const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano,l.veiculoTroca.cor].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
       c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}${tagSemWhatsapp}</div>
-        <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo2?('Interesse: '+(l.veiculo||'—')+' / '+l.veiculo2):(l.veiculo||'Veículo não informado')}</div>${l.leadExtra?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> 2º veículo de ${l.leadMaeId}</div>`:''}
+        <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo2?('Interesse: '+(l.veiculo||'—')+' / '+l.veiculo2):(l.veiculo||'Veículo não informado')}</div>${l.leadParalelo?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> Consignação paralela ao ${l.leadParaleloDe}</div>`:''}${l.leadExtra?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> 2º veículo de ${l.leadMaeId}</div>`:''}
 
         ${col.id==='atendimento'?`<button class="card-btn card-btn-label" onclick="toggleAguardandoRetornoMk('${l.id}',event)" style="margin:4px 0;${l.aguardandoRetornoDesde?'background:#faf6e8;color:#b8860b;border-color:#b8860b;font-weight:600':''}">⏳ ${l.aguardandoRetornoDesde?'Cliente respondeu':'Marcar aguardando retorno'}</button>`:''}
         ${(col.id==='perdido'||col.id==='resgate')?`<button class="card-btn card-btn-label" onclick="toggleNuncaRespondeuMk('${l.id}',event)" style="margin:4px 0;background:${l.nuncaRespondeu?'#000':''};color:${l.nuncaRespondeu?'#fff':'#000'};border-color:#000">⚫ ${l.nuncaRespondeu?'Nunca respondeu ✓':'Nunca respondeu'}</button>`:''}
@@ -1818,7 +1818,7 @@ function hojeISOlocal(offset=0){const d=new Date();d.setDate(d.getDate()+offset)
 // fato atendeu (a pedido da Aline, 02/09/2026). Enquanto nenhum vendedor
 // respondeu ainda, o lead nao conta em nenhum dia.
 function primeiraRespostaVendedorISO(l){
-  if(l.leadExtra)return null; // 2o veiculo da mesma negociacao nao conta como lead recebido
+  if(l.leadExtra||l.leadParalelo)return null; // 2o veiculo da mesma negociacao nao conta como lead recebido
   // So conta resposta/cadastro do PROPRIO dono do lead, nao de qualquer
   // vendedor ativo que tenha mexido nele - inclui cadastro manual (o "by"
   // do "Lead criado" agora reflete quem realmente digitou, nao o vendedor
@@ -1916,16 +1916,16 @@ function abrirDrillMk(tipo,chave,nomesStr,offset){
     leads=base.filter(l=>l.st==='vendido'&&l.dtVenda===hojeBRstr&&ehConsignado(l));
   }else if(tipo==='chegaramIA'){
     titulo='Chegaram na I.A.';
-    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&!l.leadParalelo);
   }else if(tipo==='aindaIA'){
     titulo='Ainda na I.A.';
-    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st==='ia');
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&!l.leadParalelo&&l.st==='ia');
   }else if(tipo==='aindaIACanal'){
     titulo=`Ainda na I.A. — ${chave}`;
     leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem===chave&&l.st==='ia');
   }else if(tipo==='jaSairamIA'){
     titulo='Já saíram da I.A.';
-    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&l.st!=='ia');
+    leads=G.mk.leads.filter(l=>l.dtISO===hojeISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&!l.leadParalelo&&l.st!=='ia');
   }else if(tipo==='emAtendimento'){
     titulo='Em atendimento agora';
     leads=G.mk.leads.filter(l=>l.st==='atendimento');
@@ -2128,7 +2128,7 @@ function renderDashboardHoje(cnt){
     const diaISO=hojeISOlocal(offset);
     // mesma lista de origens que o webhook-autoconf usa pra pular a I.A.
     // (cadastro manual de vendedor) - o resto passa pela I.A. normalmente.
-    const chegaramNoDia=G.mk.leads.filter(l=>l.dtISO===diaISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem));
+    const chegaramNoDia=G.mk.leads.filter(l=>l.dtISO===diaISO&&l.origem!=='Compra'&&!ORIGENS_PULA_IA.includes(l.origem)&&!l.leadParalelo);
     const aindaNaIALeads=chegaramNoDia.filter(l=>l.st==='ia');
     const aindaNaIA=aindaNaIALeads.length;
     // Por canal - pra ver quais canais estao com lead parado sem resposta,
@@ -2232,7 +2232,7 @@ function inicioFimMesAtual(){
   const fim=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
   return[ini,fim];
 }
-function leadRecebidoNoPeriodo(l,iniISO,fimISO){if(l.leadExtra)return false;const r=primeiraRespostaVendedorISO(l);
+function leadRecebidoNoPeriodo(l,iniISO,fimISO){if(l.leadExtra||l.leadParalelo)return false;const r=primeiraRespostaVendedorISO(l);
 return!!r&&r>=iniISO&&r<=fimISO;}
 // Data em que o lead de fato CHEGOU (veio do Autoconf), diferente de
 // leadRecebidoNoPeriodo (data em que um vendedor respondeu) - usado so no
@@ -2240,7 +2240,7 @@ return!!r&&r>=iniISO&&r<=fimISO;}
 // verdade, batendo com o relatorio do Autoconf, mesmo quem ainda esta
 // parado na I.A. sem resposta (pedido da Aline, 13/09/2026 - o "Hoje"
 // continua contando por resposta, igual ao painel dos vendedores).
-function leadChegouNoPeriodo(l,iniISO,fimISO){return!l.leadExtra&&!!l.dtISO&&
+function leadChegouNoPeriodo(l,iniISO,fimISO){return!l.leadExtra&&!l.leadParalelo&&!!l.dtISO&&
 l.dtISO>=iniISO&&l.dtISO<=fimISO;}
 function statsGeralIntervalo(iniISO,fimISO){
   // Mesmo criterio do painel "Hoje" do CRM: conta pela data em que um
@@ -3856,10 +3856,18 @@ async function salvarLead(){
   // caem no aviso de "lead duplicado" (pedido da Aline, 09/09/2026 -
   // mesma regra ja combinada antes pra Gui/BV).
   const origemPermiteDuplicado=origem==='Compra'||origem==='BV';
+  let _leadParaleloDe=null;
   if(!G.mk.editandoId&&!origemPermiteDuplicado){
     const telDigits=tel.replace(/\D/g,'');
     const dup=G.mk.leads.find(l=>l.clienteTel&&l.clienteTel.replace(/\D/g,'')===telDigits&&!['vendido','perdido'].includes(l.st));
-    if(dup){
+    // Consignacao paralela (12/11/2026, pedido da Aline - caso Jaqueline):
+    // o cliente ja' esta' em negociacao com um vendedor, mas tambem vai
+    // consignar um carro. Assistente/Master podem criar esse 2o lead; ele
+    // fica marcado (leadParalelo) e NAO conta como lead recebido/chegou.
+    if(dup&&origem==='Consignado'&&(isAssistente()||isMaster())){
+      if(!confirm('Esse telefone já tem o '+dup.id+' em aberto ('+(dup.clienteNome||'')+').\n\nCriar esta CONSIGNAÇÃO como lead separado? Ele não conta como lead novo nos dashboards.'))return;
+      _leadParaleloDe=dup.id;
+    }else if(dup){
       const colDup=COLS_MK.find(c=>c.id===dup.st);
       document.getElementById('lead-duplicado-msg').innerHTML=`Já existe um lead em aberto com esse telefone: <strong>${dup.id} — ${dup.clienteNome||'(sem nome)'}</strong>, na etapa <strong>${colDup?.label||dup.st}</strong>${dup.captador?` com <strong>${dup.captador}</strong>`:''}.<br><br>Avise o Master pra confirmar quem deve continuar esse atendimento, em vez de cadastrar de novo.`;
       document.getElementById('ov-lead-duplicado').classList.remove('hidden');
@@ -3902,7 +3910,7 @@ veiculoPlaca:document.getElementById('f-veiculo-placa').value.trim(),veiculoTroc
       // Editar o lead conta como acao do vendedor: zera o cronometro da etapa e o card
       // sai do vermelho (23/10/2026, caso LEAD-1014 - antes so' as acoes do card contavam).
       await regHistMk(leadEd,'✏️ Lead atualizado','',G.user?.n||'','blue');toast('Lead atualizado!');}
-    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,G.user?.n||data.captador||'');toast(`Lead ${id} criado!`);}
+    else{const id=await proximoId('LEAD',G.mk.leads,'leads_config/mk','leadSeq');const lead={id,convertido:false,dtVenda:'',motivoPerda:'',historico:[],_criadoEm:agora,...data,...(_leadParaleloDe?{leadParalelo:true,leadParaleloDe:_leadParaleloDe}:{})};G.mk.leads.push(lead);if(!G.mk.modoDemo)await fbCreate('leads',id,lead);await regHistMk(lead,'Lead criado',`Origem: ${data.origem}`,G.user?.n||data.captador||'');toast(`Lead ${id} criado!`);}
     // Cadastrou/editou ja' na etapa Negociacao: pergunta o tipo na hora (16/10/2026, pedido da Aline).
     const alvoNeg=stEscolhido==='negociacao'?(G.mk.editandoId?G.mk.leads.find(l=>l.id===G.mk.editandoId):G.mk.leads[G.mk.leads.length-1]):null;
     fecharModal('ov-lead');renderMarketing();
