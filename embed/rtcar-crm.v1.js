@@ -927,7 +927,9 @@ function mkLeadsFiltrados(){
   // acompanhar se o cliente compra (06/11/2026, pedido da Aline - Milena -> Maicon,
   // cliente deixando HB20 e querendo comprar). O que o vendedor encaminha pra ela
   // NAO volta pro vendedor (regra de 22/10 continua pra eles).
-  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n||l.acompanhaPor===G.user.n||(l.by===G.user.n&&l.captador&&l.captador!==G.user.n));
+  // ocultarCoordenadora = nome da coordenadora que NAO deve mais ver o lead
+  // (13/11/2026, LEAD-1287 Fatima: so o vendedor ve).
+  if(G.user?.r==='coordenadora')ls=ls.filter(l=>l.ocultarCoordenadora!==G.user.n&&(l.captador===G.user.n||(!l.captador&&l.by===G.user.n)||l.captadorReplicado===G.user.n||l.acompanhaPor===G.user.n||(l.by===G.user.n&&l.captador&&l.captador!==G.user.n)));
   // CONTROLE DE ACESSO: RT Cred (resgate BV) ve so os leads que ela mesma
   // cadastrou - mesmo mecanismo da coordenadora, agora pro canal BV
   // (pedido da Aline, 08/09/2026).
