@@ -3881,6 +3881,9 @@ async function salvarLead(){
   const btn=document.getElementById('btn-salvar-lead');btn.disabled=true;document.getElementById('btn-salvar-lead-txt').innerHTML='<span class="spin"></span>';
   let captador=document.getElementById('f-captador').value;if(origem==='Compra'&&!captador)captador='Milena';
   if(!captador&&!G.mk.editandoId)captador=await proximoVendedorRodizio();
+  // TRAVA (13/11/2026, LEAD-1261 Amanda): vendedor que e' so' a REPLICA do
+  // lead pode editar, mas nao tira o captador principal (so' gestor troca).
+  if(G.mk.editandoId&&isSeller()){const _orig=G.mk.leads.find(x=>x.id===G.mk.editandoId);if(_orig&&_orig.captador&&_orig.captador!==G.user.n&&_orig.captadorReplicado===G.user.n&&captador!==_orig.captador){captador=_orig.captador;toast('O vendedor principal deste lead é '+_orig.captador+' — só a gestão pode trocar.','gold',4000);}}
   // TRAVA: Aline e' Master, nunca vendedora - nao pode salvar lead nenhum
   // com ela como captador (achado 09/09/2026, ver comentario em
   // VENDEDORES_ATIVOS). Cai pro rodizio se for lead novo, ou pede pra
