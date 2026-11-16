@@ -163,8 +163,35 @@ function extrairCardsAutoconf(html){
   while((m=regex.exec(html)))veiculos.push({pagina:m[1],marca:m[2].trim(),modelo:m[3].trim()});
   return veiculos;
 }
+/* 16/11/2026: o site do Autoconf (rtcar.com.br) virou Next.js - a pagina
+   nao traz mais o array "photos" nem os cards no HTML (so' 1 foto). No dia
+   14/11 a rotina de fotos achou so' essa 1 e trocou as galerias inteiras do
+   site por 1 foto. Agora le' a API publica do proprio site do Autoconf:
+   /api/veiculo?id=ID (fotos, km) e /api/stock (catalogo). O HTML antigo fica
+   so' de reserva. */
+const AUTOCONF_API='https://rtcar.com.br/api';
+async function autoconfApi(caminho){
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),10000);
+  try{const r=await fetch(AUTOCONF_API+caminho,{headers:{'User-Agent':'Mozilla/5.0',Accept:'application/json'},signal:controller.signal});
+    if(!r.ok)return null;return await r.json();}
+  catch(e){console.error('autoconfApi '+caminho,e.message||e);return null;}
+  finally{clearTimeout(timeout);}
+}
+async function veiculoAutoconfApi(id){const j=await autoconfApi('/veiculo?id='+encodeURIComponent(id));return j&&String(j.id)===String(id)?j:null;}
+async function catalogoAutoconfApi(){
+  const todos=[];
+  for(let p=1;p<=20;p++){
+    const j=await autoconfApi('/stock?pagina='+p+'&registros_por_pagina=100');
+    if(!j||!Array.isArray(j.data))return todos.length?todos:null;
+    for(const v of j.data)todos.push({pagina:'https://rtcar.com.br/'+(v.tipo_slug==='motos'?'motos':'carros')+'/'+v.marca_slug+'/'+v.modelo_slug+'/'+v.anomodelo+'/'+v.id,marca:String(v.marca_nome||'').trim(),modelo:String(v.modelopai_nome||'').trim(),km:Number(v.km)||0});
+    if(!j.total_paginas||p>=j.total_paginas)break;
+  }
+  return todos;
+}
 async function buscarCatalogoAoVivo(){
   if(_catalogoAoVivoCache&&(Date.now()-_catalogoAoVivoQuando)<AUTOCONF_CACHE_TTL_MS)return _catalogoAoVivoCache;
+  const daApi=await catalogoAutoconfApi();
+  if(daApi&&daApi.length){_catalogoAoVivoCache=daApi;_catalogoAoVivoQuando=Date.now();return daApi;}
   const todos=[];
   try{
     for(let pagina=1;pagina<=AUTOCONF_MAX_PAGINAS;pagina++){
@@ -191,6 +218,8 @@ function extrairIdDaPaginaAutoconf(pagina){const m=String(pagina||'').match(/\/(
 async function fotosDaPaginaAutoconf(pagina){
   const id=extrairIdDaPaginaAutoconf(pagina);
   if(!id)return[];
+  const api=await veiculoAutoconfApi(id);
+  if(api){const urls=(api.fotos||[]).map(f=>f&&(f.url||f.photo_url)).filter(Boolean);if(urls.length)return urls;}
   try{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),8000);
@@ -244,6 +273,8 @@ async function fotosDaPaginaAutoconf(pagina){
 // de apresentacao) - a pagina tambem lista km de OUTROS carros (relacionados),
 // por isso nao serve pegar qualquer "NNN km".
 async function kmDaPaginaAutoconf(pagina){
+  const id=extrairIdDaPaginaAutoconf(pagina);
+  if(id){const api=await veiculoAutoconfApi(id);if(api&&Number(api.km))return Number(api.km);}
   try{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),8000);

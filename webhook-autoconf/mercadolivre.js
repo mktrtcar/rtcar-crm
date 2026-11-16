@@ -649,3 +649,49 @@ exports.alertaSemAnuncioVer=onRequest({region:'southamerica-east1',cors:true,tim
     res.json({total:l.length,carros:l,texto:textoSemAnuncio(l)});
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
+
+/* Atualiza as FOTOS dos anuncios que o NOSSO sistema publicou no ML
+   (ml_anuncios origem rtcar) com as fotos atuais do site (16/11/2026, pedido
+   da Aline: a Mercedes GLC UMJ-8G44 foi com 1 foto - era o dia em que a
+   rotina de fotos do site tinha caido pra 1 foto por carro). Os anuncios do
+   Autoconf nao sao mexidos (o Autoconf manda as fotos dele). Roda sozinho a
+   cada 2 horas e tambem por POST (gestor), opcional {placa}. So' troca quando
+   a lista de fotos do site mudou desde o ultimo envio (fotosEnviadas). */
+async function mlAtualizarFotosNossos(soPlaca){
+  const c=await obterToken();
+  const snap=await db.collection('ml_anuncios').get();
+  const out=[];
+  for(const d of snap.docs){
+    const m=d.data();
+    if(m.origem!=='rtcar'||!m.itemId)continue;
+    if(soPlaca&&d.id!==placaChaveML(soPlaca))continue;
+    const docs=[];
+    const sid=m.siteId||d.id;
+    const s0=await db.collection('site_veiculos').doc(sid).get();if(s0.exists)docs.push(s0.data());
+    (await db.collection('site_veiculos').where('placaSistema','==',d.id).get()).docs.forEach(x=>docs.push(x.data()));
+    docs.sort((a,b)=>((a.oculto?1:0)-(b.oculto?1:0))||(((b.fotos||[]).length)-((a.fotos||[]).length)));
+    const fotos=((docs[0]&&docs[0].fotos)||[]).map(u=>typeof u==='string'?u:u&&u.url).filter(Boolean).slice(0,25);
+    if(!fotos.length){out.push({placa:d.id,itemId:m.itemId,ok:false,erro:'site sem fotos'});continue;}
+    if(JSON.stringify(fotos)===JSON.stringify(m.fotosEnviadas||[])){out.push({placa:d.id,itemId:m.itemId,ok:true,igual:true,fotos:fotos.length});continue;}
+    let it;try{it=await apiML('/items/'+m.itemId+'?attributes=id,status,seller_id',c.accessToken);}catch(e){out.push({placa:d.id,itemId:m.itemId,ok:false,erro:'item: '+e.message});continue;}
+    if(String(it.seller_id)!==String(c.userId)||!['active','paused'].includes(it.status)){out.push({placa:d.id,itemId:m.itemId,ok:false,erro:'anúncio '+(it.status||'?')});continue;}
+    const r=await fetch(API+'/items/'+m.itemId,{method:'PUT',headers:{Authorization:'Bearer '+c.accessToken,'Content-Type':'application/json'},body:JSON.stringify({pictures:fotos.map(source=>({source}))})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){console.error('ml fotos',m.itemId,r.status,JSON.stringify(j).slice(0,300));out.push({placa:d.id,itemId:m.itemId,ok:false,erro:'ML recusou ('+r.status+'): '+(j.message||'')});continue;}
+    await d.ref.set({fotosEnviadas:fotos,fotosAtualizadasEm:new Date().toISOString()},{merge:true});
+    out.push({placa:d.id,itemId:m.itemId,ok:true,fotos:fotos.length});
+  }
+  return out;
+}
+exports.mercadoLivreAtualizarFotos=onRequest({region:'southamerica-east1',timeoutSeconds:300,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    res.json({resultados:await mlAtualizarFotosNossos((req.body&&req.body.placa)||req.query.placa||'')});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+exports.mercadoLivreAtualizarFotosAuto=onSchedule({region:'southamerica-east1',schedule:'every 2 hours',timeZone:'America/Sao_Paulo',timeoutSeconds:300},async()=>{
+  const r=await mlAtualizarFotosNossos('');
+  console.log('mercadoLivreAtualizarFotosAuto',JSON.stringify(r.filter(x=>!x.igual)));
+});
