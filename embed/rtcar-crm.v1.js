@@ -2862,7 +2862,11 @@ function pfLimparVersao(vs,marca,modelo){vs=String(vs||'').trim();if(modelo&&Str
 async function carregarStatusMercadoLivre(){
   G.pf.mlMap=null;G.pf.mlErro='';
   try{let r;try{r=await litoralCarFetch('mercadoLivreAnunciosStatus');}catch(e1){console.warn('ML status: tentando de novo',e1);await new Promise(x=>setTimeout(x,2500));r=await litoralCarFetch('mercadoLivreAnunciosStatus');} // 1 nova tentativa: falha passageira deixava 'indisponivel' (06/11/2026)
-    G.pf.mlMap={};G.pf.mlLista=r.anuncios||[];(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});}
+    G.pf.mlMap={};G.pf.mlLista=r.anuncios||[];(r.anuncios||[]).forEach(a=>{if(!a.chave)return;const ja=G.pf.mlMap[a.chave];if(!ja||(ja.status!=='active'&&a.status==='active'))G.pf.mlMap[a.chave]=a;});
+    // 18/11/2026: anuncio que o sistema acabou de criar fica 'not_yet_active' e nao vem
+    // na lista acima - entra como 'ativando' (evita publicar 2 vezes).
+    try{const vistos=new Set((r.anuncios||[]).map(a=>a.id));const mlSnap=await db.collection('ml_anuncios').get();const lim=Date.now()-3*864e5;
+      mlSnap.docs.forEach(d=>{const m=d.data();if(m.origem!=='rtcar'||!m.itemId||vistos.has(m.itemId)||G.pf.mlMap[d.id])return;if(!(Date.parse(m.publicadoEm||'')>lim))return;G.pf.mlMap[d.id]={id:m.itemId,status:'ativando',link:m.link||'',titulo:m.titulo||'',chave:d.id};});}catch(e){console.warn('ml_anuncios',e);}}
   catch(e){console.error(e);G.pf.mlErro=e.message||'erro';}
   renderPlataformasAnuncio();
 }
@@ -2882,11 +2886,11 @@ async function mlPreviaCarro(placa){
   const c=(r.carros||[])[0];if(!c)throw new Error('carro não encontrado');
   const bloq=(c.avisos||[]).filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|[Mm]oto/.test(a));
   const motivos=[...new Set([...bloq,...((c.validacaoML&&!c.validacaoML.ok)?(c.validacaoML.erros||[]):[])].map(mlMotivoPt))];
-  return{ok:!motivos.length,motivos,titulo:(c.anuncio&&c.anuncio.title)||c.carro,preco:c.preco,fotos:c.fotos};
+  return{ok:!motivos.length,motivos,titulo:(c.anuncio&&c.anuncio.title)||c.carro,preco:c.preco,fotos:c.fotos,attrs:(c.anuncio&&c.anuncio.attributes)||[]};
 }
-async function mlPublicarCarro(placa){
+async function mlPublicarCarro(placa,escolha){
   const token=await fbAuth.currentUser.getIdToken();
-  const resp=await fetch(LITORALCAR_FN_BASE+'/mercadoLivrePublicar?placa='+encodeURIComponent(placa),{method:'POST',headers:{Authorization:'Bearer '+token}});
+  const resp=await fetch(LITORALCAR_FN_BASE+'/mercadoLivrePublicar?placa='+encodeURIComponent(placa),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(escolha?{escolha}:{})});
   const j=await resp.json().catch(()=>({}));
   // Ja' tem anuncio (ex.: o Autoconf publicou depois que a tela abriu): marca
   // como publicado na hora, em vez de so' mostrar erro (11/11/2026)
@@ -2899,13 +2903,66 @@ async function publicarMercadoLivre(placa,btn){
   try{
     const p=await mlPreviaCarro(placa);
     if(!p.ok){alert('Não dá pra publicar '+placa+' no Mercado Livre ainda:\n\n- '+p.motivos.join('\n- '));return;}
-    if(!confirm('Publicar no Mercado Livre?\n\n'+p.titulo+'\nR$ '+Number(p.preco).toLocaleString('pt-BR')+' - '+p.fotos+' fotos'))return;
+    const escolha=await mlEscolherDados(placa,p);
+    if(!escolha)return;
     if(btn)btn.innerHTML='<span class="spin"></span> Publicando...';
-    const j=await mlPublicarCarro(placa);
+    const j=await mlPublicarCarro(placa,escolha);
     toast('Publicado no Mercado Livre! ('+j.itemId+') - o ML leva alguns minutos pra ativar','green',6000);
     carregarStatusMercadoLivre();
-  }catch(e){if(e.jaNoML){toast('Esse carro já está publicado no Mercado Livre (provavelmente pelo Autoconf) - marquei como publicado.','gold',7000);return;}console.error(e);alert('Erro ao publicar no Mercado Livre: '+e.message);}
+  }catch(e){if(e.jaNoML){toast('Esse carro já tem anúncio no Mercado Livre - marquei como publicado.','gold',7000);return;}console.error(e);alert('Erro ao publicar no Mercado Livre: '+e.message);}
   finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.innerHTML=txt;}}
+}
+/* Tela de escolha antes de publicar no ML (18/11/2026, pedido da Aline): igual
+   a LitoralCar - marca, modelo (lista oficial do ML) e versao editaveis, ja
+   preenchidos com a escolha feita na LitoralCar ("escolhe uma vez so"). */
+function mlEscolherDados(placa,p){
+  return new Promise(async resolve=>{
+    const nb=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');
+    const at=id=>(p.attrs||[]).find(a=>a.id===id)||{};
+    const lc=(G.pf.litoralcarMap||{})[String(placa).replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{};
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    ov.innerHTML='<div style="background:var(--bg2,#fff);color:var(--tx,#111);border-radius:12px;padding:20px;width:min(520px,94vw);max-height:90vh;overflow:auto;font-size:13px"><div style="font-weight:700;font-size:16px;margin-bottom:6px">Publicar no Mercado Livre</div><div id="mle-msg" style="color:var(--tx3,#666);margin-bottom:12px">Carregando a lista de modelos do Mercado Livre...</div></div>';
+    document.body.appendChild(ov);
+    const fechar=v=>{ov.remove();resolve(v);};
+    let opc={marcas:[],modelos:[]};
+    const marcaAtual={id:at('BRAND').value_id||'',name:at('BRAND').value_name||''};
+    try{opc=await litoralCarFetch('mercadoLivreModelos?marcaId='+encodeURIComponent(marcaAtual.id));}catch(e){console.warn('ML modelos',e);}
+    const modeloAt={id:at('MODEL').value_id||'',name:at('MODEL').value_name||''};
+    // modelo: escolha da LitoralCar (por nome) > o que o sistema montou
+    let modSel=modeloAt.id;
+    if(lc.modelo){const alvo=nb(lc.modelo);const m=(opc.modelos||[]).find(x=>nb(x.name)===alvo)||(opc.modelos||[]).find(x=>alvo&&(nb(x.name).startsWith(alvo)||alvo.startsWith(nb(x.name))));if(m)modSel=m.id;}
+    const versaoIni=lc.versao||at('TRIM').value_name||'';
+    const esc=t=>String(t||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const opcModelo=m=>'<option value="'+esc(m.id)+'"'+(m.id===modSel?' selected':'')+'>'+esc(m.name)+'</option>';
+    let modelosHtml=(opc.modelos||[]).map(opcModelo).join('');
+    if(!modeloAt.id||!(opc.modelos||[]).some(m=>m.id===modeloAt.id))modelosHtml='<option value=""'+(!modSel?' selected':'')+'>'+esc(modeloAt.name||'(escolha)')+' - texto livre</option>'+modelosHtml;
+    const marcasHtml=(opc.marcas||[]).map(m=>'<option value="'+esc(m.id)+'"'+(m.id===marcaAtual.id?' selected':'')+'>'+esc(m.name)+'</option>').join('')||'<option value="'+esc(marcaAtual.id)+'">'+esc(marcaAtual.name)+'</option>';
+    const lbl='display:block;font-size:11px;font-weight:700;color:var(--tx3,#666);margin:10px 0 4px';
+    const inp='width:100%;padding:8px;border:1px solid var(--bdr,#ccc);border-radius:8px;background:var(--bg,#fff);color:inherit;font-size:13px;box-sizing:border-box';
+    ov.firstChild.innerHTML='<div style="font-weight:700;font-size:16px;margin-bottom:4px">Publicar no Mercado Livre</div>'
+      +'<div style="color:var(--tx3,#666)">'+esc(placa)+' · R$ '+Number(p.preco).toLocaleString('pt-BR')+' · '+p.fotos+' fotos'+(lc.modelo?'<br>💡 Pré-preenchido com a escolha da LitoralCar - confira.':'')+'</div>'
+      +'<label style="'+lbl+'">MARCA</label><select id="mle-marca" style="'+inp+'">'+marcasHtml+'</select>'
+      +'<label style="'+lbl+'">MODELO (lista do Mercado Livre)</label><select id="mle-modelo" style="'+inp+'">'+modelosHtml+'</select>'
+      +'<label style="'+lbl+'">VERSÃO</label><input id="mle-versao" style="'+inp+'" value="'+esc(versaoIni)+'">'
+      +'<label style="'+lbl+'">TÍTULO DO ANÚNCIO (até 60 letras)</label><input id="mle-titulo" maxlength="60" style="'+inp+'" value="'+esc(p.titulo)+'">'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button class="btn btn-outline btn-sm" id="mle-cancelar">Cancelar</button><button class="btn btn-red btn-sm" id="mle-ok">Publicar</button></div>';
+    const $=id=>ov.querySelector('#'+id);
+    $('mle-marca').onchange=async function(){
+      const sel=$('mle-modelo');sel.innerHTML='<option value="">carregando...</option>';
+      try{const r=await litoralCarFetch('mercadoLivreModelos?marcaId='+encodeURIComponent(this.value));sel.innerHTML='<option value="">(escolha)</option>'+(r.modelos||[]).map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>').join('');}
+      catch(e){sel.innerHTML='<option value="">não carregou - tente de novo</option>';}
+    };
+    $('mle-cancelar').onclick=()=>fechar(null);
+    ov.onclick=e=>{if(e.target===ov)fechar(null);};
+    $('mle-ok').onclick=()=>{
+      const ms=$('mle-marca'),mo=$('mle-modelo');
+      const marca={id:ms.value,name:ms.options[ms.selectedIndex]?.text||''};
+      const modelo=mo.value?{id:mo.value,name:mo.options[mo.selectedIndex].text}:(modeloAt.name&&!modeloAt.id?{name:modeloAt.name}:null);
+      if(!modelo){alert('Escolha o modelo.');return;}
+      fechar({marca,modelo,versao:$('mle-versao').value.trim(),titulo:$('mle-titulo').value.trim()});
+    };
+  });
 }
 async function publicarPendentesMercadoLivre(btn){
   if(!G.pf.mlMap){toast('Aguarde carregar o status do Mercado Livre','gold');return;}
@@ -2962,7 +3019,7 @@ function pfFiltrados(){
 function pfSituacaoAnuncio(v){
   const preco=Number(String(v.preco||'').replace(/[^0-9]/g,''))||0;
   const lc=pfLitoralStatus(v).st!=='nao';
-  const ml=pfAnuncioML(v);const mlOk=!!(ml&&ml.status==='active');
+  const ml=pfAnuncioML(v);const mlOk=!!(ml&&(ml.status==='active'||ml.status==='ativando'));
   const moto=/^(MOTO|MOTOS)$/i.test(String(v.tipo||v.categoria||''))||LITORALCAR_MARCAS_MOTO.some(m=>String(v.marca||'').toLowerCase().includes(m)&&!/honda|bmw|suzuki/.test(String(v.marca||'').toLowerCase()));
   const faltam=[];if(!lc)faltam.push('LitoralCar');if(!mlOk&&!moto&&G.pf.mlMap)faltam.push('Mercado Livre');
   const ignorado=!!(G.pf.naoAnunciar||{})[pfChavePlaca(v.placa)];
@@ -3004,7 +3061,7 @@ function renderPlataformasAnuncio(){
           if(p.id==='mercadolivre'){
             if(G.pf.mlErro)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(G.pf.mlErro).replace(/"/g,'')}">${p.nome}: indisponível</span>`;
             if(!G.pf.mlMap)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: carregando...</span>`;
-            if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':'Pausado'}</a>`;
+            if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':ml.status==='ativando'?'Ativando...':'Pausado'}</a>`;
             return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarMercadoLivre('${v.placa}',this)">${p.nome}: Publicar</button>`;
           }
           if(p.id==='litoralcar'&&lcSt.st==='fora')return`<span class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};cursor:default" title="Anúncio feito fora do nosso sistema (Autoconf ou antigo) - nº ${lcSt.fora.map(a=>a.cod).join(', ')}. Não publique de novo: ficaria duplicado."><i class="ti ti-check"></i> ${p.nome}: Publicado (fora do sistema)</span>`;

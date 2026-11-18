@@ -513,6 +513,40 @@ exports.mercadoLivreAnunciosStatus=onRequest({region:'southamerica-east1',timeou
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
 
+/* Escolha de marca/modelo/versao/titulo feita na tela (18/11/2026, pedido da
+   Aline: "a LitoralCar deixa trocar, o ML nao"). Vem no corpo do POST como
+   {escolha:{marca:{id,name},modelo:{id,name},versao,titulo}} e substitui o
+   que o montarAnuncioML adivinhou. */
+function aplicarEscolhaML(anuncio,esc){
+  if(!anuncio||!esc)return;
+  const set=(id,v)=>{if(!v||!(v.id||v.name))return;const o={id,value_id:v.id||undefined,value_name:v.name||undefined};const i=anuncio.attributes.findIndex(a=>a.id===id);if(i>=0)anuncio.attributes[i]=o;else anuncio.attributes.push(o);};
+  set('BRAND',esc.marca);set('MODEL',esc.modelo);
+  if(esc.versao)set('TRIM',{name:String(esc.versao).slice(0,120)});
+  if(esc.titulo)anuncio.title=titulo60(String(esc.titulo));
+}
+// Marcas da categoria e modelos de uma marca (lista oficial do ML) para a tela de escolha.
+exports.mercadoLivreModelos=onRequest({region:'southamerica-east1',timeoutSeconds:60,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const c=await obterToken();const token=c.accessToken;
+    const attrs=await atributosCarros(token);
+    const marcas=((attrs.find(a=>a.id==='BRAND')||{}).values||[]).map(v=>({id:v.id,name:v.name}));
+    let modelos=[];
+    const marcaId=String(req.query.marcaId||'');
+    if(marcaId){
+      try{
+        const r=await fetch(API+'/catalog_domains/MLB-CARS_AND_VANS/attributes/MODEL/top_values',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({known_attributes:[{id:'BRAND',value_id:marcaId}]})});
+        const j=await r.json().catch(()=>[]);
+        if(Array.isArray(j))modelos=j.map(v=>({id:v.id,name:v.name})).filter(v=>v.id&&v.name);
+        else console.error('ml top_values',r.status,JSON.stringify(j).slice(0,300));
+      }catch(e){console.error('ml top_values',e);}
+    }
+    res.json({marcas,modelos});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+
 /* PUBLICAR 1 carro no ML pelo nosso integrador (fase 2 - teste, 05/11/2026).
    POST ?placa=XXX (gestor). Trava: nao publica se a placa ja tem anuncio
    ativo/pausado na conta (evita duplicar com o Autoconf), se faltar preco/
@@ -529,11 +563,20 @@ exports.mercadoLivrePublicar=onRequest({region:'southamerica-east1',timeoutSecon
     if(!pedida){res.status(400).json({erro:'Informe a placa'});return;}
     const c=await obterToken();const token=c.accessToken;
     const zk=await zeroKmDoSite(pedida);
+    // 18/11/2026: anuncio recem-publicado fica "not_yet_active"/"under_review" e nao
+    // aparece na lista active/paused - sem esta trava dava pra publicar 2 vezes.
+    const jaNosso=await db.collection('ml_anuncios').doc(pedida).get();
+    if(jaNosso.exists&&jaNosso.data().itemId){
+      try{const it=await apiML('/items/'+jaNosso.data().itemId+'?attributes=id,status,permalink',token);
+        if(it&&it.status&&!['closed','inactive'].includes(it.status)){res.status(409).json({erro:'Esse carro já tem anúncio no Mercado Livre',anuncios:[{id:it.id,status:it.status,link:it.permalink||jaNosso.data().link||''}]});return;}
+      }catch(e){console.error('ml checar anuncio nosso',e.message);}
+    }
     const existentes=(await listarAnunciosML(token,c.userId)).filter(a=>zk?mesmoZeroKm(a,zk.site):a.chave===pedida);
     if(existentes.length){res.status(409).json({erro:'Esse carro já tem anúncio no Mercado Livre',anuncios:existentes.map(a=>({id:a.id,status:a.status,link:a.link}))});return;}
     if(zk){
       const attrsZ=await atributosCarros(token);const {modelo:modZ}=await anunciosAutoconfPorPlaca(token);
       const {anuncio,avisos}=montarAnuncioML(zk.carro,zk.site,null,attrsZ,modZ);
+      aplicarEscolhaML(anuncio,req.body&&req.body.escolha);
       const bq=avisos.filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|moto/i.test(a));
       if(bq.length){res.status(422).json({erro:'Faltam dados',avisos:bq});return;}
       const vz=await validarML(anuncio,token);if(!vz.ok){res.status(422).json({erro:'O Mercado Livre recusou na validação',validacaoML:vz});return;}
@@ -559,6 +602,7 @@ exports.mercadoLivrePublicar=onRequest({region:'southamerica-east1',timeoutSecon
     const attrsCat=await atributosCarros(token);
     const {modelo}=await anunciosAutoconfPorPlaca(token);
     const {anuncio,avisos}=montarAnuncioML(carro,site,null,attrsCat,modelo);
+    aplicarEscolhaML(anuncio,req.body&&req.body.escolha);
     const bloqueio=avisos.filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|moto/i.test(a));
     if(bloqueio.length){res.status(422).json({erro:'Faltam dados',avisos:bloqueio});return;}
     const v=await validarML(anuncio,token);
