@@ -3413,7 +3413,7 @@ async function publicarPendentesMercadoLivre(btn){
   alert('Mercado Livre:\n\nPublicados ('+ok.length+'):\n'+(ok.join('\n')||'-')+'\n\nNão publicados ('+falha.length+'):\n'+(falha.join('\n')||'-'));
   carregarStatusMercadoLivre();
 }
-window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
+window.pfAlternarNaoAnunciar=pfAlternarNaoAnunciar;window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
 function pfAnuncioML(v){
   if(!G.pf.mlMap)return null;
   if(v.zeroKm){ // 0 km nao tem placa: mesma marca + modelo + ano no titulo (igual ao servidor)
