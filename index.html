@@ -3279,6 +3279,8 @@ async function initPlataformasAnuncio(){
       db.collection('site_veiculos').get(),
     ]);
     G.pf.veiculos=estoqueSnap.docs.map(d=>({placa:d.id,...d.data()}));
+    // "Nao anunciar" (18/11/2026, pedido da Aline - ex.: Ducati): lista em leads_config/nao_anunciar
+    try{const na=await db.collection('leads_config').doc('nao_anunciar').get();G.pf.naoAnunciar=(na.exists&&na.data().placas)||{};}catch(e){G.pf.naoAnunciar=G.pf.naoAnunciar||{};}
     // Combustivel do site (vem da Avaliacao do sistema, ou editado no admin) - 03/11/2026
     G.pf.combSite={};
     siteSnap.docs.forEach(d=>{const s=d.data();if(!s.combustivel)return;[d.id,s.placaSistema].filter(Boolean).forEach(k=>{k=pfChavePlaca(k);if(!G.pf.combSite[k]||(s.camposBloqueados||[]).includes('combustivel'))G.pf.combSite[k]=s.combustivel;});});
@@ -3452,7 +3454,8 @@ function pfSituacaoAnuncio(v){
   const ml=pfAnuncioML(v);const mlOk=!!(ml&&ml.status==='active');
   const moto=/^(MOTO|MOTOS)$/i.test(String(v.tipo||v.categoria||''))||LITORALCAR_MARCAS_MOTO.some(m=>String(v.marca||'').toLowerCase().includes(m)&&!/honda|bmw|suzuki/.test(String(v.marca||'').toLowerCase()));
   const faltam=[];if(!lc)faltam.push('LitoralCar');if(!mlOk&&!moto&&G.pf.mlMap)faltam.push('Mercado Livre');
-  return{semPreco:preco<=1,faltam,publicadas:(lc?1:0)+(mlOk?1:0)};
+  const ignorado=!!(G.pf.naoAnunciar||{})[pfChavePlaca(v.placa)];
+  return{semPreco:preco<=1,faltam,publicadas:(lc?1:0)+(mlOk?1:0),ignorado};
 }
 function renderPlataformasAnuncio(){
   if(G.modulo!=='plataformas')return;
@@ -3462,13 +3465,13 @@ function renderPlataformasAnuncio(){
   // anunciar vem primeiro, depois os anunciados em tudo, e os sem preco (em
   // preparacao) por ultimo. Chips no topo filtram por situacao.
   const todosPf=pfFiltrados().map(v=>({v,s:pfSituacaoAnuncio(v)}));
-  const grupo=x=>x.s.semPreco?2:(x.s.faltam.length?0:1);
+  const grupo=x=>x.s.ignorado?3:(x.s.semPreco?2:(x.s.faltam.length?0:1));
   todosPf.sort((x,y)=>grupo(x)-grupo(y)||x.s.publicadas-y.s.publicadas||String(x.v.marca+x.v.modelo).localeCompare(String(y.v.marca+y.v.modelo)));
-  const nFaltam=todosPf.filter(x=>grupo(x)===0).length,nOk=todosPf.filter(x=>grupo(x)===1).length,nSem=todosPf.filter(x=>grupo(x)===2).length;
+  const nFaltam=todosPf.filter(x=>grupo(x)===0).length,nOk=todosPf.filter(x=>grupo(x)===1).length,nSem=todosPf.filter(x=>grupo(x)===2).length,nIgn=todosPf.filter(x=>grupo(x)===3).length;
   const filtro=G.pf.filtroSit||'todos';
-  const veiculos=todosPf.filter(x=>filtro==='todos'||(filtro==='faltam'&&grupo(x)===0)||(filtro==='ok'&&grupo(x)===1)||(filtro==='sempreco'&&grupo(x)===2)).map(x=>x.v);
+  const veiculos=todosPf.filter(x=>filtro==='todos'||(filtro==='faltam'&&grupo(x)===0)||(filtro==='ok'&&grupo(x)===1)||(filtro==='sempreco'&&grupo(x)===2)||(filtro==='ignorado'&&grupo(x)===3)).map(x=>x.v);
   const chip=(id,txt,n,cor)=>`<button class="btn btn-sm ${filtro===id?'':'btn-outline'}" style="font-size:12px;${filtro===id?'background:'+cor+';color:#fff;border-color:'+cor:''}" onclick="__G().pf.filtroSit='${id}';renderPlataformasAnuncio()">${txt} <b>(${n})</b></button>`;
-  const barra=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:2px">${chip('todos','Todos',todosPf.length,'#475569')}${chip('faltam','🔴 Faltam anunciar',nFaltam,'#c0392b')}${chip('ok','✅ Anunciados em tudo',nOk,'#1a6b3c')}${chip('sempreco','⏳ Sem preço (em preparação)',nSem,'#8a8a8a')}</div>`;
+  const barra=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:2px">${chip('todos','Todos',todosPf.length,'#475569')}${chip('faltam','🔴 Faltam anunciar',nFaltam,'#c0392b')}${chip('ok','✅ Anunciados em tudo',nOk,'#1a6b3c')}${chip('sempreco','⏳ Sem preço (em preparação)',nSem,'#8a8a8a')}${nIgn?chip('ignorado','🚫 Não anunciar',nIgn,'#6b7280'):''}</div>`;
   const totalPlataformas=PLATAFORMAS_ANUNCIO.length;
   if(!veiculos.length){cnt.innerHTML=barra+'<p style="color:var(--tx3);padding:20px">Nenhum veículo nesta situação.</p>';return;}
   cnt.innerHTML=barra+veiculos.map(v=>{
@@ -3483,7 +3486,7 @@ function renderPlataformasAnuncio(){
         <div style="font-size:11px;color:var(--tx3)">${v.zeroKm?'<b style="color:#1d4ed8">0 KM · fora do estoque</b>':v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.preco?'R$ '+v.preco:'sem preço'}</div>
       </div>
       <div style="font-size:10px;color:var(--tx3);background:var(--bg3);border-radius:20px;padding:3px 10px;white-space:nowrap">${publicadas}/${totalPlataformas} plataformas</div>
-      ${sit.semPreco?'<div style="font-size:11px;font-weight:700;color:#8a8a8a;white-space:nowrap">⏳ Sem preço</div>':(sit.faltam.length?'<div style="font-size:11px;font-weight:700;color:#c0392b;white-space:nowrap">🔴 Falta: '+sit.faltam.join(' e ')+'</div>':'<div style="font-size:11px;font-weight:700;color:#1a6b3c;white-space:nowrap">✅ Anunciado</div>')}
+      ${sit.ignorado?'<div style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap">🚫 Não anunciar</div>':sit.semPreco?'<div style="font-size:11px;font-weight:700;color:#8a8a8a;white-space:nowrap">⏳ Sem preço</div>':(sit.faltam.length?'<div style="font-size:11px;font-weight:700;color:#c0392b;white-space:nowrap">🔴 Falta: '+sit.faltam.join(' e ')+'</div>':'<div style="font-size:11px;font-weight:700;color:#1a6b3c;white-space:nowrap">✅ Anunciado</div>')}
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
@@ -3498,9 +3501,21 @@ function renderPlataformasAnuncio(){
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
         }).join('')}
+        <button class="btn btn-outline btn-sm" style="font-size:11px;color:#6b7280" onclick="pfAlternarNaoAnunciar('${v.placa}')" title="${sit.ignorado?'Volta a aparecer na lista para anunciar':'Tira este carro da lista de anunciar (ex.: vai para repasse). Não apaga anúncio que já esteja no ar.'}">${sit.ignorado?'↩ Voltar a anunciar':'🚫 Não anunciar'}</button>
       </div>
     </div>`;
   }).join('');
+}
+async function pfAlternarNaoAnunciar(placa){
+  const k=pfChavePlaca(placa);const v=(G.pf.veiculos||[]).find(x=>x.placa===placa)||{};
+  const ja=!!(G.pf.naoAnunciar||{})[k];
+  const nome=[v.marca,v.modelo].filter(Boolean).join(' ')||placa;
+  if(!ja){const sit=pfSituacaoAnuncio(v);if(!confirm('Marcar '+nome+' como NÃO ANUNCIAR? Ele sai da lista "Faltam anunciar".'+(sit.publicadas?' ATENÇÃO: ele já está publicado em '+sit.publicadas+' plataforma(s) - isso NÃO tira o anúncio do ar; despublique antes se for o caso.':'')))return;}
+  try{
+    await db.collection('leads_config').doc('nao_anunciar').set({placas:{[k]:ja?firebase.firestore.FieldValue.delete():{por:G.user?.n||'',em:new Date().toISOString(),carro:nome}}},{merge:true});
+    G.pf.naoAnunciar=G.pf.naoAnunciar||{};if(ja)delete G.pf.naoAnunciar[k];else G.pf.naoAnunciar[k]={por:G.user?.n||''};
+    toast(ja?nome+' voltou para a lista de anunciar':nome+' marcado como não anunciar','green');renderPlataformasAnuncio();
+  }catch(e){console.error(e);toast('Erro ao salvar: '+e.message,'red',5000);}
 }
 
 function litoralCarPendentes(atualizar){
