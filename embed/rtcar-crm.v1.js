@@ -2945,6 +2945,7 @@ function mlEscolherDados(placa,p){
       +'<label style="'+lbl+'">MARCA</label><select id="mle-marca" style="'+inp+'">'+marcasHtml+'</select>'
       +'<label style="'+lbl+'">MODELO (lista do Mercado Livre)</label><select id="mle-modelo" style="'+inp+'">'+modelosHtml+'</select>'
       +'<label style="'+lbl+'">VERSÃO</label><input id="mle-versao" style="'+inp+'" value="'+esc(versaoIni)+'">'
+      +'<label style="'+lbl+'">TIPO DE ANÚNCIO</label><select id="mle-tipo" style="'+inp+'">'+((opc.tipos&&opc.tipos.length?opc.tipos:[{id:'silver',name:'Prata'}]).map(t=>'<option value="'+esc(t.id)+'">'+(t.id==='gold_premium'?'💎 Diamante':esc(t.name||t.id))+(t.restantes!=null?' - disponíveis: '+t.restantes:'')+'</option>').join(''))+(opc.tipos&&opc.tipos.some(t=>t.id==='gold_premium')?'':'<option value="gold_premium">💎 Diamante (se tiver saldo no pacote)</option>')+'</select>'
       +'<label style="'+lbl+'">TÍTULO DO ANÚNCIO (até 60 letras)</label><input id="mle-titulo" maxlength="60" style="'+inp+'" value="'+esc(p.titulo)+'">'
       +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button class="btn btn-outline btn-sm" id="mle-cancelar">Cancelar</button><button class="btn btn-red btn-sm" id="mle-ok">Publicar</button></div>';
     const $=id=>ov.querySelector('#'+id);
@@ -2960,7 +2961,7 @@ function mlEscolherDados(placa,p){
       const marca={id:ms.value,name:ms.options[ms.selectedIndex]?.text||''};
       const modelo=mo.value?{id:mo.value,name:mo.options[mo.selectedIndex].text}:(modeloAt.name&&!modeloAt.id?{name:modeloAt.name}:null);
       if(!modelo){alert('Escolha o modelo.');return;}
-      fechar({marca,modelo,versao:$('mle-versao').value.trim(),titulo:$('mle-titulo').value.trim()});
+      fechar({marca,modelo,versao:$('mle-versao').value.trim(),titulo:$('mle-titulo').value.trim(),tipo:$('mle-tipo').value});
     };
   });
 }
@@ -2981,7 +2982,13 @@ async function publicarPendentesMercadoLivre(btn){
   alert('Mercado Livre:\n\nPublicados ('+ok.length+'):\n'+(ok.join('\n')||'-')+'\n\nNão publicados ('+falha.length+'):\n'+(falha.join('\n')||'-'));
   carregarStatusMercadoLivre();
 }
-window.pfAlternarNaoAnunciar=pfAlternarNaoAnunciar;window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
+async function mlDestacar(itemId,nome){
+  if(!confirm('Subir '+(nome||itemId)+' para DIAMANTE no Mercado Livre?\n\nUsa 1 destaque Diamante do pacote da loja.'))return;
+  try{const r=await litoralCarFetch('mercadoLivreDestacar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemId,tipo:'gold_premium'})});
+    toast((nome||itemId)+' agora é Diamante 💎','green',6000);carregarStatusMercadoLivre();}
+  catch(e){console.error(e);alert('Não deu para destacar: '+e.message);}
+}
+window.mlDestacar=mlDestacar;window.pfAlternarNaoAnunciar=pfAlternarNaoAnunciar;window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
 function pfAnuncioML(v){
   if(!G.pf.mlMap)return null;
   if(v.zeroKm){ // 0 km nao tem placa: mesma marca + modelo + ano no titulo (igual ao servidor)
@@ -3061,7 +3068,7 @@ function renderPlataformasAnuncio(){
           if(p.id==='mercadolivre'){
             if(G.pf.mlErro)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(G.pf.mlErro).replace(/"/g,'')}">${p.nome}: indisponível</span>`;
             if(!G.pf.mlMap)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: carregando...</span>`;
-            if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':ml.status==='ativando'?'Ativando...':'Pausado'}</a>`;
+            if(ml)return`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${ml.link}" target="_blank" rel="noopener" title="${ml.id} - abrir o anúncio"><i class="ti ti-check"></i> ${p.nome}: ${ml.status==='active'?'Publicado':ml.status==='ativando'?'Ativando...':'Pausado'}${ml.tipo==='gold_premium'?' 💎':''}</a>${ml.status==='active'&&ml.tipo&&ml.tipo!=='gold_premium'?`<button class="btn btn-outline btn-sm" style="font-size:11px;color:#1d4ed8;border-color:#1d4ed8" title="Subir este anúncio para Diamante (destaque do Mercado Livre)" onclick="mlDestacar('${ml.id}','${String([v.marca,v.modelo].filter(Boolean).join(' ')).replace(/'/g,'')}')">💎 Destacar</button>`:''}`;
             return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarMercadoLivre('${v.placa}',this)">${p.nome}: Publicar</button>`;
           }
           if(p.id==='litoralcar'&&lcSt.st==='fora')return`<span class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};cursor:default" title="Anúncio feito fora do nosso sistema (Autoconf ou antigo) - nº ${lcSt.fora.map(a=>a.cod).join(', ')}. Não publique de novo: ficaria duplicado."><i class="ti ti-check"></i> ${p.nome}: Publicado (fora do sistema)</span>`;

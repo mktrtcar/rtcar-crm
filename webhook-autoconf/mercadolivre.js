@@ -491,13 +491,13 @@ async function listarAnunciosML(token,userId){
   }
   const anuncios=[];
   for(let i=0;i<ids.length;i+=20){
-    const lote=await apiML(`/items?ids=${ids.slice(i,i+20).join(',')}&attributes=id,status,title,price,permalink,category_id,attributes`,token);
+    const lote=await apiML(`/items?ids=${ids.slice(i,i+20).join(',')}&attributes=id,status,title,price,permalink,category_id,attributes,listing_type_id`,token);
     for(const x of lote||[]){
       const b=x&&x.body;if(!b||!b.id)continue;
       const at=id=>((b.attributes||[]).find(a=>a.id===id)||{}).value_name||'';
       const placa=at('LICENSE_PLATE');
       anuncios.push({id:b.id,status:b.status,titulo:b.title,preco:b.price,link:b.permalink,categoria:b.category_id,
-        placa,chave:placa?placaChaveML(placa):'',versao:at('TRIM'),marca:at('BRAND'),modelo:at('MODEL')});
+        placa,chave:placa?placaChaveML(placa):'',versao:at('TRIM'),marca:at('BRAND'),modelo:at('MODEL'),tipo:b.listing_type_id||''});
     }
   }
   return anuncios;
@@ -523,6 +523,7 @@ function aplicarEscolhaML(anuncio,esc){
   set('BRAND',esc.marca);set('MODEL',esc.modelo);
   if(esc.versao)set('TRIM',{name:String(esc.versao).slice(0,120)});
   if(esc.titulo)anuncio.title=titulo60(String(esc.titulo));
+  if(['silver','gold_premium','gold','gold_special'].includes(esc.tipo))anuncio.listing_type_id=esc.tipo;
 }
 // Marcas da categoria e modelos de uma marca (lista oficial do ML) para a tela de escolha.
 exports.mercadoLivreModelos=onRequest({region:'southamerica-east1',timeoutSeconds:60,cors:true},async(req,res)=>{
@@ -543,7 +544,38 @@ exports.mercadoLivreModelos=onRequest({region:'southamerica-east1',timeoutSecond
         else console.error('ml top_values',r.status,JSON.stringify(j).slice(0,300));
       }catch(e){console.error('ml top_values',e);}
     }
-    res.json({marcas,modelos});
+    // Tipos de anuncio com saldo (18/11/2026): o Autoconf chama gold_premium de "Diamante".
+    const tipos=[];
+    try{const t=await apiML('/users/'+c.userId+'/available_listing_types?category_id='+CATEGORIA_CARROS,token);(t.available||[]).forEach(x=>tipos.push({id:x.id,name:x.name,restantes:x.remaining_listings}));}catch(e){}
+    if(!tipos.some(x=>x.id==='gold_premium')){
+      try{const g=await apiML('/users/'+c.userId+'/available_listing_type/gold_premium?category_id='+CATEGORIA_CARROS,token);if(g&&(g.available||g.remaining_listings))tipos.push({id:'gold_premium',name:'Diamante',restantes:g.remaining_listings});}catch(e){}
+    }
+    if(!tipos.some(x=>x.id==='silver'))tipos.unshift({id:'silver',name:'Prata'});
+    res.json({marcas,modelos,tipos});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+
+/* Destacar (trocar o tipo) de um anuncio JA publicado - 18/11/2026, pedido da
+   Aline: usar o Diamante (gold_premium) do pacote no carro que ela escolher.
+   POST {itemId, tipo:'gold_premium'|'silver'}. So' anuncio da conta RT Car. */
+exports.mercadoLivreDestacar=onRequest({region:'southamerica-east1',timeoutSeconds:60,cors:true},async(req,res)=>{
+  try{
+    if(req.method!=='POST'){res.status(405).json({erro:'Use POST'});return;}
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const itemId=String((req.body&&req.body.itemId)||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    const tipo=String((req.body&&req.body.tipo)||'gold_premium');
+    if(!/^MLB\d+$/.test(itemId)||!['silver','gold_premium','gold','gold_special'].includes(tipo)){res.status(400).json({erro:'Dados inválidos'});return;}
+    const c=await obterToken();
+    const it=await apiML('/items/'+itemId+'?attributes=id,seller_id,listing_type_id,title',c.accessToken);
+    if(String(it.seller_id)!==String(c.userId)){res.status(403).json({erro:'Anúncio não é da conta RT Car'});return;}
+    const r=await fetch(API+'/items/'+itemId+'/listing_type',{method:'POST',headers:{Authorization:'Bearer '+c.accessToken,'Content-Type':'application/json'},body:JSON.stringify({id:tipo})});
+    const j=await r.json().catch(()=>({}));
+    console.log('ml destacar',itemId,tipo,r.status,JSON.stringify(j).slice(0,300));
+    if(!r.ok){res.status(502).json({erro:'O Mercado Livre recusou: '+(j.message||j.error||r.status),ml:j});return;}
+    await db.collection('ml_destaques').add({itemId,de:it.listing_type_id||'',para:tipo,titulo:it.title||'',por:dec.email||'',em:new Date().toISOString()});
+    res.json({ok:true,itemId,tipo});
   }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
 });
 
