@@ -2954,14 +2954,36 @@ function pfFiltrados(){
   }
   return ls;
 }
+// Situacao do carro nas plataformas ativas (LitoralCar e Mercado Livre).
+// Anuncio feito por fora (Autoconf) conta como anunciado. Moto nao entra no
+// ML (categoria nao pronta). Sem preco (R$ 1 / vazio) = ainda em preparacao.
+function pfSituacaoAnuncio(v){
+  const preco=Number(String(v.preco||'').replace(/[^0-9]/g,''))||0;
+  const lc=pfLitoralStatus(v).st!=='nao';
+  const ml=pfAnuncioML(v);const mlOk=!!(ml&&ml.status==='active');
+  const moto=/^(MOTO|MOTOS)$/i.test(String(v.tipo||v.categoria||''))||LITORALCAR_MARCAS_MOTO.some(m=>String(v.marca||'').toLowerCase().includes(m)&&!/honda|bmw|suzuki/.test(String(v.marca||'').toLowerCase()));
+  const faltam=[];if(!lc)faltam.push('LitoralCar');if(!mlOk&&!moto&&G.pf.mlMap)faltam.push('Mercado Livre');
+  return{semPreco:preco<=1,faltam,publicadas:(lc?1:0)+(mlOk?1:0)};
+}
 function renderPlataformasAnuncio(){
   if(G.modulo!=='plataformas')return;
   const cnt=document.getElementById('cnt');
   cnt.style.cssText='flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px';
-  const veiculos=pfFiltrados();
+  // 18/11/2026 (pedido da Aline, "igual o Autoconf"): os que ainda FALTAM
+  // anunciar vem primeiro, depois os anunciados em tudo, e os sem preco (em
+  // preparacao) por ultimo. Chips no topo filtram por situacao.
+  const todosPf=pfFiltrados().map(v=>({v,s:pfSituacaoAnuncio(v)}));
+  const grupo=x=>x.s.semPreco?2:(x.s.faltam.length?0:1);
+  todosPf.sort((x,y)=>grupo(x)-grupo(y)||x.s.publicadas-y.s.publicadas||String(x.v.marca+x.v.modelo).localeCompare(String(y.v.marca+y.v.modelo)));
+  const nFaltam=todosPf.filter(x=>grupo(x)===0).length,nOk=todosPf.filter(x=>grupo(x)===1).length,nSem=todosPf.filter(x=>grupo(x)===2).length;
+  const filtro=G.pf.filtroSit||'todos';
+  const veiculos=todosPf.filter(x=>filtro==='todos'||(filtro==='faltam'&&grupo(x)===0)||(filtro==='ok'&&grupo(x)===1)||(filtro==='sempreco'&&grupo(x)===2)).map(x=>x.v);
+  const chip=(id,txt,n,cor)=>`<button class="btn btn-sm ${filtro===id?'':'btn-outline'}" style="font-size:12px;${filtro===id?'background:'+cor+';color:#fff;border-color:'+cor:''}" onclick="__G().pf.filtroSit='${id}';renderPlataformasAnuncio()">${txt} <b>(${n})</b></button>`;
+  const barra=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:2px">${chip('todos','Todos',todosPf.length,'#475569')}${chip('faltam','🔴 Faltam anunciar',nFaltam,'#c0392b')}${chip('ok','✅ Anunciados em tudo',nOk,'#1a6b3c')}${chip('sempreco','⏳ Sem preço (em preparação)',nSem,'#8a8a8a')}</div>`;
   const totalPlataformas=PLATAFORMAS_ANUNCIO.length;
-  if(!veiculos.length){cnt.innerHTML='<p style="color:var(--tx3);padding:20px">Nenhum veículo encontrado.</p>';return;}
-  cnt.innerHTML=veiculos.map(v=>{
+  if(!veiculos.length){cnt.innerHTML=barra+'<p style="color:var(--tx3);padding:20px">Nenhum veículo nesta situação.</p>';return;}
+  cnt.innerHTML=barra+veiculos.map(v=>{
+    const sit=pfSituacaoAnuncio(v);
     const lcSt=pfLitoralStatus(v);
     const publicadoLitoral=lcSt.st==='nosso';
     const ml=pfAnuncioML(v);
@@ -2972,6 +2994,7 @@ function renderPlataformasAnuncio(){
         <div style="font-size:11px;color:var(--tx3)">${v.zeroKm?'<b style="color:#1d4ed8">0 KM · fora do estoque</b>':v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.preco?'R$ '+v.preco:'sem preço'}</div>
       </div>
       <div style="font-size:10px;color:var(--tx3);background:var(--bg3);border-radius:20px;padding:3px 10px;white-space:nowrap">${publicadas}/${totalPlataformas} plataformas</div>
+      ${sit.semPreco?'<div style="font-size:11px;font-weight:700;color:#8a8a8a;white-space:nowrap">⏳ Sem preço</div>':(sit.faltam.length?'<div style="font-size:11px;font-weight:700;color:#c0392b;white-space:nowrap">🔴 Falta: '+sit.faltam.join(' e ')+'</div>':'<div style="font-size:11px;font-weight:700;color:#1a6b3c;white-space:nowrap">✅ Anunciado</div>')}
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
