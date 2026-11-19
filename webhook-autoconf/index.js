@@ -258,3 +258,4 @@ Object.assign(exports,require('./mercadolivre'));
 Object.assign(exports,require('./instagram'));
 Object.assign(exports,require('./whatsapp'));
 Object.assign(exports,require('./olx'));
+Object.assign(exports,require('./napista'));
