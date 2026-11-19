@@ -251,7 +251,9 @@ exports.olxAnunciosStatus=onRequest({region:'southamerica-east1',cors:true,timeo
     await exigirGestor(req);
     const cfg=(await db.collection('olx_config').doc('oauth').get()).data()||{};
     const p=await lerPrivado();
-    if(!p.accessToken){res.json({conectado:false,anuncios:[]});return;}
+    // O que o NOSSO sistema mandou (olx_anuncios) vai junto: a tela nao le essa colecao direto
+    const nossos={};(await db.collection('olx_anuncios').get()).docs.forEach(d=>{const x=d.data();nossos[d.id]={status:x.status||'',titulo:x.titulo||'',ultimoEnvio:x.ultimoEnvio||'',erro:x.erro||''};});
+    if(!p.accessToken){res.json({conectado:false,semChave:!process.env.OLX_CLIENT_ID,anuncios:[],nossos});return;}
     const anuncios=[];let page='';
     for(let i=0;i<10;i++){
       const r=await fetch(APPS+'/autoupload/v1/published?'+new URLSearchParams({fetch_size:'200',...(page?{page_token:page}:{})}).toString(),{headers:{Authorization:'Bearer '+p.accessToken}});
@@ -260,6 +262,6 @@ exports.olxAnunciosStatus=onRequest({region:'southamerica-east1',cors:true,timeo
       (j.data||[]).forEach(a=>anuncios.push({id:a.id,listId:a.list_id||'',status:a.status,link:a.list_id?'https://www.olx.com.br/vi/'+a.list_id:''}));
       page=j.next_token;if(!page)break;
     }
-    res.json({conectado:true,conta:cfg.contaOLX||'',anuncios});
+    res.json({conectado:true,conta:cfg.contaOLX||'',anuncios,nossos});
   }catch(e){console.error(e);res.status(e.status||500).json({erro:e.message||String(e)});}
 });

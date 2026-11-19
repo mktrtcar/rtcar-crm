@@ -2713,7 +2713,7 @@ async function abrirModalIntegracoes(){
 const PLATAFORMAS_ANUNCIO=[
   {id:'litoralcar',nome:'LitoralCar',cor:'#0a5ca8',ativa:true},
   {id:'mercadolivre',nome:'Mercado Livre',cor:'#2d3277',ativa:true},
-  {id:'olx',nome:'OLX',cor:'#7c1fa2',ativa:false},
+  {id:'olx',nome:'OLX',cor:'#7c1fa2',ativa:true},
   {id:'mobiauto',nome:'Mobiauto',cor:'#00a19a',ativa:false},
   {id:'napista',nome:'Na Pista',cor:'#1e63c9',ativa:false},
   {id:'webmotors',nome:'WebMotors',cor:'#e2001a',ativa:false},
@@ -2817,6 +2817,7 @@ async function initPlataformasAnuncio(){
   renderPlataformasAnuncio();
   carregarStatusMercadoLivre();
   carregarLitoralNoAr();
+  carregarStatusOLX();
 }
 /* LitoralCar: o que esta' DE FATO no ar (05/11/2026, "tem que deixar o botao
    certo"). Antes o botao so' via o que o NOSSO sistema publicou; anuncio feito
@@ -2988,6 +2989,136 @@ async function mlDestacar(itemId,nome){
     toast((nome||itemId)+' agora é Diamante 💎','green',6000);carregarStatusMercadoLivre();}
   catch(e){console.error(e);alert('Não deu para destacar: '+e.message);}
 }
+/* OLX pelo nosso sistema (19/11/2026). O servidor (webhook-autoconf/olx.js) ja'
+   existe; enquanto a OLX nao libera o client_id e a Aline nao clica em
+   "Conectar OLX", o botao so' mostra a situacao. Publicar e' sempre manual,
+   carro a carro, com marca/modelo/versao da lista oficial da OLX. Anuncio que
+   o Autoconf fez na OLX nao tem a nossa placa como codigo - por isso a janela
+   avisa para nao publicar de novo carro que ja' esta' la' (duplicado). */
+async function carregarStatusOLX(){
+  G.pf.olx=null;
+  let r=null,erro='';
+  try{r=await litoralCarFetch('olxAnunciosStatus');}catch(e){erro=e.message||'erro';}
+  const publicados={};((r&&r.anuncios)||[]).forEach(a=>{publicados[String(a.id||'').toUpperCase()]=a;});
+  G.pf.olx={conectado:!!(r&&r.conectado),semChave:!!(r&&r.semChave),conta:(r&&r.conta)||'',erro,nossos:(r&&r.nossos)||{},publicados,total:((r&&r.anuncios)||[]).length};
+  renderPlataformasAnuncio();
+}
+function olxChave(v){return String(v.placa||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,19);}
+function olxAnuncio(v){
+  const o=G.pf.olx;if(!o)return null;const k=olxChave(v);
+  const pub=o.publicados[k],nosso=o.nossos[k];
+  if(!pub&&!nosso)return null;
+  if(nosso&&/removido/.test(nosso.status)&&!pub)return null;
+  return{id:k,listId:(pub&&pub.listId)||'',link:(pub&&pub.link)||'',status:(pub&&pub.status)||(nosso&&nosso.status)||'',erro:(nosso&&nosso.status==='erro')?nosso.erro:''};
+}
+async function olxConectar(btn){
+  const txt=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Abrindo...';}
+  try{const r=await litoralCarFetch('olxConectar');
+    window.open(r.url,'_blank');
+    toast('Entre na conta da OLX da loja e clique em Autorizar. Depois volte aqui e recarregue a aba Anúncios.','gold',9000);}
+  catch(e){console.error(e);alert('Não deu para conectar na OLX: '+e.message);}
+  finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.innerHTML=txt;}}
+}
+function olxBotao(v,p){
+  const o=G.pf.olx;const span=t=>`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${t}</span>`;
+  if(!o)return span(p.nome+': carregando...');
+  if(!o.conectado){
+    if(o.erro||o.semChave)return `<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="A OLX ainda não liberou o código de acesso do nosso sistema">${p.nome}: aguardando liberação</span>`;
+    return `<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="olxConectar(this)">${p.nome}: Conectar</button>`;
+  }
+  const a=olxAnuncio(v);
+  if(a&&a.erro)return `<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#c0392b;color:#c0392b" title="${String(a.erro).replace(/"/g,'').slice(0,300)}" onclick="publicarOLX('${v.placa}',this)">${p.nome}: erro - tentar de novo</button>`;
+  if(a){const st=/publish|active|ativo/i.test(a.status)?'Publicado':(/pend|enviado|review|analise/i.test(a.status)?'Em análise':(a.status||'Enviado'));
+    return (a.link?`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${a.link}" target="_blank" rel="noopener"><i class="ti ti-check"></i> ${p.nome}: ${st}</a>`:`<span class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};cursor:default"><i class="ti ti-check"></i> ${p.nome}: ${st}</span>`)
+      +`<button class="btn btn-outline btn-sm" style="font-size:11px;color:#6b7280" title="Tirar este anúncio da OLX" onclick="despublicarOLX('${v.placa}',this)">✕</button>`;}
+  return `<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarOLX('${v.placa}',this)">${p.nome}: Publicar</button>`;
+}
+async function olxCatalogoLista(marca,modelo){
+  const q=new URLSearchParams();if(marca)q.set('marca',marca);if(modelo)q.set('modelo',modelo);
+  const r=await litoralCarFetch('olxCatalogo'+(q.toString()?'?'+q.toString():''));return r.itens||[];
+}
+function olxMelhor(lista,...textos){
+  const nb=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 .]/g,' ').replace(/\s+/g,' ').trim();
+  for(const t of textos){const a=nb(t);if(!a)continue;
+    const ex=lista.find(x=>nb(x.nome)===a);if(ex)return ex.id;
+    const pc=lista.find(x=>a.startsWith(nb(x.nome)+' ')||nb(x.nome).startsWith(a+' '));if(pc)return pc.id;}
+  // versao: a que tiver mais palavras em comum
+  const alvo=nb(textos.filter(Boolean).join(' ')).split(' ').filter(Boolean);if(!alvo.length)return'';
+  let best='',bn=0;lista.forEach(x=>{const n=nb(x.nome).split(' ').filter(w=>alvo.includes(w)).length;if(n>bn&&n>=2){bn=n;best=x.id;}});return best;
+}
+function olxEscolherDados(v){
+  return new Promise(async resolve=>{
+    const esc=t=>String(t||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const lc=(G.pf.litoralcarMap||{})[String(v.placa).replace(/[^A-Za-z0-9]/g,'').toUpperCase()]||{};
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    ov.innerHTML='<div style="background:var(--bg2,#fff);color:var(--tx,#111);border-radius:12px;padding:20px;width:min(520px,94vw);max-height:90vh;overflow:auto;font-size:13px"><div style="font-weight:700;font-size:16px;margin-bottom:6px">Publicar na OLX</div><div style="color:var(--tx3,#666)">Carregando a lista de marcas da OLX...</div></div>';
+    document.body.appendChild(ov);
+    const fechar=x=>{ov.remove();resolve(x);};
+    let marcas=[];
+    try{marcas=await olxCatalogoLista();}catch(e){alert('A OLX não respondeu a lista de marcas: '+e.message);fechar(null);return;}
+    const lbl='display:block;font-size:11px;font-weight:700;color:var(--tx3,#666);margin:10px 0 4px';
+    const inp='width:100%;padding:8px;border:1px solid var(--bdr,#ccc);border-radius:8px;background:var(--bg,#fff);color:inherit;font-size:13px;box-sizing:border-box';
+    const opts=(ls,sel)=>'<option value="">(escolha)</option>'+ls.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===sel?' selected':'')+'>'+esc(x.nome)+'</option>').join('');
+    const marcaSel=olxMelhor(marcas,v.marca,lc.marca);
+    ov.firstChild.innerHTML='<div style="font-weight:700;font-size:16px;margin-bottom:4px">Publicar na OLX</div>'
+      +'<div style="color:var(--tx3,#666)">'+esc([v.marca,v.modelo,v.versao].filter(Boolean).join(' '))+' · '+esc(v.zeroKm?'0 km':v.placa)+' · '+(v.preco?'R$ '+esc(v.preco):'sem preço')+'</div>'
+      +'<div style="background:#fff7e6;color:#8a5a00;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px">⚠ Se este carro <b>já está na OLX pelo Autoconf</b>, não publique aqui: ficaria duplicado.</div>'
+      +'<label style="'+lbl+'">MARCA (lista da OLX)</label><select id="olxe-marca" style="'+inp+'">'+opts(marcas,marcaSel)+'</select>'
+      +'<label style="'+lbl+'">MODELO</label><select id="olxe-modelo" style="'+inp+'"><option value="">(escolha a marca)</option></select>'
+      +'<label style="'+lbl+'">VERSÃO</label><select id="olxe-versao" style="'+inp+'"><option value="">(escolha o modelo)</option></select>'
+      +'<label style="'+lbl+'">ANO DO MODELO</label><input id="olxe-ano" style="'+inp+'" value="'+esc(v.anoModelo||'')+'">'
+      +'<div style="font-size:11px;color:var(--tx3,#666);margin-top:8px">Fotos, descrição, km, cor e câmbio vêm do site. A OLX revisa o anúncio antes de ir ao ar.</div>'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button class="btn btn-outline btn-sm" id="olxe-cancelar">Cancelar</button><button class="btn btn-red btn-sm" id="olxe-ok">Publicar</button></div>';
+    const $=id=>ov.querySelector('#'+id);
+    let modelos=[],versoes=[];
+    const carregarVersoes=async(sugerir)=>{
+      const sel=$('olxe-versao');versoes=[];if(!$('olxe-modelo').value){sel.innerHTML='<option value="">(escolha o modelo)</option>';return;}
+      sel.innerHTML='<option value="">carregando...</option>';
+      try{versoes=await olxCatalogoLista($('olxe-marca').value,$('olxe-modelo').value);sel.innerHTML=opts(versoes,sugerir?olxMelhor(versoes,v.versao,lc.versao):'');}
+      catch(e){sel.innerHTML='<option value="">não carregou - tente de novo</option>';}
+    };
+    const carregarModelos=async(sugerir)=>{
+      const sel=$('olxe-modelo');modelos=[];if(!$('olxe-marca').value){sel.innerHTML='<option value="">(escolha a marca)</option>';return carregarVersoes(false);}
+      sel.innerHTML='<option value="">carregando...</option>';
+      try{modelos=await olxCatalogoLista($('olxe-marca').value);sel.innerHTML=opts(modelos,sugerir?olxMelhor(modelos,v.modelo,lc.modelo,String(v.modelo||'').split(/\s+/)[0]):'');}
+      catch(e){sel.innerHTML='<option value="">não carregou - tente de novo</option>';}
+      await carregarVersoes(sugerir);
+    };
+    $('olxe-marca').onchange=()=>carregarModelos(false);
+    $('olxe-modelo').onchange=()=>carregarVersoes(false);
+    $('olxe-cancelar').onclick=()=>fechar(null);
+    ov.onclick=e=>{if(e.target===ov)fechar(null);};
+    $('olxe-ok').onclick=()=>{
+      const nome=id=>{const s=$(id);return s.value?s.options[s.selectedIndex].text:'';};
+      if(!$('olxe-marca').value||!$('olxe-modelo').value||!$('olxe-versao').value){alert('Escolha marca, modelo e versão da lista da OLX.');return;}
+      const ano=$('olxe-ano').value.replace(/\D/g,'');if(ano.length!==4){alert('Ano do modelo com 4 números (ex.: 2020).');return;}
+      fechar({marcaId:$('olxe-marca').value,modeloId:$('olxe-modelo').value,versaoId:$('olxe-versao').value,marca:nome('olxe-marca'),modelo:nome('olxe-modelo'),versao:nome('olxe-versao'),anoModelo:ano});
+    };
+    carregarModelos(true);
+  });
+}
+async function publicarOLX(placa,btn){
+  const v=(G.pf.veiculos||[]).find(x=>x.placa===placa);if(!v)return;
+  const escolha=await olxEscolherDados(v);if(!escolha)return;
+  const txt=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Enviando...';}
+  try{
+    const corpo={...escolha,km:v.km||'',preco:v.preco||'',cor:v.cor||''};
+    if(v.zeroKm)corpo.zeroKmSiteId=v.zeroKmSiteId;else corpo.placa=v.placa;
+    const r=await litoralCarFetch('olxPublicar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+    toast('Enviado para a OLX ('+r.id+') - a OLX revisa antes de publicar','green',7000);
+  }catch(e){console.error(e);alert('A OLX não aceitou: '+e.message);}
+  finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.innerHTML=txt;}carregarStatusOLX();}
+}
+async function despublicarOLX(placa,btn){
+  const v=(G.pf.veiculos||[]).find(x=>x.placa===placa)||{};
+  if(!confirm('Tirar '+([v.marca,v.modelo].filter(Boolean).join(' ')||placa)+' da OLX?'))return;
+  if(btn)btn.disabled=true;
+  try{await litoralCarFetch('olxDespublicar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:olxChave(v)})});toast('Pedido de remoção enviado para a OLX','green');}
+  catch(e){console.error(e);alert('Não deu para tirar da OLX: '+e.message);}
+  finally{carregarStatusOLX();}
+}
+window.olxConectar=olxConectar;window.publicarOLX=publicarOLX;window.despublicarOLX=despublicarOLX;
 window.mlDestacar=mlDestacar;window.pfAlternarNaoAnunciar=pfAlternarNaoAnunciar;window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
 function pfAnuncioML(v){
   if(!G.pf.mlMap)return null;
@@ -3065,6 +3196,7 @@ function renderPlataformasAnuncio(){
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
+          if(p.id==='olx')return olxBotao(v,p);
           if(p.id==='mercadolivre'){
             if(G.pf.mlErro)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(G.pf.mlErro).replace(/"/g,'')}">${p.nome}: indisponível</span>`;
             if(!G.pf.mlMap)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: carregando...</span>`;
