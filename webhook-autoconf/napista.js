@@ -53,7 +53,7 @@ async function clienteOAuth(){
   if(p.clientId)return p.clientId;
   const r=await fetch(REG_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
     client_name:'RT Car CRM',redirect_uris:[REDIRECT_URI],grant_types:['authorization_code','refresh_token'],
-    response_types:['code'],token_endpoint_auth_method:'none',scope:ESCOPO})});
+    response_types:['code'],token_endpoint_auth_method:'none'})}); // sem "scope": a politica da Na Pista recusa (19/11) - o escopo vai no pedido de login
   const j=await r.json().catch(()=>({}));
   if(!r.ok||!j.client_id){const e=new Error('A Na Pista recusou o cadastro do aplicativo: '+r.status+' '+JSON.stringify(j).slice(0,300));e.status=502;throw e;}
   await gravarPrivado({clientId:j.client_id,registradoEm:new Date().toISOString(),registrationAccessToken:j.registration_access_token||''});
