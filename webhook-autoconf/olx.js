@@ -7,8 +7,8 @@ const db = admin.firestore();
 /* OLX - integracao propria (06/11/2026, pedido da Aline: sair do Autoconf).
    Feito a partir da documentacao oficial (developers.olx.com.br), ANTES de a
    OLX liberar o client_id/client_secret (chamado aberto pelo Ricardo, OLX).
-   Quando chegarem, a Aline coloca no .env (OLX_CLIENT_ID, OLX_CLIENT_SECRET,
-   OLX_TELEFONE, OLX_CEP), faz o deploy e clica "Conectar OLX" uma vez.
+   Quando chegarem, a Aline guarda OLX_CLIENT_ID e OLX_CLIENT_SECRET como
+   Firebase secrets (OLX_TELEFONE e OLX_CEP ficam no .env), faz o deploy e clica "Conectar OLX" uma vez.
 
    - OAuth: auth.olx.com.br/oauth -> /oauth/token (sem refresh token documentado).
      Token guardado no Storage (privado/olx-oauth.json), nunca no Firestore.
@@ -54,10 +54,11 @@ async function olxPost(caminho,corpo,metodo='POST'){
 
 /* 1) Conectar: o CRM chama (gestor logado), recebe o link de autorizacao da OLX
    com um "state" de uso unico; a Aline entra na conta da loja e autoriza. */
-exports.olxConectar=onRequest({region:'southamerica-east1',cors:true},async(req,res)=>{
+const SEGREDOS=['OLX_CLIENT_ID','OLX_CLIENT_SECRET']; // Firebase secrets (Aline guarda com functions:secrets:set) - 20/11/2026
+exports.olxConectar=onRequest({region:'southamerica-east1',cors:true,secrets:SEGREDOS},async(req,res)=>{
   try{
     const dec=await exigirGestor(req);
-    if(!process.env.OLX_CLIENT_ID){res.status(409).json({erro:'Falta o OLX_CLIENT_ID no .env (a OLX ainda não liberou a chave)'});return;}
+    if(!process.env.OLX_CLIENT_ID){res.status(409).json({erro:'Falta o segredo OLX_CLIENT_ID (a OLX ainda não liberou a chave)'});return;}
     const state=crypto.randomBytes(16).toString('hex');
     await db.collection('olx_config').doc('oauth').set({state,stateEm:new Date().toISOString(),pedidoPor:dec.email||''},{merge:true});
     const url=AUTH+'/oauth?'+new URLSearchParams({response_type:'code',client_id:process.env.OLX_CLIENT_ID,redirect_uri:REDIRECT_URI,scope:'autoupload autoservice basic_user_info',state}).toString();
@@ -65,7 +66,7 @@ exports.olxConectar=onRequest({region:'southamerica-east1',cors:true},async(req,
   }catch(e){console.error(e);res.status(e.status||500).json({erro:e.message||String(e)});}
 });
 
-exports.olxOAuthCallback=onRequest({region:'southamerica-east1'},async(req,res)=>{
+exports.olxOAuthCallback=onRequest({region:'southamerica-east1',secrets:SEGREDOS},async(req,res)=>{
   try{
     if(req.query.error){res.status(400).send(`<h2>Autorização recusada</h2><p>${String(req.query.error).replace(/</g,'')}</p>`);return;}
     const code=String(req.query.code||''),state=String(req.query.state||'');
@@ -246,7 +247,7 @@ exports.olxDespublicar=onRequest({region:'southamerica-east1',cors:true},async(r
 });
 
 // 5) O que esta' na OLX pelo nosso sistema (id, list_id, status) - tela Anuncios
-exports.olxAnunciosStatus=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:60},async(req,res)=>{
+exports.olxAnunciosStatus=onRequest({region:'southamerica-east1',cors:true,timeoutSeconds:60,secrets:['OLX_CLIENT_ID']},async(req,res)=>{
   try{
     await exigirGestor(req);
     const cfg=(await db.collection('olx_config').doc('oauth').get()).data()||{};
