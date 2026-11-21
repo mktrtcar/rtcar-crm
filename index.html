@@ -2362,7 +2362,9 @@ function statsMilenaIntervalo(ini,fim){
     indicacao:(G.rel.indicacoes||[]).filter(n=>dentro(n.dt)).map(n=>({nome:n.nomeIndicado||'',tel:n.telIndicado||'',dt:n.dt,
       extra:(n.indicadoPor?'indicado por '+n.indicadoPor:'')+(n.tag==='compareceu'?' · compareceu':n.tag==='nao_compareceu'?' · não compareceu':'')})),
     recompra,
-    compra:(G.mk.leads||[]).filter(l=>vendidoNoPer(l)&&l.origem==='Compra'&&(quemComprou(l)==='Milena'||l.captadorReplicado==='Milena')).map(lead),
+    // Compra e consignacao juntas (meta da Milena - planilha de bonus 21/11/2026)
+    compra:(G.mk.leads||[]).filter(l=>vendidoNoPer(l)&&(l.origem==='Compra'||l.origem==='Consignado')&&(quemComprou(l)==='Milena'||l.captadorReplicado==='Milena')).map(l=>{const x=lead(l);if(l.origem==='Consignado')x.extra+=' · consignado';return x;}),
+    estetica:(G.mk.leads||[]).filter(l=>vendidoNoPer(l)&&l.origem==='Estética').map(lead),
   };
 }
 const MILENA_ITENS=[
@@ -2371,8 +2373,37 @@ const MILENA_ITENS=[
   ['vitri','✨','Visitas 2 anos – Vitrificação','#0b7ba8'],
   ['indicacao','🤝','Indicação','#1a6b3c'],
   ['recompra','🔁','Recompra','#b8860b'],
-  ['compra','🛒','Compra','#c0392b'],
+  ['compra','🛒','Compra e consig.','#c0392b'],
+  ['estetica','🧽','Estética','#00838f'],
 ];
+// Metas do mes (planilha de bonus da Aline, 21/11/2026): Zona 1 / 2 / 3.
+// Visitas = Cesta 1 ano + Vitrificacao 2 anos somadas.
+const MILENA_METAS=[
+  ['Compra e consig.',['compra'],[8,12,16],'#c0392b'],
+  ['NPS',['nps'],[30,40,50],'#1e4d8c'],
+  ['Visitas (1 ano + 2 anos)',['cesta','vitri'],[15,25,35],'#6b3db8'],
+  ['Estética',['estetica'],[4,8,12],'#00838f'],
+  ['Indicação',['indicacao'],[20,30,40],'#1a6b3c'],
+  ['Recompra',['recompra'],[2,4,6],'#b8860b'],
+];
+function milenaMetasHtml(st){
+  const zonaCor=['#f5c542','#7cc47f','#5b8def'];
+  const card=([label,chaves,zonas,cor])=>{
+    const n=chaves.reduce((a,k)=>a+st[k].length,0);
+    const prox=zonas.findIndex(z=>n<z);
+    const falta=prox===-1?'🏆 Bateu a Zona 3!':`Faltam <span style="font-size:24px;color:${cor}">${zonas[prox]-n}</span> para a Zona ${prox+1}`;
+    const zonasHtml=zonas.map((z,i)=>`<div style="flex:1;text-align:center;border-radius:8px;padding:6px 4px;font-size:14px;font-weight:700;background:${n>=z?zonaCor[i]:'var(--bg3)'};color:${n>=z?'#1b1b1b':'var(--tx2)'}">Zona ${i+1}<br><span style="font-size:16px">${n>=z?'✅ '+z:n+' / '+z}</span></div>`).join('');
+    return `<div style="border:1px solid var(--bdr);border-left:6px solid ${cor};border-radius:12px;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:19px;font-weight:700;color:${cor}">${label}</span><span style="font-size:38px;font-weight:800;color:${cor};line-height:1">${n}</span></div>
+      <div style="font-size:16px;font-weight:700;margin:6px 0 8px">${falta}</div>
+      <div style="display:flex;gap:6px">${zonasHtml}</div>
+    </div>`;};
+  return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:16px;padding:20px 22px">
+    <div style="font-size:26px;font-weight:800;margin-bottom:4px">🎯 Metas do mês – quanto falta</div>
+    <div style="font-size:14px;color:var(--tx3);margin-bottom:12px">Zona 1 · Zona 2 · Zona 3. Quando bate, aparece ✅.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">${MILENA_METAS.map(card).join('')}</div>
+  </div>`;
+}
 function milenaQuadroHtml(titulo,sub,st,extra,ini,fim){
   const linha=([k,emo,label,cor])=>{
     const n=st?st[k].length:'–';
@@ -2411,6 +2442,7 @@ function milenaPainelHtml(){
       ${milenaQuadroHtml('Mês',nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1),statsMilenaIntervalo(mIni,mFim),'',mIni,mFim)}
       ${milenaQuadroHtml('Período',(pi&&pf)?isoParaBR(pi)+' a '+isoParaBR(pf):'escolha as datas',(pi&&pf)?statsMilenaIntervalo(pi,pf):null,filtro,pi,pf)}
     </div>
+    ${milenaMetasHtml(statsMilenaIntervalo(mIni,mFim))}
   </div>`;
 }
 function milenaDetalhe(k,ini,fim,quadro){
