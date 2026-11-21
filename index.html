@@ -2334,6 +2334,120 @@ function statsGeralDoDia(offset=0){
   const diaISO=hojeISOlocal(offset);
   return statsGeralIntervalo(diaISO,diaISO);
 }
+/* Dashboard Milena (21/11/2026, pedido da Aline): guia visual do dia da
+   Milena para ficar aberto numa TV. 3 quadrados grandes - Hoje, Mes atual e
+   Periodo escolhido - cada um com os 6 numeros dela. Clicar num numero abre
+   a lista (nome, telefone, carro, data). Mesmas regras do Relacionamento >
+   Dashboard (08/11/2026), so' que por intervalo de datas:
+   - NPS e Indicacao: lancamentos das colunas NPS / Indicacoes (data dt).
+   - Cesta 1 ano / Vitrificacao 2 anos: visita marcada "realizada" no cliente.
+   - Recompra: venda no periodo de lead com a Milena junto (captadorReplicado),
+     origem Relacionamento ou Recompra, mais cliente "Recompra: Sim".
+   - Compra: lead de origem Compra fechado (vendido) no periodo, da Milena.
+   Atualiza sozinho a cada 5 min enquanto a aba estiver aberta (TV). */
+function statsMilenaIntervalo(ini,fim){
+  const dentro=d=>!!d&&d>=ini&&d<=fim;
+  const clis=G.rel.clientes||[];
+  const telK=t=>String(t||'').replace(/\D/g,'').slice(-8);
+  const vendidoNoPer=l=>l.st==='vendido'&&dentro(brParaISO(l.dtVenda));
+  const cli=(c,data)=>({nome:c.clienteNome||c.id,tel:c.clienteTel||'',carro:c.veiculo||'',dt:data||''});
+  const lead=l=>({nome:l.clienteNome||l.id,tel:l.clienteTel||'',carro:l.veiculo||'',dt:brParaISO(l.dtVenda),extra:l.id+(l.captador&&l.captador!=='Milena'?' · com '+l.captador:'')});
+  const recompra=[];const vistos=new Set();
+  (G.mk.leads||[]).filter(l=>vendidoNoPer(l)&&l.origem!=='Compra'&&(l.captadorReplicado==='Milena'||l.origem==='Relacionamento'||l.origem==='Recompra')).forEach(l=>{vistos.add(telK(l.clienteTel)||l.id);recompra.push(lead(l));});
+  clis.filter(c=>c.recompra==='sim'&&dentro(c.recompraData)&&!vistos.has(telK(c.clienteTel)||c.id)).forEach(c=>recompra.push(cli(c,c.recompraData)));
+  return{
+    nps:(G.rel.nps||[]).filter(n=>dentro(n.dt)).map(n=>({nome:n.nome||'',tel:n.tel||'',dt:n.dt,extra:n.obs||''})),
+    cesta:clis.filter(c=>c.visita1ano==='realizada'&&dentro(c.visita1anoData)).map(c=>cli(c,c.visita1anoData)),
+    vitri:clis.filter(c=>c.visita2anos==='realizada'&&dentro(c.visita2anosData)).map(c=>cli(c,c.visita2anosData)),
+    indicacao:(G.rel.indicacoes||[]).filter(n=>dentro(n.dt)).map(n=>({nome:n.nomeIndicado||'',tel:n.telIndicado||'',dt:n.dt,
+      extra:(n.indicadoPor?'indicado por '+n.indicadoPor:'')+(n.tag==='compareceu'?' · compareceu':n.tag==='nao_compareceu'?' · não compareceu':'')})),
+    recompra,
+    compra:(G.mk.leads||[]).filter(l=>vendidoNoPer(l)&&l.origem==='Compra'&&(quemComprou(l)==='Milena'||l.captadorReplicado==='Milena')).map(lead),
+  };
+}
+const MILENA_ITENS=[
+  ['nps','💬','NPS','#1e4d8c'],
+  ['cesta','🎁','Visitas 1 ano – Cesta','#6b3db8'],
+  ['vitri','✨','Visitas 2 anos – Vitrificação','#0b7ba8'],
+  ['indicacao','🤝','Indicação','#1a6b3c'],
+  ['recompra','🔁','Recompra','#b8860b'],
+  ['compra','🛒','Compra','#c0392b'],
+];
+function milenaQuadroHtml(titulo,sub,st,extra,ini,fim){
+  const linha=([k,emo,label,cor])=>{
+    const n=st?st[k].length:'–';
+    const clique=st?`onclick="milenaDetalhe('${k}','${ini}','${fim}','${titulo}')" title="Clique para ver quem é"`:'';
+    return `<div ${clique} style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--bdr);padding-top:10px;${st?'cursor:pointer':''}">
+      <span style="font-size:19px;font-weight:600;color:${cor}">${emo} ${label}</span>
+      <span style="font-size:46px;font-weight:800;line-height:1;color:${cor}">${n}</span>
+    </div>`;};
+  return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:10px;min-width:0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+      <div><div style="font-size:26px;font-weight:800;line-height:1.1">${titulo}</div><div style="font-size:15px;color:var(--tx3);margin-top:2px">${sub}</div></div>${extra||''}
+    </div>
+    ${MILENA_ITENS.map(linha).join('')}
+  </div>`;
+}
+function milenaPainelHtml(){
+  const hojeIso=hojeISOlocal(0);
+  const [mIni,mFim]=inicioFimMesAtual();
+  if(!G.geral.milenaIni)G.geral.milenaIni=mIni;
+  if(!G.geral.milenaFim)G.geral.milenaFim=hojeIso;
+  const pi=G.geral.milenaIni,pf=G.geral.milenaFim;
+  const nomeMes=new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const filtro=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="date" class="select-sm" value="${pi||''}" onchange="if(aplicarDataFiltro(__G().geral,'milenaIni',this.value))setTimeout(renderGeral)" title="De" style="width:140px">
+      <span style="color:var(--tx3);font-size:12px">até</span>
+      <input type="date" class="select-sm" value="${pf||''}" onchange="if(aplicarDataFiltro(__G().geral,'milenaFim',this.value))setTimeout(renderGeral)" title="Até" style="width:140px">
+    </div>`;
+  const agora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return `<div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <div style="font-size:30px;font-weight:800">📺 Painel da Milena</div>
+      <div style="font-size:13px;color:var(--tx3)">Clique num número para ver quem é · atualizado às ${agora} (sozinho a cada 5 min)</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+      ${milenaQuadroHtml('Hoje',hoje(0),statsMilenaIntervalo(hojeIso,hojeIso),'',hojeIso,hojeIso)}
+      ${milenaQuadroHtml('Mês',nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1),statsMilenaIntervalo(mIni,mFim),'',mIni,mFim)}
+      ${milenaQuadroHtml('Período',(pi&&pf)?isoParaBR(pi)+' a '+isoParaBR(pf):'escolha as datas',(pi&&pf)?statsMilenaIntervalo(pi,pf):null,filtro,pi,pf)}
+    </div>
+  </div>`;
+}
+function milenaDetalhe(k,ini,fim,quadro){
+  const it=MILENA_ITENS.find(x=>x[0]===k);if(!it)return;
+  const lista=statsMilenaIntervalo(ini,fim)[k]||[];
+  const esc=t=>String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const periodo=ini===fim?isoParaBR(ini):isoParaBR(ini)+' a '+isoParaBR(fim);
+  const linhas=lista.length?lista.map(x=>`<div style="border-top:1px solid var(--bdr);padding:9px 0;display:flex;justify-content:space-between;gap:12px">
+      <div style="min-width:0"><div style="font-size:15px;font-weight:700">${esc(x.nome)||'(sem nome)'}</div>
+        <div style="font-size:13px;color:var(--tx2)">${[x.tel,x.carro].filter(Boolean).map(esc).join(' · ')||'—'}</div>
+        ${x.extra?`<div style="font-size:12px;color:var(--tx3)">${esc(x.extra)}</div>`:''}</div>
+      <div style="font-size:13px;color:var(--tx3);white-space:nowrap">${x.dt?isoParaBR(x.dt):''}</div>
+    </div>`).join(''):'<div style="color:var(--tx3);padding:12px 0">Nenhum registro neste período.</div>';
+  ov.innerHTML=`<div style="background:var(--bg2,#fff);color:var(--tx,#111);border-radius:14px;padding:20px 22px;width:min(640px,94vw);max-height:86vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px">
+      <div style="font-size:20px;font-weight:800;color:${it[3]}">${it[1]} ${it[2]}</div>
+      <button class="btn btn-outline btn-sm" data-fechar="1">Fechar</button>
+    </div>
+    <div style="font-size:13px;color:var(--tx3);margin-bottom:12px">${esc(quadro)} · ${periodo} · ${lista.length} registro(s)</div>
+    ${linhas}
+  </div>`;
+  ov.querySelector('[data-fechar]').onclick=()=>ov.remove();
+  document.body.appendChild(ov);
+}
+window.milenaDetalhe=milenaDetalhe;
+function milenaAgendarAtualizacao(){
+  if(G.geral._milenaTimer)return;
+  G.geral._milenaTimer=setInterval(async()=>{
+    if(G.modulo!=='geral'||G.geral.view!=='milena'){clearInterval(G.geral._milenaTimer);G.geral._milenaTimer=null;return;}
+    if(document.activeElement&&document.activeElement.type==='date')return;
+    try{if(fbOk()){G.mk.leads=await fbListLeads();G.rel.clientes=await fbList('clientes_rel');G.rel.nps=await fbList('nps_rel');G.rel.indicacoes=await fbList('indicacoes_rel');}}catch(e){console.warn('painel Milena',e);}
+    if(G.modulo==='geral'&&G.geral.view==='milena')renderGeral();
+  },5*60*1000);
+}
 function trocarViewGeral(v){
   G.geral.view=v;
   if(v==='filtro'&&!G.geral.filtroDataInicio&&!G.geral.filtroDataFim){
@@ -2626,10 +2740,12 @@ function renderGeral(){
     <div class="tb-tabs">
       <div class="tb-tab${view==='dia'?' on':''}" onclick="trocarViewGeral('dia')"><i class="ti ti-calendar"></i> Dashboard</div>
       <div class="tb-tab${view==='filtro'?' on':''}" onclick="trocarViewGeral('filtro')"><i class="ti ti-filter"></i> Dashboard por Filtro</div>
+      <div class="tb-tab${view==='milena'?' on':''}" onclick="trocarViewGeral('milena')"><i class="ti ti-device-tv"></i> Dashboard Milena</div>
     </div>
     <div class="tb-spacer"></div>`;
   const cnt=document.getElementById('cnt');cnt.style.cssText='flex:1;overflow-y:auto';
 
+  if(view==='milena'){cnt.innerHTML=milenaPainelHtml();milenaAgendarAtualizacao();return;}
   if(view==='filtro'){
     const di=G.geral.filtroDataInicio,df=G.geral.filtroDataFim;
     const st=(di&&df)?statsGeralIntervalo(di,df):null;
@@ -3513,7 +3629,7 @@ function olxBotao(v,p){
   if(!o)return span(p.nome+': carregando...');
   if(!o.conectado){
     if(o.erro||o.semChave)return `<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="A OLX ainda não liberou o código de acesso do nosso sistema">${p.nome}: aguardando liberação</span>`;
-    return `<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="olxConectar(this)">${p.nome}: Conectar</button>`;
+    return `<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="A conexão com a conta da OLX ainda não foi feita">${p.nome}: aguardando conexão</span>`; // 21/11: sem botao Conectar ate a OLX mandar os codigos (a conexao e' feita uma vez so', pela Aline com o Claude)
   }
   const a=olxAnuncio(v);
   if(a&&a.erro)return `<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#c0392b;color:#c0392b" title="${String(a.erro).replace(/"/g,'').slice(0,300)}" onclick="publicarOLX('${v.placa}',this)">${p.nome}: erro - tentar de novo</button>`;
