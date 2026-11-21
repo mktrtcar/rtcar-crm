@@ -2379,12 +2379,12 @@ const MILENA_ITENS=[
 // Metas do mes (planilha de bonus da Aline, 21/11/2026): Zona 1 / 2 / 3.
 // Visitas = Cesta 1 ano + Vitrificacao 2 anos somadas.
 const MILENA_METAS=[
-  ['Compra e consig.',['compra'],[8,12,16],'#c0392b'],
   ['NPS',['nps'],[30,40,50],'#1e4d8c'],
   ['Visitas (1 ano + 2 anos)',['cesta','vitri'],[15,25,35],'#6b3db8'],
   ['Estética',['estetica'],[4,8,12],'#00838f'],
   ['Indicação',['indicacao'],[20,30,40],'#1a6b3c'],
   ['Recompra',['recompra'],[2,4,6],'#b8860b'],
+  ['Compra e consig.',['compra'],[8,12,16],'#c0392b'],
 ];
 function milenaMetasHtml(st){
   const zonaCor=['#f5c542','#7cc47f','#5b8def'];
@@ -2399,52 +2399,72 @@ function milenaMetasHtml(st){
       <div style="display:flex;gap:6px">${zonasHtml}</div>
     </div>`;};
   return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:16px;padding:20px 22px">
-    <div style="font-size:26px;font-weight:800;margin-bottom:4px">🎯 Metas do mês – quanto falta</div>
+    <div style="font-size:24px;font-weight:800;margin-bottom:2px">🎯 Metas do mês – quanto falta</div>
     <div style="font-size:14px;color:var(--tx3);margin-bottom:12px">Zona 1 · Zona 2 · Zona 3. Quando bate, aparece ✅.</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">${MILENA_METAS.map(card).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">${MILENA_METAS.map(card).join('')}</div>
   </div>`;
 }
 function milenaQuadroHtml(titulo,sub,st,extra,ini,fim){
   const linha=([k,emo,label,cor])=>{
     const n=st?st[k].length:'–';
     const clique=st?`onclick="milenaDetalhe('${k}','${ini}','${fim}','${titulo}')" title="Clique para ver quem é"`:'';
-    return `<div ${clique} style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--bdr);padding-top:10px;${st?'cursor:pointer':''}">
+    return `<div ${clique} style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--bdr);padding-top:6px;${st?'cursor:pointer':''}">
       <span style="font-size:19px;font-weight:600;color:${cor}">${emo} ${label}</span>
       <span style="font-size:46px;font-weight:800;line-height:1;color:${cor}">${n}</span>
     </div>`;};
-  return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:10px;min-width:0">
+  return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:16px;padding:16px 22px;display:flex;flex-direction:column;gap:6px;min-width:0">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
       <div><div style="font-size:26px;font-weight:800;line-height:1.1">${titulo}</div><div style="font-size:15px;color:var(--tx3);margin-top:2px">${sub}</div></div>${extra||''}
     </div>
     ${MILENA_ITENS.map(linha).join('')}
   </div>`;
 }
+// 21/11/2026 v2 (Aline): na TV aparecem so' Hoje e Mes (maiores) + metas em
+// 2 linhas de 3. A pesquisa por periodo fica escondida num botao no topo e
+// abre numa janela por cima, sem mexer na cara do painel.
 function milenaPainelHtml(){
   const hojeIso=hojeISOlocal(0);
   const [mIni,mFim]=inicioFimMesAtual();
-  if(!G.geral.milenaIni)G.geral.milenaIni=mIni;
-  if(!G.geral.milenaFim)G.geral.milenaFim=hojeIso;
-  const pi=G.geral.milenaIni,pf=G.geral.milenaFim;
   const nomeMes=new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  const filtro=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <input type="date" class="select-sm" value="${pi||''}" onchange="if(aplicarDataFiltro(__G().geral,'milenaIni',this.value))setTimeout(renderGeral)" title="De" style="width:140px">
-      <span style="color:var(--tx3);font-size:12px">até</span>
-      <input type="date" class="select-sm" value="${pf||''}" onchange="if(aplicarDataFiltro(__G().geral,'milenaFim',this.value))setTimeout(renderGeral)" title="Até" style="width:140px">
-    </div>`;
   const agora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  return `<div style="padding:18px;display:flex;flex-direction:column;gap:14px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+  return `<div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="font-size:30px;font-weight:800">📺 Painel da Milena</div>
-      <div style="font-size:13px;color:var(--tx3)">Clique num número para ver quem é · atualizado às ${agora} (sozinho a cada 5 min)</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;color:var(--tx3)">atualizado às ${agora}</span>
+        <button class="btn btn-outline btn-sm" onclick="milenaPeriodoAbrir()" title="Ver os números de outro período"><i class="ti ti-search"></i> Pesquisar por período</button>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
       ${milenaQuadroHtml('Hoje',hoje(0),statsMilenaIntervalo(hojeIso,hojeIso),'',hojeIso,hojeIso)}
       ${milenaQuadroHtml('Mês',nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1),statsMilenaIntervalo(mIni,mFim),'',mIni,mFim)}
-      ${milenaQuadroHtml('Período',(pi&&pf)?isoParaBR(pi)+' a '+isoParaBR(pf):'escolha as datas',(pi&&pf)?statsMilenaIntervalo(pi,pf):null,filtro,pi,pf)}
     </div>
     ${milenaMetasHtml(statsMilenaIntervalo(mIni,mFim))}
   </div>`;
 }
+function milenaPeriodoAbrir(){
+  const [mIni]=inicioFimMesAtual();
+  if(!G.geral.milenaIni)G.geral.milenaIni=mIni;
+  if(!G.geral.milenaFim)G.geral.milenaFim=hojeISOlocal(0);
+  let ov=document.getElementById('milena-periodo');
+  if(!ov){ov=document.createElement('div');ov.id='milena-periodo';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9990;display:flex;align-items:center;justify-content:center';
+    ov.onclick=e=>{if(e.target===ov)ov.remove();};document.body.appendChild(ov);}
+  const pi=G.geral.milenaIni,pf=G.geral.milenaFim;
+  const ok=pi&&pf&&pi<=pf;
+  ov.innerHTML=`<div style="width:min(560px,94vw);max-height:90vh;overflow:auto">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--bg2);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+      <b style="font-size:14px">Período:</b>
+      <input type="date" class="select-sm" value="${pi||''}" onchange="milenaPeriodoData('milenaIni',this.value)" style="width:145px">
+      <span style="color:var(--tx3);font-size:12px">até</span>
+      <input type="date" class="select-sm" value="${pf||''}" onchange="milenaPeriodoData('milenaFim',this.value)" style="width:145px">
+      <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="document.getElementById('milena-periodo').remove()">Fechar</button>
+    </div>
+    ${milenaQuadroHtml('Período',ok?isoParaBR(pi)+' a '+isoParaBR(pf):'escolha as duas datas',ok?statsMilenaIntervalo(pi,pf):null,'',pi,pf)}
+  </div>`;
+}
+function milenaPeriodoData(campo,valor){G.geral[campo]=valor;milenaPeriodoAbrir();}
+window.milenaPeriodoAbrir=milenaPeriodoAbrir;window.milenaPeriodoData=milenaPeriodoData;
 function milenaDetalhe(k,ini,fim,quadro){
   const it=MILENA_ITENS.find(x=>x[0]===k);if(!it)return;
   const lista=statsMilenaIntervalo(ini,fim)[k]||[];
