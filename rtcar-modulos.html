@@ -3657,8 +3657,20 @@ async function carregarStatusOLX(){
   let r=null,erro='';
   try{r=await litoralCarFetch('olxAnunciosStatus');}catch(e){erro=e.message||'erro';}
   const publicados={};((r&&r.anuncios)||[]).forEach(a=>{publicados[String(a.id||'').toUpperCase()]=a;});
-  G.pf.olx={conectado:!!(r&&r.conectado),semChave:!!(r&&r.semChave),conta:(r&&r.conta)||'',erro,nossos:(r&&r.nossos)||{},publicados,total:((r&&r.anuncios)||[]).length};
+  // 23/11/2026: anuncios que o Autoconf ja tem na OLX (lista lida do painel da OLX e salva em leads_config/olx_fora)
+  let fora=[];try{const d=await db.collection('leads_config').doc('olx_fora').get();fora=(d.exists&&d.data().anuncios)||[];}catch(e){console.warn('olx_fora',e);}
+  G.pf.olx={conectado:!!(r&&r.conectado),semChave:!!(r&&r.semChave),conta:(r&&r.conta)||'',erro,nossos:(r&&r.nossos)||{},publicados,total:((r&&r.anuncios)||[]).length,fora};
   renderPlataformasAnuncio();
+}
+// Anuncio da OLX feito por fora (Autoconf): casa pelo preco + ano (e palavra do modelo se tiver mais de um)
+function olxFora(v){
+  const ls=(G.pf.olx&&G.pf.olx.fora)||[];if(!ls.length)return null;
+  const preco=Number(String(v.preco||'').replace(/[^0-9]/g,''))||0;if(!preco)return null;
+  const nb=x=>String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,' ').trim();
+  const ano=String(v.anoModelo||'').replace(/\D/g,'').slice(-4);
+  const mod=nb(v.modelo).split(' ').filter(w=>w.length>1&&!/^(VW|VOLKSWAGEN|GM|CHEVROLET|FIAT|HONDA|TOYOTA|FORD|JEEP|HYUNDAI|NISSAN|BYD|AUDI|VOLVO|MERCEDES|BENZ|LAND|ROVER|KIA|MOTORS|RAM|GWM|JAECOO|GAC|RENAULT|PEUGEOT|CITROEN|MITSUBISHI)$/.test(w))[0]||'';
+  const c=ls.filter(a=>Math.abs(Number(a.preco)-preco)<1&&(!ano||nb(a.t).endsWith(ano)));
+  return (c.length===1?c[0]:c.find(a=>mod&&nb(a.t).replace(/ /g,'').includes(mod.replace(/ /g,''))))||null;
 }
 function olxChave(v){return String(v.placa||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,19);}
 function olxAnuncio(v){
@@ -3684,6 +3696,7 @@ function olxBotao(v,p){
     return `<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="A conexão com a conta da OLX ainda não foi feita">${p.nome}: aguardando conexão</span>`; // 21/11: sem botao Conectar ate a OLX mandar os codigos (a conexao e' feita uma vez so', pela Aline com o Claude)
   }
   const a=olxAnuncio(v);
+  if(!a){const f=olxFora(v);if(f)return `<a class="btn btn-outline btn-sm" style="font-size:11px;text-decoration:none" href="https://www.olx.com.br/vi/${f.id}" target="_blank" rel="noopener" title="Anúncio feito fora do nosso sistema (Autoconf). Não publique de novo: ficaria duplicado."><i class="ti ti-check"></i> ${p.nome}: Publicado (fora do sistema)</a>`;}
   if(a&&a.erro)return `<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#c0392b;color:#c0392b" title="${String(a.erro).replace(/"/g,'').slice(0,300)}" onclick="publicarOLX('${v.placa}',this)">${p.nome}: erro - tentar de novo</button>`;
   if(a){const st=/publish|active|ativo/i.test(a.status)?'Publicado':(/pend|enviado|review|analise/i.test(a.status)?'Em análise':(a.status||'Enviado'));
     return (a.link?`<a class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};text-decoration:none" href="${a.link}" target="_blank" rel="noopener"><i class="ti ti-check"></i> ${p.nome}: ${st}</a>`:`<span class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor};cursor:default"><i class="ti ti-check"></i> ${p.nome}: ${st}</span>`)
@@ -3835,17 +3848,28 @@ function renderPlataformasAnuncio(){
   const veiculos=todosPf.filter(x=>filtro==='todos'||(filtro==='faltam'&&grupo(x)===0)||(filtro==='ok'&&grupo(x)===1)||(filtro==='sempreco'&&grupo(x)===2)||(filtro==='ignorado'&&grupo(x)===3)).map(x=>x.v);
   const chip=(id,txt,n,cor)=>`<button class="btn btn-sm ${filtro===id?'':'btn-outline'}" style="font-size:12px;${filtro===id?'background:'+cor+';color:#fff;border-color:'+cor:''}" onclick="__G().pf.filtroSit='${id}';renderPlataformasAnuncio()">${txt} <b>(${n})</b></button>`;
   const barra=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:2px">${chip('todos','Todos',todosPf.length,'#475569')}${chip('faltam','🔴 Faltam anunciar',nFaltam,'#c0392b')}${chip('ok','✅ Anunciados em tudo',nOk,'#1a6b3c')}${chip('sempreco','⏳ Sem preço (em preparação)',nSem,'#8a8a8a')}${nIgn?chip('ignorado','🚫 Não anunciar',nIgn,'#6b7280'):''}</div>`;
+  // 23/11/2026 (Aline): quantos destaques ainda tem para usar em cada plataforma
+  if(!G.pf.destaques&&!G.pf.destaquesLendo){G.pf.destaquesLendo=true;(async()=>{const d={};
+    try{const r=await litoralCarFetch('mercadoLivreModelos');const g=((r&&r.tipos)||[]).find(t=>t.id==='gold_premium');d.ml=g&&g.restantes!=null?Number(g.restantes):null;}catch(e){d.ml=null;}
+    try{const x=await db.collection('leads_config').doc('destaques').get();d.olx=(x.exists&&x.data().olx)||null;}catch(e){d.olx=null;}
+    G.pf.destaques=d;G.pf.destaquesLendo=false;renderPlataformasAnuncio();})();}
+  const dq=G.pf.destaques||{};
+  const dqItem=(nome,txt,cor)=>`<span style="background:var(--bg2);border:1px solid var(--bdr);border-radius:20px;padding:3px 10px;font-size:11px;white-space:nowrap"><b style="color:${cor}">${nome}</b> ${txt}</span>`;
+  const barraDestaques=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--tx3)">💎 <b>Destaques livres:</b>
+    ${dqItem('Mercado Livre',!G.pf.destaques?'...':(dq.ml!=null?'<b>'+dq.ml+'</b> Diamante':'não informado'),'#b8860b')}
+    ${dqItem('OLX',!G.pf.destaques?'...':(dq.olx?'<b>'+Math.max(0,(dq.olx.total||0)-(dq.olx.usados||0))+'</b> de '+dq.olx.total+' Diamante'+(dq.olx.renova?' · renova '+dq.olx.renova:'')+(dq.olx.em?' · visto '+String(dq.olx.em).slice(8,10)+'/'+String(dq.olx.em).slice(5,7):''):'não informado'),'#6b3db8')}
+    ${dqItem('LitoralCar','sem contador','#1e4d8c')}</div>`;
   const totalPlataformas=PLATAFORMAS_ANUNCIO.length;
   if(!veiculos.length){cnt.innerHTML=barra+'<p style="color:var(--tx3);padding:20px">Nenhum veículo nesta situação.</p>';return;}
   // 23/11/2026 (Aline): publicado = azul forte, falta publicar = vermelho, sem integracao = cinza
   const estiloPf='<style>.pf-pub>.btn{border-color:#1d4ed8!important;color:#1d4ed8!important;border-width:1.5px}.pf-falta>.btn{border-color:#c0392b!important;color:#c0392b!important;border-width:1.5px}</style>';
-  cnt.innerHTML=estiloPf+barra+veiculos.map(v=>{
+  cnt.innerHTML=estiloPf+barra+barraDestaques+veiculos.map(v=>{
     const sit=pfSituacaoAnuncio(v);
     const lcSt=pfLitoralStatus(v);
     const publicadoLitoral=lcSt.st==='nosso';
     const ml=pfAnuncioML(v);
     const olxA=(G.pf.olx&&G.pf.olx.conectado)?olxAnuncio(v):null;
-    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+(olxA&&!olxA.erro?1:0);
+    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+((olxA&&!olxA.erro)||(!olxA&&G.pf.olx&&olxFora(v))?1:0);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
