@@ -4775,7 +4775,7 @@ function renderRelacionamento(){
   }
   const cnt=document.getElementById('cnt');cnt.innerHTML='';cnt.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
   if(view==='kanban') renderKanbanRel(cnt);
-  else if(view==='dashboard') renderDashboardRel(cnt);
+  else if(view==='dashboard') renderPainelRel(cnt); // 23/11/2026: painel novo (o antigo renderDashboardRel ficou sem uso)
   else if(view==='importar') renderImportarRel(cnt);
   else renderListaRel(cnt);
 }
@@ -5393,6 +5393,65 @@ function renderListaRel(cnt){
 }
 
 /* DASHBOARD RELACIONAMENTO */
+/* Relacionamento > Dashboard (23/11/2026, pedido da Aline): no lugar do
+   painel antigo, 7 quadrados no estilo do "Painel Compra e Relacionamento"
+   (Marketing > Dashboard Geral, que continua igual). Cada quadrado mostra
+   Dia / Semana / Mes e a meta da Zona 1 (mes / meta). Semana = segunda a
+   domingo dentro do mes (mesma regra do Dashboard Geral). Visitas 1 e 2 anos
+   tem meta somada (15). Mesmas contas de statsMilenaIntervalo. */
+const REL_PAINEL_ITENS=[
+  ['nps','💬','NPS','#1e4d8c',30],
+  ['cesta','🎁','Visita 1 ano – Cesta','#6b3db8','vis'],
+  ['vitri','✨','Visita 2 anos – Vitrificação','#0b7ba8','vis'],
+  ['indicacao','🤝','Indicação','#1a6b3c',20],
+  ['recompra','🔁','Recompra','#b8860b',2],
+  ['compra','🛒','Compra e consig.','#c0392b',8],
+  ['estetica','🧽','Estética','#00838f',4],
+];
+const REL_META_VISITAS=15;
+function renderPainelRel(cnt){
+  cnt.style.cssText='flex:1;overflow-y:auto;padding:20px';
+  if(!G.mk.leads.length&&typeof fbOk==='function'&&fbOk()&&!G.rel._painelCarregando){
+    G.rel._painelCarregando=true;
+    cnt.innerHTML='<div class="full-load"><i class="ti ti-loader-2"></i> Carregando...</div>';
+    fbListLeads().then(l=>{G.mk.leads=l;}).catch(e=>console.warn('painel rel',e)).finally(()=>{G.rel._painelCarregando=false;if(G.rel.view==='dashboard')renderRelacionamento();});
+    return;
+  }
+  const hojeIso=hojeISOlocal(0);
+  const sem=limitesSemanaAtual(),[mIni,mFim]=inicioFimMesAtual();
+  const stD=statsMilenaIntervalo(hojeIso,hojeIso),stS=statsMilenaIntervalo(sem.ini,sem.fim),stM=statsMilenaIntervalo(mIni,mFim);
+  const nVis=stM.cesta.length+stM.vitri.length;
+  const nomeMes=new Date().toLocaleDateString('pt-BR',{month:'long'});
+  const num=(st,k,ini,fim,quadro,tam,cor)=>`<span onclick="milenaDetalhe('${k}','${ini}','${fim}','${quadro}')" title="Clique para ver quem é" style="cursor:pointer;font-size:${tam}px;font-weight:800;line-height:1;color:${cor}">${st[k].length}</span>`;
+  const quadro=([k,emo,label,cor,meta])=>{
+    const nMes=stM[k].length;
+    const alvo=meta==='vis'?REL_META_VISITAS:meta;
+    const feito=meta==='vis'?nVis:nMes;
+    const pct=Math.min(100,Math.round(feito/alvo*100));
+    const ok=feito>=alvo;
+    const metaTxt=meta==='vis'
+      ?`Meta Zona 1 (1 ano + 2 anos): <b>${nVis} / ${alvo}</b>`
+      :`Meta Zona 1: <b>${nMes} / ${alvo}</b>`;
+    return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-top:5px solid ${cor};border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0">
+      <div style="font-size:17px;font-weight:700;color:${cor}">${emo} ${label}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:6px;align-items:end;text-align:center">
+        <div><div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Dia</div>${num(stD,k,hojeIso,hojeIso,'Hoje',30,cor)}</div>
+        <div><div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Semana</div>${num(stS,k,sem.ini,sem.fim,'Semana',30,cor)}</div>
+        <div><div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Mês</div>${num(stM,k,mIni,mFim,'Mês',44,cor)}${meta==='vis'?'':`<span style="font-size:22px;font-weight:700;color:var(--tx3)"> / ${alvo}</span>`}</div>
+      </div>
+      <div>
+        <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${cor}"></div></div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:5px">${ok?'✅ Bateu a Zona 1! ':''}${metaTxt}${ok?'':` · faltam <b style="color:${cor}">${alvo-feito}</b>`}</div>
+      </div>
+    </div>`;};
+  cnt.innerHTML=`<div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <div style="font-size:24px;font-weight:800">📺 Painel Compra e Relacionamento</div>
+      <div style="font-size:12px;color:var(--tx3)">Dia: ${hoje(0)} · Semana: ${isoParaBR(sem.ini)} a ${isoParaBR(sem.fim)} · Mês: ${nomeMes} · clique no número para ver quem é</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">${REL_PAINEL_ITENS.map(quadro).join('')}</div>
+  </div>`;
+}
 function renderDashboardRel(cnt){
   cnt.style.cssText='flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px';
   // 26/10/2026 (pedido da Aline): as etapas mostram TODOS os clientes (so' a
