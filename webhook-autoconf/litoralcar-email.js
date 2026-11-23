@@ -239,7 +239,9 @@ async function criarLeadOLXEmail(p,emailId){
   const obs=`Lead OLX (e-mail do formulário)${p.veiculo?' · '+p.veiculo:''}${p.mensagem?' · "'+p.mensagem.slice(0,500)+'"':''}${p.leadId?' · id OLX '+p.leadId:''}`;
   if(p.leadId){const ja=await db.collection('leads').where('olxLeadEmailId','==',p.leadId).limit(1).get();if(!ja.empty)return ja.docs[0].id+' (já importado)';}
   if(telNorm){
-    const cand=await db.collection('leads').where('clienteTelNorm','==',telNorm).get();
+    // 23/11: o Autoconf grava o telefone as vezes so' com 8 digitos (sem DDD e sem o 9) - compara as variacoes
+    const vars=[...new Set([telNorm,telNorm.slice(-8),telNorm.slice(-9),telNorm.slice(-10),telNorm.slice(-11)].filter(v=>v.length>=8))];
+    const cand=await db.collection('leads').where('clienteTelNorm','in',vars).get();
     const ativo=cand.docs.map(d=>({_id:d.id,...d.data()})).find(l=>!['vendido','perdido'].includes(l.st));
     if(ativo){
       await db.collection('leads').doc(ativo._id).update({historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também chamou pela OLX. '+obs,by:'OLX'}]});
