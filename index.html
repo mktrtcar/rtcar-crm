@@ -3837,19 +3837,22 @@ function renderPlataformasAnuncio(){
   const barra=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:2px">${chip('todos','Todos',todosPf.length,'#475569')}${chip('faltam','🔴 Faltam anunciar',nFaltam,'#c0392b')}${chip('ok','✅ Anunciados em tudo',nOk,'#1a6b3c')}${chip('sempreco','⏳ Sem preço (em preparação)',nSem,'#8a8a8a')}${nIgn?chip('ignorado','🚫 Não anunciar',nIgn,'#6b7280'):''}</div>`;
   const totalPlataformas=PLATAFORMAS_ANUNCIO.length;
   if(!veiculos.length){cnt.innerHTML=barra+'<p style="color:var(--tx3);padding:20px">Nenhum veículo nesta situação.</p>';return;}
-  cnt.innerHTML=barra+veiculos.map(v=>{
+  // 23/11/2026 (Aline): publicado = azul forte, falta publicar = vermelho, sem integracao = cinza
+  const estiloPf='<style>.pf-pub>.btn{border-color:#1d4ed8!important;color:#1d4ed8!important;border-width:1.5px}.pf-falta>.btn{border-color:#c0392b!important;color:#c0392b!important;border-width:1.5px}</style>';
+  cnt.innerHTML=estiloPf+barra+veiculos.map(v=>{
     const sit=pfSituacaoAnuncio(v);
     const lcSt=pfLitoralStatus(v);
     const publicadoLitoral=lcSt.st==='nosso';
     const ml=pfAnuncioML(v);
-    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0);
+    const olxA=(G.pf.olx&&G.pf.olx.conectado)?olxAnuncio(v):null;
+    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+(olxA&&!olxA.erro?1:0);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
         <div style="font-size:11px;color:var(--tx3)">${v.zeroKm?'<b style="color:#1d4ed8">0 KM · fora do estoque</b>':v.placa} · ${v.anoModelo||v.anoFabricacao||'—'} · ${v.preco?'R$ '+v.preco:'sem preço'}</div>
       </div>
-      <div style="font-size:10px;color:var(--tx3);background:var(--bg3);border-radius:20px;padding:3px 10px;white-space:nowrap">${publicadas}/${totalPlataformas} plataformas</div>
-      ${sit.ignorado?'<div style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap">🚫 Não anunciar</div>':sit.semPreco?'<div style="font-size:11px;font-weight:700;color:#8a8a8a;white-space:nowrap">⏳ Sem preço</div>':(sit.faltam.length?'<div style="font-size:11px;font-weight:700;color:#c0392b;white-space:nowrap">🔴 Falta: '+sit.faltam.join(' e ')+'</div>':'<div style="font-size:11px;font-weight:700;color:#1a6b3c;white-space:nowrap">✅ Anunciado</div>')}
+      <div style="font-size:11px;font-weight:700;color:${publicadas?'#1d4ed8':'var(--tx3)'};background:${publicadas?'#e8efff':'var(--bg3)'};border-radius:20px;padding:3px 10px;white-space:nowrap">${publicadas}/${totalPlataformas} plataformas</div>
+      ${sit.ignorado?'<div style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap">🚫 Não anunciar</div>':sit.semPreco?'<div style="font-size:11px;font-weight:700;color:#8a8a8a;white-space:nowrap">⏳ Sem preço</div>':''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
@@ -3864,7 +3867,7 @@ function renderPlataformasAnuncio(){
           if(p.id==='litoralcar'&&publicadoLitoral&&lcSt.duplicado)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#b8860b;color:#b8860b" title="Duplicado: além do nosso anúncio, existe outro feito por fora (nº ${lcSt.fora.map(a=>a.cod).join(', ')}) - excluir o de fora no painel da LitoralCar/Autoconf" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Publicado <span style="background:#b8860b;color:#fff;border-radius:4px;padding:0 5px;margin-left:4px;font-size:10px">⚠ duplicado</span></button>`;
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
-        }).map(h=>`<div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">${h}</div>`).join('')}
+        }).map(h=>`<div class="${h.startsWith('<span style="background:var(--bg3)')?'':(h.includes(': Publicar</button>')||h.includes('tentar de novo')?'pf-falta':'pf-pub')}" style="display:flex;flex-direction:column;gap:4px;align-items:stretch">${h}</div>`).join('')}
         <button class="btn btn-outline btn-sm" style="font-size:11px;color:#6b7280" onclick="pfAlternarNaoAnunciar('${v.placa}')" title="${sit.ignorado?'Volta a aparecer na lista para anunciar':'Tira este carro da lista de anunciar (ex.: vai para repasse). Não apaga anúncio que já esteja no ar.'}">${sit.ignorado?'↩ Voltar a anunciar':'🚫 Não anunciar'}</button>
       </div>
     </div>`;
