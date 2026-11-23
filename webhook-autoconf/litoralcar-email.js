@@ -215,8 +215,66 @@ async function leadNovoContatoLitoral(p,emailId){
   return novoId;
 }
 // Processa um e-mail ja' salvo em litoralcar_emails_recebidos (so' uma vez).
+/* OLX por e-mail (23/11/2026, plano B pedido pela Aline): a conta OLX da loja
+   (Plano Profissional > Gerenciar formas de contato > "Formulario no anuncio")
+   manda cada lead para leads.rtcar@gmail.com. Remetente noreply@olx.com.br,
+   corpo: "Voce recebeu uma mensagem de NOME: MENSAGEM Nome: X Email: Y
+   Telefone: Z TITULO R$ 153900,00 Identificador do lead: UUID". Vira lead
+   origem "OLX" na I.A. (Eva), sem duplicar pelo telefone (o mesmo lead pode
+   chegar tambem pela API da OLX ou pelo Autoconf). */
+function parseLeadOLXEmail(corpoBruto){
+  const t=textoPlano(corpoBruto).replace(/\s+/g,' ');
+  const g=re=>{const m=t.match(re);return m?m[1].trim():'';};
+  const telefone=g(/Telefone:\s*(\+?[\d()\-\s]*\d)/i).replace(/\D/g,'');
+  const nome=g(/Nome:\s*(.+?)\s*E-?mail:/i)||g(/mensagem de\s+(.+?):/i);
+  const email=g(/E-?mail:\s*([^\s:]+@[^\s:]+?\.[a-z]{2,}(?:\.[a-z]{2})?)(?=\s*Telefone|\s|$)/i);
+  const mensagem=g(/mensagem de\s+.+?:\s*(.+?)\s*Nome:/i);
+  const vm=t.match(/Telefone:\s*\+?[\d()\-\s]*\d\s*([^\d\s].*?)\s*R\$\s*([\d.,]+)/i);
+  const leadId=g(/Identificador do lead:\s*([0-9a-f-]{36})/i);
+  return{nome,email,telefone,mensagem,veiculo:vm?vm[1].trim():'',valor:vm?vm[2].trim():'',leadId};
+}
+async function criarLeadOLXEmail(p,emailId){
+  const agora=new Date();
+  const telNorm=normTel(p.telefone);
+  const obs=`Lead OLX (e-mail do formulário)${p.veiculo?' · '+p.veiculo:''}${p.mensagem?' · "'+p.mensagem.slice(0,500)+'"':''}${p.leadId?' · id OLX '+p.leadId:''}`;
+  if(p.leadId){const ja=await db.collection('leads').where('olxLeadEmailId','==',p.leadId).limit(1).get();if(!ja.empty)return ja.docs[0].id+' (já importado)';}
+  if(telNorm){
+    const cand=await db.collection('leads').where('clienteTelNorm','==',telNorm).get();
+    const ativo=cand.docs.map(d=>({_id:d.id,...d.data()})).find(l=>!['vendido','perdido'].includes(l.st));
+    if(ativo){
+      await db.collection('leads').doc(ativo._id).update({historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também chamou pela OLX. '+obs,by:'OLX'}]});
+      return ativo._id+' (mesclado)';
+    }
+  }
+  let novoId='';
+  await db.runTransaction(async tx=>{
+    const refSeq=db.collection('leads_config').doc('mk');
+    const snap=await tx.get(refSeq);
+    const seq=((snap.exists&&snap.data().leadSeq)||0)+1;
+    novoId='LEAD-'+pad3(seq);
+    tx.set(refSeq,{leadSeq:seq},{merge:true});
+    tx.set(db.collection('leads').doc(novoId),{
+      id:novoId,dt:dataBR(agora),dtISO:agora.toISOString().slice(0,10),_criadoEm:agora.toISOString(),
+      st:'ia',by:'',captador:'',uid:'',origem:'OLX',
+      clienteNome:p.nome,clienteTel:p.telefone,clienteTelNorm:telNorm,clienteEmail:p.email,
+      veiculo:p.veiculo||'',valor:p.valor||'',obs,convertido:false,dtVenda:'',motivoPerda:'',
+      historico:[{dt:dataBR(agora)+' '+horaBR(agora),icone:'blue',acao:'Lead criado',obs:'Via OLX (e-mail do formulário do anúncio)',by:'OLX'}],
+      pendente_at:'',pendente_end:'',atendimento_at:'',atendimento_end:'',notificacaoVendedorEm:'',
+      olxLeadEmailId:p.leadId||'',olxEmailId:emailId,
+    });
+  });
+  return novoId;
+}
 async function processarEmailSalvo(ref,dados){
   if(!dados||dados.processadoEm)return;
+  if(/olx.com.br/i.test(dados.de||'')&&/Identificador do lead|recebeu uma mensagem/i.test(dados.corpoHtml||dados.corpo||'')){
+    const o=parseLeadOLXEmail(dados.corpoHtml||dados.corpo||dados.snippet);
+    if(!o.nome&&!o.telefone){await ref.update({processadoEm:new Date().toISOString(),resultado:'OLX: sem nome/telefone no e-mail'});return;}
+    const r=await criarLeadOLXEmail(o,ref.id);
+    await ref.update({processadoEm:new Date().toISOString(),resultado:'OLX: '+r});
+    console.log('OLX (e-mail): '+ref.id+' -> '+r);
+    return;
+  }
   if(/novo contato interessado/i.test(dados.assunto||'')&&/sigveiculos|litoral/i.test(dados.de||'')){
     const n=parseNovoContatoLitoral(dados.corpoHtml||dados.corpo||dados.snippet);
     if(!n.nome&&!n.telefone){await ref.update({processadoEm:new Date().toISOString(),resultado:'sem nome/telefone no e-mail'});return;}
