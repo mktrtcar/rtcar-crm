@@ -4970,8 +4970,12 @@ function abrirWhatsappLead(id){
   const tel=(l.clienteTel||'').replace(/\D/g,'');
   if(!tel){toast('Lead sem telefone','red');return;}
   const numero=tel.length<=11?`55${tel}`:tel;
-  const primeiroNome=(l.clienteNome||'').split(' ')[0];
-  const msg=`Olá, ${primeiroNome}! 😊 Aqui é da RT Car. Vi seu interesse${l.veiculo?` no ${l.veiculo}`:''} e quero te ajudar a encontrar a melhor condição. Podemos conversar?`;
+  // 23/11/2026 (Aline): a mensagem leva o nome de quem esta atendendo ("Aqui e o Maicon, da RT Car");
+  // nome do cliente so' com a primeira letra maiuscula; sem emoji (chegava como "?" no WhatsApp)
+  const cap=s=>String(s||'').toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
+  const primeiroNome=cap((l.clienteNome||'').trim().split(/\s+/)[0]);
+  const quem=cap(String(G.user?.n||l.captador||'').trim().split(/\s+/)[0]);
+  const msg=`Olá${primeiroNome?', '+primeiroNome:''}! Aqui é ${quem?quem+', ':''}da RT Car. Vi seu interesse${l.veiculo?` no ${l.veiculo}`:''} e quero te ajudar a encontrar a melhor condição. Podemos conversar?`;
   window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,'_blank');
   // Registra o contato e zera o cronometro (pedido da Aline, 08/10/2026).
   regHistMk(l,'💬 WhatsApp aberto para o cliente','',G.user?.n||'','green').then(()=>renderMarketing()).catch(e=>console.error(e));
