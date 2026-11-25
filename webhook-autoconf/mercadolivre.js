@@ -169,7 +169,10 @@ async function sincronizarML(){
         if((await ref.get()).exists)continue;
         const veiculo=await tituloItem(lead.item_id||r.item_id,token);
         const doc={bruto:JSON.stringify({...r,leads:[lead]}).slice(0,8000),recebidoEm:new Date().toISOString(),criadoNoML:lead.created_at||'',tipo:lead.contact_type||lead.channel||'',itemId:lead.item_id||r.item_id||'',veiculo,nome:r.name||'',telefone:r.phone||'',email:r.email||'',compradorId:r.id||'',modoTeste:!criar};
-        if(criar){try{doc.leadCRM=await criarLeadML(r,lead,veiculo,{paraEva:c.creditoAtivo===true});}catch(e){doc.erro=String(e.message||e);}}
+        let paraEva=c.creditoAtivo===true;
+        // Lead de simulacao com credito APROVADO nao vai pra Eva (o credito ja' cai no vendedor pelo sincronizarCreditosML)
+        if(paraEva&&lead.external_id&&(lead.contact_type||lead.channel)==='credit'){try{const s=await apiML(`/vis/loans/search?seller_id=${c.userId}&item_id=${lead.item_id||r.item_id}&date_from=${dataML(-2)}&date_to=${dataML(0.01)}&status=approved`,token);if((s.results||[]).some(x=>String(x.id)===String(lead.external_id)&&!x.expired))paraEva=false;}catch(e){console.error('ml credito do lead',e.message);}}
+        if(criar){try{doc.leadCRM=await criarLeadML(r,lead,veiculo,{paraEva});}catch(e){doc.erro=String(e.message||e);}}
         await ref.set(doc);novos++;res.push(doc.leadCRM||doc.nome);
       }
     }
@@ -194,7 +197,8 @@ async function sincronizarML(){
 const BANCOS_ML={MERCADO_CREDITO:'Mercado Crédito',VOTORANTIM:'Banco BV (Votorantim)',SANTANDER:'Santander',SCOTIA:'Scotiabank'};
 const STATUS_CRED={approved:'aprovado',in_analysis:'em análise',rejected:'reprovado'};
 const brl=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
-function dataML(offsetDias){return new Date(Date.now()+offsetDias*864e5).toLocaleString('sv-SE',{timeZone:'America/Sao_Paulo'}).replace(' ','T').slice(0,19);}
+// O ML le date_from/date_to em UTC (25/11/2026: em horario de Brasilia os creditos das ultimas 3h ficavam de fora)
+function dataML(offsetDias){return new Date(Date.now()+offsetDias*864e5).toISOString().slice(0,19);}
 async function buscarCreditosML(token,userId,diasAtras){
   const res=[];let offset=0,total=0;
   do{
