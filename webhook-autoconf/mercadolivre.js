@@ -771,3 +771,6 @@ exports.mercadoLivreAtualizarFotosAuto=onSchedule({region:'southamerica-east1',s
   const r=await mlAtualizarFotosNossos('');
   console.log('mercadoLivreAtualizarFotosAuto',JSON.stringify(r.filter(x=>!x.igual)));
 });
+
+// Uso interno (despublicar-vendidos.js, 25/11/2026) - nao e' function exportada
+Object.defineProperty(exports,'_interno',{enumerable:false,value:{obterToken,API}});

@@ -266,3 +266,6 @@ exports.olxAnunciosStatus=onRequest({region:'southamerica-east1',cors:true,timeo
     res.json({conectado:true,conta:cfg.contaOLX||'',anuncios,nossos});
   }catch(e){console.error(e);res.status(e.status||500).json({erro:e.message||String(e)});}
 });
+
+// Uso interno (despublicar-vendidos.js, 25/11/2026) - nao e' function exportada
+Object.defineProperty(exports,'_interno',{enumerable:false,value:{tokenOLX,olxPost}});

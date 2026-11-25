@@ -251,6 +251,7 @@ Object.assign(exports,require('./diag-estoque'));
 Object.assign(exports,require('./migrar-site'));
 Object.assign(exports,require('./vincular-estoque'));
 Object.assign(exports,require('./historico-hora'));
+Object.assign(exports,require('./despublicar-vendidos'));
 Object.assign(exports,require('./aviso-fotos'));
 Object.assign(exports,require('./webmotors'));
 Object.assign(exports,require('./relacionamento'));
