@@ -512,6 +512,8 @@ const LIMITE_ALERTA_CARD_MS=5*60*1000;
 // (pedido da Aline, 07-08/10/2026): Atendimento 5 min, Encantamento e Negociacao 4 horas.
 // Agendamento nao conta tempo: so' fica vermelho quando passa a data do
 // agendamento sem "Compareceu/Nao compareceu/Reagendado" (ver alertaData).
+// Agendamento sem data ou com resultado marcado e parado: 4h sem acao (25/11/2026)
+const LIMITE_AGENDAMENTO_PARADO_MS=4*60*60*1000;
 const LIMITES_ALERTA_COL={atendimento:5*60*1000,encantamento:4*60*60*1000,negociacao:4*60*60*1000,visita:5*60*1000,resgate:5*60*1000};
 function atualizarAlertaCard(el){
   if(!document.getElementById('crm-alerta-card-css')){
@@ -993,7 +995,12 @@ function renderKanbanMk(cnt){
       // finais (Venda/Perdido, cronometro ja parado).
       // 07/10/2026: limite por coluna (LIMITES_ALERTA_COL); Agendamento so' pela data.
       if(col.id==='agendamento'){
-        if(l.agendamentoData&&!l.agendamentoStatus){c.dataset.alertaData=l.agendamentoData;atualizarAlertaCard(c);}
+        // 25/11/2026 (Aline/Rafa): cartao sem data, ou com resultado ja' marcado (Compareceu/Nao compareceu)
+        // e parado no Agendamento, nunca ficava vermelho. Agora: com data e sem resultado (ou Reagendamento
+        // com data de hoje em diante) segue pela data; nos outros casos, 4h sem acao = vermelho.
+        const segueData=l.agendamentoData&&(!l.agendamentoStatus||(l.agendamentoStatus==='reagendado'&&l.agendamentoData>=hojeISOlocal()));
+        if(segueData){c.dataset.alertaData=l.agendamentoData;atualizarAlertaCard(c);}
+        else if(timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;c.dataset.alertaLimite=LIMITE_AGENDAMENTO_PARADO_MS;atualizarAlertaCard(c);}
       // 26/10/2026 (Aline/Milena): no dia do "Abordar em" o card fica vermelho
       // ate' o vendedor registrar uma acao nesse dia (o cronometro da etapa zera a
       // cada acao) - depois volta pra regra normal das horas sem acao.
