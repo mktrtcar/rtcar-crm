@@ -1021,7 +1021,13 @@ function renderKanbanMk(cnt){
           `<span class="badge live-timer" data-start="${l.aguardandoRetornoDesde}" data-prefix="⏳ Aguardando retorno · " style="background:#faf6e8;color:#b8860b;font-size:9px">⏳ Aguardando retorno</span>`:'');
       const tagSemWhatsapp=leadSemWhatsapp(l)?`<span class="badge" title="A Eva testou o número com e sem o 9 e ele não tem WhatsApp - ligue para o cliente" style="background:var(--red);color:#fff;font-size:9px">📵 Sem WhatsApp — ligar</span>`:'';
       const tagTroca=l.veiculoTroca?`<span class="badge" title="Veículo de troca: ${[l.veiculoTroca.marca,l.veiculoTroca.modelo,l.veiculoTroca.ano,l.veiculoTroca.cor].filter(Boolean).join(' ')}" style="background:var(--purplel);color:var(--purple);font-size:9px">🔄 Troca</span>`:'';
-      c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>
+      // Credito pre-aprovado do Mercado Livre (25/11/2026, pedido da Aline): aprovado = faixa grande
+      // "LIGUE AGORA" no topo do card; em analise/reprovado = etiqueta discreta.
+      const crML=l.creditoML,brlML=v=>'R$ '+Number(v||0).toLocaleString('pt-BR');
+      const bannerCredito=!crML?'':(crML.status==='approved'&&!crML.expirado
+        ?`<div style="background:#0b8a3e;color:#fff;border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-weight:800;line-height:1.3;box-shadow:0 0 0 2px #06642c"><div style="font-size:14px">💳 CRÉDITO APROVADO</div><div style="font-size:13px">📞 LIGUE AGORA!</div><div style="font-size:11px;font-weight:600;margin-top:3px">${crML.banco||''} · entrada ${brlML(crML.entrada)} + ${crML.parcelas||0}x ${brlML(crML.valorParcela)}</div></div>`
+        :`<div class="card-sub" style="color:var(--tx2)"><i class="ti ti-credit-card"></i> Crédito ${crML.statusPt||crML.status} (Mercado Livre)</div>`);
+      c.innerHTML=`<div class="card-id">${l.id} · ${l.dt||isoParaBR(l.dtISO)||''}</div>${bannerCredito}
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${l.clienteNome||'(sem nome)'}<span class="badge" style="background:${col.bg};color:${col.cor};font-size:9px">${l.origem||'?'}</span>${tagTroca}${timerInline}${tagAguardando}${tagSemWhatsapp}</div>
         <div class="card-sub"><i class="ti ti-car"></i>${l.veiculo2?('Interesse: '+(l.veiculo||'—')+' / '+l.veiculo2):(l.veiculo||'Veículo não informado')}</div>${l.leadParalelo?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> Consignação paralela ao ${l.leadParaleloDe}</div>`:''}${l.leadExtra?`<div class="card-sub" style="color:var(--green)"><i class="ti ti-link"></i> 2º veículo de ${l.leadMaeId}</div>`:''}
 

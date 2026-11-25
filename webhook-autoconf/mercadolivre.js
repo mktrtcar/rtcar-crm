@@ -109,7 +109,7 @@ async function tituloItem(itemId,token){
 
 // Cria o lead no CRM (ou mescla se o mesmo telefone ja tem lead em andamento).
 // Igual ao Mercado Livre via Autoconf: sem Eva, direto pro rodizio.
-async function criarLeadML(r,lead,veiculo){
+async function criarLeadML(r,lead,veiculo,opts={}){
   const telNorm=normalizarTel(r.phone);
   const tipo=TIPO_CONTATO[lead.contact_type]||lead.contact_type||'contato';
   const obs=`Mercado Livre — cliente ${tipo}${veiculo?` no anúncio ${veiculo}`:''} (${lead.item_id||''}) · lead ML ${lead.id}`;
@@ -121,26 +121,34 @@ async function criarLeadML(r,lead,veiculo){
       return ativo._id+' (mesclado)';
     }
   }
+  // 25/11/2026 (Aline): com leads_config/ml_oauth.creditoAtivo ligado, so' o lead
+  // com CREDITO APROVADO vai direto pro vendedor (rodizio); o resto passa pela
+  // Eva (coluna I.A.), como os outros portais. Desligado = regra de 05/10/2026
+  // (todo lead do ML direto pro rodizio).
+  const paraEva=!!opts.paraEva;
   let novoId='';
   await db.runTransaction(async tx=>{
     const refSeq=db.collection('leads_config').doc('mk');
     const refRodizio=db.collection('leads_config').doc('rodizio');
-    const snapSeq=await tx.get(refSeq);const snapRod=await tx.get(refRodizio);
+    const snapSeq=await tx.get(refSeq);const snapRod=paraEva?null:await tx.get(refRodizio);
     const seq=((snapSeq.exists&&snapSeq.data().leadSeq)||0)+1;
     novoId='LEAD-'+pad3(seq);
-    const dr=snapRod.exists?snapRod.data():{};
-    const ativos=RODIZIO.filter(n=>dr.ativos?.[n]!==false);const lista=ativos.length?ativos:RODIZIO;
-    const idx=dr.idx||0;const captador=lista[idx%lista.length];
+    let captador='';
+    if(!paraEva){
+      const dr=snapRod.exists?snapRod.data():{};
+      const ativos=RODIZIO.filter(n=>dr.ativos?.[n]!==false);const lista=ativos.length?ativos:RODIZIO;
+      const idx=dr.idx||0;captador=lista[idx%lista.length];
+      tx.set(refRodizio,{idx:idx+1},{merge:true});
+    }
     tx.set(refSeq,{leadSeq:seq},{merge:true});
-    tx.set(refRodizio,{idx:idx+1},{merge:true});
     tx.set(db.collection('leads').doc(novoId),{
       id:novoId,dt:hojeBR(),dtISO:isoSP(),_criadoEm:new Date().toISOString(),
-      st:'atendimento',by:'',captador,uid:'',origem:'Mercado Livre',
+      st:paraEva?'ia':'atendimento',by:'',captador,uid:'',origem:'Mercado Livre',
       clienteNome:r.name||'',clienteTel:telBR(r.phone),clienteTelNorm:telNorm,clienteEmail:r.email||'',
       veiculo,valor:'',obs,convertido:false,dtVenda:'',motivoPerda:'',
-      historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:`Via API do Mercado Livre (cliente ${tipo}) — direto pro rodízio — vendedor: ${captador}`,by:'Mercado Livre'}],
-      pendente_at:'',pendente_end:'',atendimento_at:new Date().toISOString(),atendimento_end:'',notificacaoVendedorEm:'',
-      mlLeadId:lead.id,mlItemId:lead.item_id||'',
+      historico:[{dt:agoraBR(),icone:'blue',acao:'Lead criado',obs:paraEva?`Via API do Mercado Livre (cliente ${tipo}) — sem crédito aprovado, vai pra Eva`:`Via API do Mercado Livre (cliente ${tipo}) — direto pro rodízio — vendedor: ${captador}`,by:'Mercado Livre'}],
+      pendente_at:'',pendente_end:'',atendimento_at:paraEva?'':new Date().toISOString(),atendimento_end:'',notificacaoVendedorEm:opts.semAvisoPadrao?new Date().toISOString():'',
+      mlLeadId:lead.id,mlItemId:lead.item_id||'',mlCompradorId:String(r.id||''),
     });
   });
   return novoId;
@@ -161,7 +169,7 @@ async function sincronizarML(){
         if((await ref.get()).exists)continue;
         const veiculo=await tituloItem(lead.item_id||r.item_id,token);
         const doc={recebidoEm:new Date().toISOString(),criadoNoML:lead.created_at||'',tipo:lead.contact_type||lead.channel||'',itemId:lead.item_id||r.item_id||'',veiculo,nome:r.name||'',telefone:r.phone||'',email:r.email||'',compradorId:r.id||'',modoTeste:!criar};
-        if(criar){try{doc.leadCRM=await criarLeadML(r,lead,veiculo);}catch(e){doc.erro=String(e.message||e);}}
+        if(criar){try{doc.leadCRM=await criarLeadML(r,lead,veiculo,{paraEva:c.creditoAtivo===true});}catch(e){doc.erro=String(e.message||e);}}
         await ref.set(doc);novos++;res.push(doc.leadCRM||doc.nome);
       }
     }
@@ -170,6 +178,119 @@ async function sincronizarML(){
   await refConfig().set({ultimaSincronizacao:new Date().toISOString(),ultimoResultado:`${novos} novo(s)`},{merge:true});
   return{novos,res};
 }
+
+/* CREDITO PRE-APROVADO do Mercado Livre (25/11/2026, pedido da Aline): o
+   cliente que simula financiamento no anuncio e tem o credito APROVADO pelo
+   banco compra em outra loja em minutos se ninguem ligar. GET /vis/loans/search
+   (so' veiculos no Brasil) traz banco, entrada, parcelas e status
+   (approved/in_analysis/rejected); /vis/loans/{id} traz nome/telefone.
+   Com leads_config/ml_oauth.creditoAtivo=true:
+   - APROVADO (e nao expirado): o lead vai pro vendedor (rodizio) - se estava
+     com a Eva (I.A.) ou perdido, sai de la' na hora -, ganha creditoML (etiqueta
+     grande no card) e o vendedor recebe "LIGUE AGORA" pelo WhatsApp da Eva
+     (mensagens_avulsas), com copia pra Aline. A Eva nao fala com o cliente.
+   - Em analise/reprovado: so' grava creditoML no lead (etiqueta discreta).
+   Desligado: so' registra em ml_creditos (pra conferir antes de ligar). */
+const BANCOS_ML={MERCADO_CREDITO:'Mercado Crédito',VOTORANTIM:'Banco BV (Votorantim)',SANTANDER:'Santander',SCOTIA:'Scotiabank'};
+const STATUS_CRED={approved:'aprovado',in_analysis:'em análise',rejected:'reprovado'};
+const brl=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
+function dataML(offsetDias){return new Date(Date.now()+offsetDias*864e5).toLocaleString('sv-SE',{timeZone:'America/Sao_Paulo'}).replace(' ','T').slice(0,19);}
+async function buscarCreditosML(token,userId,diasAtras){
+  const res=[];let offset=0,total=0;
+  do{
+    const j=await apiML(`/vis/loans/search?seller_id=${userId}&date_from=${dataML(-diasAtras)}&date_to=${dataML(0)}&status=all&offset=${offset}&limit=100`,token);
+    total=(j.paging&&j.paging.total)||0;res.push(...(j.results||[]));offset+=100;
+  }while(offset<total&&offset<1000);
+  return res;
+}
+async function leadDoComprador(buyerId,telNorm){
+  if(buyerId){
+    const ids=[...new Set([String(buyerId),Number(buyerId)])].filter(x=>x!==''&&!Number.isNaN(x));
+    const q=await db.collection('ml_leads_recebidos').where('compradorId','in',ids).get();
+    for(const d of q.docs){const id=String(d.data().leadCRM||'').replace(/ \(mesclado\)$/,'');if(id){const l=await db.collection('leads').doc(id).get();if(l.exists)return{_id:id,...l.data()};}}
+    const q2=await db.collection('leads').where('mlCompradorId','==',String(buyerId)).get();
+    if(!q2.empty)return{_id:q2.docs[0].id,...q2.docs[0].data()};
+  }
+  if(telNorm){
+    const cand=(await db.collection('leads').where('clienteTelNorm','==',telNorm).get()).docs.map(d=>({_id:d.id,...d.data()}));
+    return cand.find(l=>!['vendido','perdido'].includes(l.st))||cand.sort((a,b)=>String(b._criadoEm||'').localeCompare(String(a._criadoEm||'')))[0]||null;
+  }
+  return null;
+}
+function textoCreditoAprovado(lead,cr){
+  return `🚨🚨🚨 CLIENTE COM CRÉDITO APROVADO 🚨🚨🚨\n\n📞 LIGUE AGORA! PARE O QUE ESTÁ FAZENDO E LIGUE!\nEsse cliente acabou de ter o financiamento APROVADO pelo banco no Mercado Livre. Se ninguém ligar em minutos, ele compra em outra loja.\n\n👤 Cliente: ${lead.clienteNome||'-'}\n📱 Telefone: ${lead.clienteTel||'-'}\n🚗 Carro: ${cr.veiculo||lead.veiculo||'-'}\n🏦 Banco: ${cr.banco}\n💰 Entrada: ${brl(cr.entrada)}\n📆 Parcelas: ${cr.parcelas}x de ${brl(cr.valorParcela)}\n\n${lead.id||lead._id} — já está no seu Atendimento no CRM.`;
+}
+async function sincronizarCreditosML(){
+  const c=await obterToken();
+  const ativo=c.creditoAtivo===true;
+  const lista=await buscarCreditosML(c.accessToken,c.userId,3);
+  const feitos=[];
+  for(const x of lista){
+    const ref=db.collection('ml_creditos').doc(String(x.id));
+    const ant=(await ref.get()).data()||{};
+    const status=String(x.status||'approved');
+    const cr={creditoId:String(x.id),status,statusPt:STATUS_CRED[status]||status,banco:BANCOS_ML[x.financial_entity_id]||x.financial_entity_id||'-',
+      entrada:x.down_payment_amount||0,parcelas:x.installments_number||0,valorParcela:x.installments_amount||0,
+      itemId:x.item_id||'',compradorId:String(x.buyer_id||''),criadoNoML:x.date_created||'',expirado:!!x.expired,propostaId:x.proposal_id||''};
+    if(ant.status===status&&(ant.tratadoEm||!ativo))continue; // nada novo
+    cr.veiculo=await tituloItem(cr.itemId,c.accessToken);
+    await ref.set({...cr,vistoEm:new Date().toISOString()},{merge:true});
+    if(!ativo)continue;
+    let det={};
+    try{det=await apiML(`/vis/loans/${x.id}?seller_id=${c.userId}`,c.accessToken);}catch(e){console.error('ml credito detalhe',x.id,e.message);}
+    const b=det.buyer||{};
+    let lead=await leadDoComprador(cr.compradorId,normalizarTel(b.phone));
+    const aprovado=status==='approved'&&!cr.expirado;
+    if(!lead&&!aprovado){await ref.set({tratadoEm:new Date().toISOString(),resultado:'sem lead (não aprovado)'},{merge:true});continue;}
+    if(!lead){
+      const id=await criarLeadML({name:b.full_name||'',phone:b.phone||'',email:b.email||'',id:cr.compradorId},{id:'credito-'+cr.creditoId,item_id:cr.itemId,contact_type:'credit'},cr.veiculo,{semAvisoPadrao:true});
+      const l=await db.collection('leads').doc(id.replace(/ \(mesclado\)$/,'')).get();lead={_id:l.id,...l.data()};
+    }
+    const lref=db.collection('leads').doc(lead._id);
+    const campos={creditoML:{...cr,atualizadoEm:new Date().toISOString()}};
+    const hist=[...(lead.historico||[])];
+    if(aprovado){
+      // Sai da Eva / do Perdido e vai pro vendedor do rodizio (quem ja' tem vendedor fica com ele)
+      if(['ia','perdido','resgate'].includes(lead.st)||!lead.captador){
+        let captador=lead.captador||'';
+        if(!captador){
+          await db.runTransaction(async tx=>{const rr=db.collection('leads_config').doc('rodizio');const s=await tx.get(rr);const dr=s.exists?s.data():{};
+            const ativos=RODIZIO.filter(n=>dr.ativos?.[n]!==false);const ls=ativos.length?ativos:RODIZIO;const idx=dr.idx||0;captador=ls[idx%ls.length];tx.set(rr,{idx:idx+1},{merge:true});});
+        }
+        Object.assign(campos,{st:'atendimento',captador,atendimento_at:new Date().toISOString(),atendimento_end:'',motivoPerda:''});
+        lead.captador=captador;
+      }
+      campos.notificacaoVendedorEm=new Date().toISOString(); // o aviso padrao nao vai: vai o de credito
+      hist.push({dt:agoraBR(),icone:'green',acao:'💳 CRÉDITO APROVADO no Mercado Livre',obs:`${cr.banco} — entrada ${brl(cr.entrada)} + ${cr.parcelas}x de ${brl(cr.valorParcela)}${cr.veiculo?' — '+cr.veiculo:''}. Enviado pro vendedor ${lead.captador} com aviso de LIGAR AGORA.`,by:'Mercado Livre'});
+      campos.historico=hist;
+      await lref.update(campos);
+      const texto=textoCreditoAprovado({...lead,id:lead._id},cr);
+      await db.collection('mensagens_avulsas').add({destino:lead.captador,texto,enviadaEm:'',criadaEm:new Date().toISOString(),origem:'creditoML',leadId:lead._id});
+      await db.collection('mensagens_avulsas').add({destino:'Aline',texto:`(cópia) Enviado pro ${lead.captador}:\n\n`+texto,enviadaEm:'',criadaEm:new Date().toISOString(),origem:'creditoML',leadId:lead._id});
+    }else{
+      hist.push({dt:agoraBR(),icone:'gold',acao:`💳 Crédito ${cr.statusPt} no Mercado Livre`,obs:`${cr.banco} — entrada ${brl(cr.entrada)} + ${cr.parcelas}x de ${brl(cr.valorParcela)}`,by:'Mercado Livre'});
+      campos.historico=hist;
+      await lref.update(campos);
+    }
+    await ref.set({tratadoEm:new Date().toISOString(),leadCRM:lead._id,resultado:aprovado?'aprovado → vendedor '+lead.captador:'etiqueta '+cr.statusPt},{merge:true});
+    feitos.push(lead._id+' '+status);
+  }
+  return{total:lista.length,feitos};
+}
+
+// Diagnostico (gestor): mostra os creditos do ML dos ultimos N dias (max 89), sem mexer em nada.
+exports.mercadoLivreCreditosVer=onRequest({region:'southamerica-east1',timeoutSeconds:120,cors:true},async(req,res)=>{
+  try{
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const c=await obterToken();
+    const dias=Math.min(89,Math.max(1,Number(req.query.dias)||30));
+    const lista=await buscarCreditosML(c.accessToken,c.userId,dias);
+    res.json({ativo:c.creditoAtivo===true,dias,total:lista.length,creditos:lista.map(x=>({id:x.id,status:x.status||'approved',banco:BANCOS_ML[x.financial_entity_id]||x.financial_entity_id,entrada:x.down_payment_amount,parcelas:x.installments_number,valorParcela:x.installments_amount,itemId:x.item_id,compradorId:x.buyer_id,criadoEm:x.date_created,expirado:x.expired}))});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+
 
 /* WhatsApp dos anuncios (27/10/2026, pedido da Aline): os anuncios publicados
    pelo Autoconf saiam com o WhatsApp da Milena (47 99993-8679) - o cliente que
@@ -237,7 +358,10 @@ exports.mercadoLivreProcessarAviso=onDocumentCreated({region:'southamerica-east1
 
 // Reserva: se algum aviso se perder, a cada 10 min busca de novo.
 exports.mercadoLivreSync=onSchedule({region:'southamerica-east1',schedule:'every 10 minutes',timeZone:'America/Sao_Paulo'},async()=>{
-  try{const snap=await refConfig().get();if(!snap.exists||!(snap.data().autorizadoEm||snap.data().refreshToken))return;await sincronizarML();}
+  try{const snap=await refConfig().get();if(!snap.exists||!(snap.data().autorizadoEm||snap.data().refreshToken))return;
+    // credito antes dos leads: o aprovado ja' cai no vendedor antes da Eva pegar
+    try{await sincronizarCreditosML();}catch(e){console.error('ML creditos:',e);await refConfig().set({ultimoErroCredito:String(e.message||e),ultimoErroCreditoEm:new Date().toISOString()},{merge:true});}
+    await sincronizarML();}
   catch(e){console.error('ML sync:',e);await refConfig().set({ultimoErro:String(e.message||e),ultimoErroEm:new Date().toISOString()},{merge:true});}
 });
 
