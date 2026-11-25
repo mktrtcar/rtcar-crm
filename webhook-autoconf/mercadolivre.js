@@ -168,7 +168,7 @@ async function sincronizarML(){
         const ref=db.collection('ml_leads_recebidos').doc(String(lead.id));
         if((await ref.get()).exists)continue;
         const veiculo=await tituloItem(lead.item_id||r.item_id,token);
-        const doc={recebidoEm:new Date().toISOString(),criadoNoML:lead.created_at||'',tipo:lead.contact_type||lead.channel||'',itemId:lead.item_id||r.item_id||'',veiculo,nome:r.name||'',telefone:r.phone||'',email:r.email||'',compradorId:r.id||'',modoTeste:!criar};
+        const doc={bruto:JSON.stringify({...r,leads:[lead]}).slice(0,8000),recebidoEm:new Date().toISOString(),criadoNoML:lead.created_at||'',tipo:lead.contact_type||lead.channel||'',itemId:lead.item_id||r.item_id||'',veiculo,nome:r.name||'',telefone:r.phone||'',email:r.email||'',compradorId:r.id||'',modoTeste:!criar};
         if(criar){try{doc.leadCRM=await criarLeadML(r,lead,veiculo,{paraEva:c.creditoAtivo===true});}catch(e){doc.erro=String(e.message||e);}}
         await ref.set(doc);novos++;res.push(doc.leadCRM||doc.nome);
       }
@@ -394,7 +394,8 @@ exports.mercadoLivreDiagnosticoAnuncios=onRequest({region:'southamerica-east1',t
    como o anuncio de carro e' montado (anuncios atuais do Autoconf, catalogo de
    marca/modelo/versao) antes de publicar pelo nosso integrador. Gestor-only;
    so' caminhos de consulta, nunca devolve token. */
-const CAMINHOS_CONSULTA=/^\/(items|categories|catalog_domains|sites\/MLB\/(search|domain_discovery)|users\/me$|users\/\d+$)/;
+// 25/11/2026: + /vis (so' leitura) pra diagnosticar o credito aprovado dos interessados
+const CAMINHOS_CONSULTA=/^\/(items|categories|catalog_domains|sites\/MLB\/(search|domain_discovery)|users\/me$|users\/\d+$|vis\/users\/\d+\/leads\/buyers|vis\/leads\/|vis\/loans)/;
 exports.mercadoLivreConsultar=onRequest({region:'southamerica-east1',timeoutSeconds:60,cors:true},async(req,res)=>{
   try{
     const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
