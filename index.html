@@ -1456,6 +1456,9 @@ function renderKanbanMk(cnt){
     const numLead=l=>parseInt((l.id||'').replace(/\D/g,''))||0;
     const sinalOrdem=col.id==='atendimento'?-1:1;
     leads.sort((a,b)=>sinalOrdem*(chaveChegadaLead(a).localeCompare(chaveChegadaLead(b))||numLead(a)-numLead(b)));
+    // 26/11/2026 (Aline): no Agendamento, o cartao com a data de agendamento mais proxima fica em cima
+    // (25, 27, 28...); sem data vai pro fim. Empate segue a ordem de chegada.
+    if(col.id==='agendamento')leads.sort((x,y)=>(x.agendamentoData||'9999').localeCompare(y.agendamentoData||'9999')||chaveChegadaLead(x).localeCompare(chaveChegadaLead(y))||numLead(x)-numLead(y));
     const div=document.createElement('div');div.className='kb-col';
     const head=document.createElement('div');head.className='kb-col-head';
     head.innerHTML=`<span style="font-size:16px">${col.emoji}</span><span class="col-lbl" style="color:${col.cor}">${col.label}</span><span class="col-cnt" style="background:${col.bg};color:${col.cor}">${leads.length}</span>`;
@@ -1487,13 +1490,15 @@ function renderKanbanMk(cnt){
         // 25/11/2026 (Aline/Rafa): cartao sem data, ou com resultado ja' marcado (Compareceu/Nao compareceu)
         // e parado no Agendamento, nunca ficava vermelho. Agora: com data e sem resultado (ou Reagendamento
         // com data de hoje em diante) segue pela data; nos outros casos, 4h sem acao = vermelho.
-        const segueData=l.agendamentoData&&(!l.agendamentoStatus||(l.agendamentoStatus==='reagendado'&&l.agendamentoData>=hojeISOlocal()));
+        // 26/11/2026 (Aline): data FUTURA nunca deixa o cartao vermelho, mesmo com resultado antigo marcado
+        const segueData=l.agendamentoData&&(l.agendamentoData>hojeISOlocal()||!l.agendamentoStatus||(l.agendamentoStatus==='reagendado'&&l.agendamentoData>=hojeISOlocal()));
         if(segueData){c.dataset.alertaData=l.agendamentoData;atualizarAlertaCard(c);}
         else if(timerStart&&!timerEnd&&!l.aguardandoRetornoDesde){c.dataset.alertaDesde=timerStart;c.dataset.alertaLimite=LIMITE_AGENDAMENTO_PARADO_MS;atualizarAlertaCard(c);}
       // 26/10/2026 (Aline/Milena): no dia do "Abordar em" o card fica vermelho
       // ate' o vendedor registrar uma acao nesse dia (o cronometro da etapa zera a
       // cada acao) - depois volta pra regra normal das horas sem acao.
-      }else if(['encantamento','negociacao'].includes(col.id)&&l.abordarEm&&!(l.abordarEm<=hojeISOlocal()&&timerStart&&isoLocalDe(timerStart)>=l.abordarEm)){
+      // 26/11/2026 (Aline): vale em qualquer coluna que tenha alerta - data programada pra frente nunca fica vermelha
+      }else if((['encantamento','negociacao'].includes(col.id)||LIMITES_ALERTA_COL[col.id])&&l.abordarEm&&!(l.abordarEm<=hojeISOlocal()&&timerStart&&isoLocalDe(timerStart)>=l.abordarEm)){
         // Com "Abordar em" marcado o vendedor ja combinou a data do retorno: o card
         // so' fica vermelho a partir dessa data, nao pelas 4h sem acao (20/10/2026).
         c.dataset.alertaAbordar=l.abordarEm;atualizarAlertaCard(c);
