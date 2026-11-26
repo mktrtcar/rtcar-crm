@@ -250,9 +250,29 @@ function parseLeadMobiautoEmail(corpoBruto){
   const valor=g(/Pre[cç]o\s*:\s*R\$\s*([\d.,]+)/i);
   return{nome,email,telefone,mensagem,veiculo,valor,leadId:''};
 }
+/* 26/11/2026 (Aline): cliente da Mobiauto que SIMULOU FINANCIAMENTO nao passa
+   pela Eva - vai direto pro vendedor do rodizio (mesma lista/indice do
+   Mercado Livre, leads_config/rodizio) e o vendedor recebe o alerta "LIGUE
+   AGORA" pelo WhatsApp da Eva (mensagens_avulsas), com copia pra Aline.
+   O e-mail nao diz se o credito foi aprovado nem o valor simulado - o alerta
+   so' diz que o cliente simulou. */
+const RODIZIO_EMAIL=['Janderson','Maicon','Victor'];
+async function proximoDoRodizioEmail(){
+  let captador='';
+  await db.runTransaction(async tx=>{const rr=db.collection('leads_config').doc('rodizio');const s=await tx.get(rr);const dr=s.exists?s.data():{};
+    const ativos=RODIZIO_EMAIL.filter(n=>dr.ativos?.[n]!==false);const ls=ativos.length?ativos:RODIZIO_EMAIL;const idx=dr.idx||0;captador=ls[idx%ls.length];tx.set(rr,{idx:idx+1},{merge:true});});
+  return captador;
+}
+async function avisarSimulouFinanciamento(leadId,captador,p,origem){
+  const texto=`🚨🚨🚨 CLIENTE SIMULOU FINANCIAMENTO 🚨🚨🚨\n\n📞 LIGUE AGORA! PARE O QUE ESTÁ FAZENDO E LIGUE!\nEsse cliente acabou de fazer uma simulação de financiamento no anúncio da ${origem}. Ele está interessado: se ninguém ligar em minutos, ele compra em outra loja.\n\n👤 Cliente: ${p.nome||'-'}\n📱 Telefone: ${p.telefone||'-'}\n🚗 Carro: ${p.veiculo||'-'}${p.valor?' (R$ '+p.valor+')':''}\n🆔 ${leadId}\n\nO lead já está no seu nome no CRM, coluna Atendimento.`;
+  await db.collection('mensagens_avulsas').add({destino:captador,texto,enviadaEm:'',criadaEm:new Date().toISOString(),origem:'simulacao'+origem,leadId});
+  await db.collection('mensagens_avulsas').add({destino:'Aline',texto:`(cópia) Enviado pro ${captador}:\n\n`+texto,enviadaEm:'',criadaEm:new Date().toISOString(),origem:'simulacao'+origem,leadId});
+}
 async function criarLeadOLXEmail(p,emailId,origem='OLX'){
   const agora=new Date();
   const telNorm=normTel(p.telefone);
+  const simulou=origem==='Mobiauto'&&/simula/i.test(p.mensagem||'');
+  const marcaSimulou={origem,em:agora.toISOString(),veiculo:p.veiculo||'',valorAnuncio:p.valor||''};
   const obs=`Lead ${origem} (e-mail do portal)${p.veiculo?' · '+p.veiculo:''}${p.valor?' · R$ '+p.valor:''}${p.mensagem?' · "'+p.mensagem.slice(0,500)+'"':''}${p.leadId?' · id OLX '+p.leadId:''}`;
   if(p.leadId){const ja=await db.collection('leads').where('olxLeadEmailId','==',p.leadId).limit(1).get();if(!ja.empty)return ja.docs[0].id+' (já importado)';}
   {const ja=await db.collection('leads').where('olxEmailId','==',emailId).limit(1).get();if(!ja.empty)return ja.docs[0].id+' (já importado)';}
@@ -262,17 +282,31 @@ async function criarLeadOLXEmail(p,emailId,origem='OLX'){
     const cand=await db.collection('leads').where('clienteTelNorm','in',vars).get();
     const ativo=cand.docs.map(d=>({_id:d.id,...d.data()})).find(l=>!['vendido','perdido'].includes(l.st));
     if(ativo){
-      await db.collection('leads').doc(ativo._id).update({historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também chamou pela '+origem+'. '+obs,by:origem}]});
-      return ativo._id+' (mesclado)';
+      const hist=[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também chamou pela '+origem+'. '+obs,by:origem}];
+      if(!simulou){await db.collection('leads').doc(ativo._id).update({historico:hist});return ativo._id+' (mesclado)';}
+      // Simulou: sai da Eva/Resgate e vai pro vendedor (quem ja' tem vendedor fica com ele)
+      const campos={simulouFinanciamento:marcaSimulou,notificacaoVendedorEm:agora.toISOString()};
+      let captador=ativo.captador||'';
+      if(['ia','resgate'].includes(ativo.st)||!captador){
+        if(!captador)captador=await proximoDoRodizioEmail();
+        Object.assign(campos,{st:'atendimento',captador,atendimento_at:agora.toISOString(),atendimento_end:'',motivoPerda:''});
+      }
+      hist.push({dt:dataBR(agora)+' '+horaBR(agora),icone:'green',acao:'💰 SIMULOU FINANCIAMENTO na '+origem,obs:`${p.veiculo||''} — enviado pro vendedor ${captador} com aviso de LIGAR AGORA.`,by:origem});
+      campos.historico=hist;
+      await db.collection('leads').doc(ativo._id).update(campos);
+      await avisarSimulouFinanciamento(ativo._id,captador,p,origem);
+      return ativo._id+' (mesclado, simulou → '+captador+')';
     }
   }
   let novoId='';
+  const captadorSim=simulou?await proximoDoRodizioEmail():'';
   await db.runTransaction(async tx=>{
     const refSeq=db.collection('leads_config').doc('mk');
     const snap=await tx.get(refSeq);
     const seq=((snap.exists&&snap.data().leadSeq)||0)+1;
     novoId='LEAD-'+pad3(seq);
     tx.set(refSeq,{leadSeq:seq},{merge:true});
+    const extraSim=simulou?{st:'atendimento',captador:captadorSim,atendimento_at:agora.toISOString(),notificacaoVendedorEm:agora.toISOString(),simulouFinanciamento:marcaSimulou}:{};
     tx.set(db.collection('leads').doc(novoId),{
       id:novoId,dt:dataBR(agora),dtISO:agora.toISOString().slice(0,10),_criadoEm:agora.toISOString(),
       st:'ia',by:'',captador:'',uid:'',origem,
@@ -281,8 +315,15 @@ async function criarLeadOLXEmail(p,emailId,origem='OLX'){
       historico:[{dt:dataBR(agora)+' '+horaBR(agora),icone:'blue',acao:'Lead criado',obs:'Via '+origem+' (e-mail do anúncio)'+(p.mensagem?': '+p.mensagem.slice(0,300):''),by:origem}],
       pendente_at:'',pendente_end:'',atendimento_at:'',atendimento_end:'',notificacaoVendedorEm:'',
       olxLeadEmailId:p.leadId||'',olxEmailId:emailId,
+      ...extraSim,
     });
   });
+  if(simulou){
+    const ref=db.collection('leads').doc(novoId);const l=(await ref.get()).data()||{};
+    await ref.update({historico:[...(l.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'green',acao:'💰 SIMULOU FINANCIAMENTO na '+origem,obs:`${p.veiculo||''} — direto pro vendedor ${captadorSim} (sem passar pela Eva), com aviso de LIGAR AGORA.`,by:origem}]});
+    await avisarSimulouFinanciamento(novoId,captadorSim,p,origem);
+    return novoId+' (simulou → '+captadorSim+')';
+  }
   return novoId;
 }
 async function processarEmailSalvo(ref,dados){
