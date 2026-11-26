@@ -233,18 +233,36 @@ function parseLeadOLXEmail(corpoBruto){
   const leadId=g(/Identificador do lead:\s*([0-9a-f-]{36})/i);
   return{nome,email,telefone,mensagem,veiculo:vm?vm[1].trim():'',valor:vm?vm[2].trim():'',leadId};
 }
-async function criarLeadOLXEmail(p,emailId){
+/* 26/11/2026 (Aline - lead do Renato, simulacao no Civic, nao entrou no CRM):
+   a Mobiauto tambem manda o lead por e-mail para leads.rtcar@gmail.com
+   (remetente contato@mobiauto.com.br, assunto "Proposta Recebida: ...").
+   Corpo: "Marca: X Modelo: Y Versão: Z ... Preço: R$ N ... Nome : X
+   E-mail : Y Telefone : Z Mensagem: ...". Vira lead origem "Mobiauto" na I.A.,
+   sem duplicar pelo telefone (o mesmo lead pode chegar tambem pelo Autoconf). */
+function parseLeadMobiautoEmail(corpoBruto){
+  const t=textoPlano(corpoBruto).replace(/\s+/g,' ');
+  const g=re=>{const m=t.match(re);return m?m[1].trim():'';};
+  const telefone=g(/Telefone\s*:\s*(\+?[\d()\-\s]*\d)/i).replace(/\D/g,'');
+  const nome=g(/Nome\s*:\s*(.+?)\s*E-?mail\s*:/i);
+  const email=g(/E-?mail\s*:\s*([^\s:]+@[^\s:]+?\.[a-z]{2,}(?:\.[a-z]{2})?)(?=\s*Telefone|\s|$)/i);
+  const mensagem=g(/Mensagem\s*:\s*(.+?)\s*(?:Fique ligado|A Mobiauto|$)/i);
+  const veiculo=[g(/Marca\s*:\s*(.+?)\s*Modelo\s*:/i),g(/Modelo\s*:\s*(.+?)\s*Vers[aã]o\s*:/i),g(/Vers[aã]o\s*:\s*(.+?)\s*Ano fabrica/i),g(/Ano modelo\s*:\s*(\d{4})/i)].filter(Boolean).join(' ');
+  const valor=g(/Pre[cç]o\s*:\s*R\$\s*([\d.,]+)/i);
+  return{nome,email,telefone,mensagem,veiculo,valor,leadId:''};
+}
+async function criarLeadOLXEmail(p,emailId,origem='OLX'){
   const agora=new Date();
   const telNorm=normTel(p.telefone);
-  const obs=`Lead OLX (e-mail do formulário)${p.veiculo?' · '+p.veiculo:''}${p.mensagem?' · "'+p.mensagem.slice(0,500)+'"':''}${p.leadId?' · id OLX '+p.leadId:''}`;
+  const obs=`Lead ${origem} (e-mail do portal)${p.veiculo?' · '+p.veiculo:''}${p.valor?' · R$ '+p.valor:''}${p.mensagem?' · "'+p.mensagem.slice(0,500)+'"':''}${p.leadId?' · id OLX '+p.leadId:''}`;
   if(p.leadId){const ja=await db.collection('leads').where('olxLeadEmailId','==',p.leadId).limit(1).get();if(!ja.empty)return ja.docs[0].id+' (já importado)';}
+  {const ja=await db.collection('leads').where('olxEmailId','==',emailId).limit(1).get();if(!ja.empty)return ja.docs[0].id+' (já importado)';}
   if(telNorm){
     // 23/11: o Autoconf grava o telefone as vezes so' com 8 digitos (sem DDD e sem o 9) - compara as variacoes
     const vars=[...new Set([telNorm,telNorm.slice(-8),telNorm.slice(-9),telNorm.slice(-10),telNorm.slice(-11)].filter(v=>v.length>=8))];
     const cand=await db.collection('leads').where('clienteTelNorm','in',vars).get();
     const ativo=cand.docs.map(d=>({_id:d.id,...d.data()})).find(l=>!['vendido','perdido'].includes(l.st));
     if(ativo){
-      await db.collection('leads').doc(ativo._id).update({historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também chamou pela OLX. '+obs,by:'OLX'}]});
+      await db.collection('leads').doc(ativo._id).update({historico:[...(ativo.historico||[]),{dt:dataBR(agora)+' '+horaBR(agora),icone:'gold',acao:'🔗 Contato duplicado (outra plataforma)',obs:'Cliente também chamou pela '+origem+'. '+obs,by:origem}]});
       return ativo._id+' (mesclado)';
     }
   }
@@ -257,10 +275,10 @@ async function criarLeadOLXEmail(p,emailId){
     tx.set(refSeq,{leadSeq:seq},{merge:true});
     tx.set(db.collection('leads').doc(novoId),{
       id:novoId,dt:dataBR(agora),dtISO:agora.toISOString().slice(0,10),_criadoEm:agora.toISOString(),
-      st:'ia',by:'',captador:'',uid:'',origem:'OLX',
+      st:'ia',by:'',captador:'',uid:'',origem,
       clienteNome:p.nome,clienteTel:p.telefone,clienteTelNorm:telNorm,clienteEmail:p.email,
       veiculo:p.veiculo||'',valor:p.valor||'',obs,convertido:false,dtVenda:'',motivoPerda:'',
-      historico:[{dt:dataBR(agora)+' '+horaBR(agora),icone:'blue',acao:'Lead criado',obs:'Via OLX (e-mail do formulário do anúncio)',by:'OLX'}],
+      historico:[{dt:dataBR(agora)+' '+horaBR(agora),icone:'blue',acao:'Lead criado',obs:'Via '+origem+' (e-mail do anúncio)'+(p.mensagem?': '+p.mensagem.slice(0,300):''),by:origem}],
       pendente_at:'',pendente_end:'',atendimento_at:'',atendimento_end:'',notificacaoVendedorEm:'',
       olxLeadEmailId:p.leadId||'',olxEmailId:emailId,
     });
@@ -275,6 +293,14 @@ async function processarEmailSalvo(ref,dados){
     const r=await criarLeadOLXEmail(o,ref.id);
     await ref.update({processadoEm:new Date().toISOString(),resultado:'OLX: '+r});
     console.log('OLX (e-mail): '+ref.id+' -> '+r);
+    return;
+  }
+  if(/mobiauto\.com\.br/i.test(dados.de||'')&&/Telefone\s*:/i.test(textoPlano(dados.corpoHtml||dados.corpo||''))){
+    const o=parseLeadMobiautoEmail(dados.corpoHtml||dados.corpo||dados.snippet);
+    if(!o.nome&&!o.telefone){await ref.update({processadoEm:new Date().toISOString(),resultado:'Mobiauto: sem nome/telefone no e-mail'});return;}
+    const r=await criarLeadOLXEmail(o,ref.id,'Mobiauto');
+    await ref.update({processadoEm:new Date().toISOString(),resultado:'Mobiauto: '+r});
+    console.log('Mobiauto (e-mail): '+ref.id+' -> '+r);
     return;
   }
   if(/novo contato interessado/i.test(dados.assunto||'')&&/sigveiculos|litoral/i.test(dados.de||'')){
@@ -323,8 +349,9 @@ exports.litoralcarEmailPoll=onSchedule({region:'southamerica-east1',schedule:'ev
   const headers={Authorization:`Bearer ${token}`};
   // E-mails guardados antes do parser existir (desde 20/09) - processa uma vez.
   try{
-    const pend=await db.collection('litoralcar_emails_recebidos').orderBy('recebidoEm').limit(200).get();
     const limite=new Date(Date.now()-15*864e5).toISOString(); // mais antigo que 15 dias: nao vira lead (ja' passou da hora da Eva cumprimentar)
+    // 26/11/2026: so' os dos ultimos 15 dias (antes pegava os 200 MAIS ANTIGOS e um e-mail novo pendente podia nunca ser visto)
+    const pend=await db.collection('litoralcar_emails_recebidos').where('recebidoEm','>=',limite).orderBy('recebidoEm').limit(300).get();
     for(const d of pend.docs){if(!d.data().processadoEm&&(d.data().recebidoEm||'')<limite){await d.ref.update({processadoEm:new Date().toISOString(),resultado:'antigo (mais de 15 dias) - não importado'});continue;}if(!d.data().processadoEm){try{await processarEmailSalvo(d.ref,d.data());}catch(e){console.error('LitoralCar pendente '+d.id,e);}}}
   }catch(e){console.error('LitoralCar: erro ao processar guardados',e);}
   const listResp=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=20',{headers});
