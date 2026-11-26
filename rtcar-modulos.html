@@ -3385,7 +3385,7 @@ const PLATAFORMAS_ANUNCIO=[
   {id:'mercadolivre',nome:'Mercado Livre',cor:'#2d3277',ativa:true},
   {id:'olx',nome:'OLX',cor:'#7c1fa2',ativa:true},
   {id:'mobiauto',nome:'Mobiauto',cor:'#00a19a',ativa:false},
-  {id:'napista',nome:'Na Pista',cor:'#1e63c9',ativa:false},
+  {id:'napista',nome:'Na Pista',cor:'#1e63c9',ativa:true},
   {id:'webmotors',nome:'WebMotors',cor:'#e2001a',ativa:false},
 ];
 const LITORALCAR_FN_BASE='https://southamerica-east1-rtcarprograma.cloudfunctions.net';
@@ -3488,6 +3488,7 @@ async function initPlataformasAnuncio(){
   carregarStatusMercadoLivre();
   carregarLitoralNoAr();
   carregarStatusOLX();
+  carregarStatusNapista();
 }
 /* LitoralCar: o que esta' DE FATO no ar (05/11/2026, "tem que deixar o botao
    certo"). Antes o botao so' via o que o NOSSO sistema publicou; anuncio feito
@@ -3801,6 +3802,113 @@ async function despublicarOLX(placa,btn){
   catch(e){console.error(e);alert('Não deu para tirar da OLX: '+e.message);}
   finally{carregarStatusOLX();}
 }
+/* Na Pista - integracao propria (26/11/2026). Mesmo jeito da OLX: o servidor
+   (napistaStatus) diz se esta' conectada, o que a Na Pista tem no ar (por placa)
+   e o que o NOSSO sistema publicou (napista_anuncios). */
+async function carregarStatusNapista(){
+  G.pf.np=null;
+  let r=null,erro='';
+  try{r=await litoralCarFetch('napistaStatus');}catch(e){erro=e.message||'erro';}
+  const porPlaca={};((r&&r.anuncios)||[]).forEach(a=>{if(a.placa)porPlaca[a.placa]=a;});
+  G.pf.np={conectado:!!(r&&r.conectado),semChave:!!(r&&r.semChave)||/NAPISTA_CLIENT_ID|não foi encontrad|404/i.test(erro),ambiente:(r&&r.ambiente)||'',erro,nossos:(r&&r.nossos)||{},porPlaca};
+  renderPlataformasAnuncio();
+}
+function npContaPublicado(v){const o=G.pf.np;if(!o||!o.conectado)return false;const n=o.nossos[npChave(v)];return !!((n&&n.offerId&&n.status==='publicado')||o.porPlaca[String(v.placa||'').toUpperCase().replace(/[^A-Z0-9]/g,'')]);}
+function npChave(v){return String(v.zeroKm?'ZK'+(v.zeroKmSiteId||''):v.placa||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function npBotao(v,p){
+  const o=G.pf.np;const cinza=t=>`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${t}</span>`;
+  if(!o)return cinza(p.nome+': carregando...');
+  if(!o.conectado){
+    if(o.semChave||o.erro)return `<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(o.erro||'A Na Pista ainda não liberou o client_id do nosso sistema').replace(/"/g,'')}">${p.nome}: aguardando liberação</span>`;
+    return `<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: <a href="#" style="color:${p.cor};font-weight:700" onclick="event.preventDefault();napistaConectar(this)">Conectar</a></span>`;
+  }
+  const k=npChave(v),n=o.nossos[k],fora=o.porPlaca[String(v.placa||'').toUpperCase().replace(/[^A-Z0-9]/g,'')];
+  if(n&&n.status==='erro')return `<button class="btn btn-outline btn-sm" style="font-size:11px" title="${String(n.erro).replace(/"/g,'').slice(0,300)}" onclick="publicarNapista('${v.placa}',this)">${p.nome}: erro - tentar de novo</button>`;
+  if(n&&n.offerId&&n.status==='publicado')return `<span class="btn btn-outline btn-sm" style="font-size:11px;cursor:default" title="Anúncio ${n.offerId}${o.ambiente==='desenvolvimento'?' (ambiente de TESTE da Na Pista)':''}"><i class="ti ti-check"></i> ${p.nome}: Publicado${o.ambiente==='desenvolvimento'?' (teste)':''}</span>`
+    +`<button class="btn btn-outline btn-sm" style="font-size:11px;color:#6b7280" title="Tirar este anúncio da Na Pista" onclick="despublicarNapista('${v.placa}',this)">✕</button>`;
+  if(fora)return `<span class="btn btn-outline btn-sm" style="font-size:11px;cursor:default" title="Anúncio feito fora do nosso sistema (Autoconf). Não publique de novo: ficaria duplicado."><i class="ti ti-check"></i> ${p.nome}: Publicado (fora do sistema)</span>`;
+  return `<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="publicarNapista('${v.placa}',this)">${p.nome}: Publicar</button>`;
+}
+async function napistaConectar(el){
+  try{const r=await litoralCarFetch('napistaConectar');window.open(r.url,'_blank');
+    toast('Entre na Na Pista com o login da loja e autorize. Depois volte aqui e recarregue a aba Anúncios.','gold',9000);}
+  catch(e){console.error(e);alert('Não deu para conectar na Na Pista: '+e.message);}
+}
+async function npCatalogo(q){const r=await litoralCarFetch('napistaCatalogo?'+new URLSearchParams(q).toString());return r.itens||[];}
+function npEscolherDados(v){
+  return new Promise(async resolve=>{
+    const esc=t=>String(t||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    ov.innerHTML='<div style="background:var(--bg2,#fff);color:var(--tx,#111);border-radius:12px;padding:20px;width:min(520px,94vw);max-height:90vh;overflow:auto;font-size:13px">Carregando marcas da Na Pista...</div>';
+    document.body.appendChild(ov);
+    const fechar=x=>{ov.remove();resolve(x);};
+    let marcas=[];
+    try{marcas=await npCatalogo({});}catch(e){alert('A Na Pista não respondeu a lista de marcas: '+e.message);fechar(null);return;}
+    const lbl='display:block;font-size:11px;font-weight:700;color:var(--tx3,#666);margin:10px 0 4px';
+    const inp='width:100%;padding:8px;border:1px solid var(--bdr,#ccc);border-radius:8px;background:var(--bg,#fff);color:inherit;font-size:13px;box-sizing:border-box';
+    const opts=(ls,sel)=>'<option value="">(escolha)</option>'+ls.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===sel?' selected':'')+'>'+esc(x.nome)+'</option>').join('');
+    const ano=String(v.anoModelo||'').replace(/\D/g,'').slice(-4);
+    ov.firstChild.innerHTML='<div style="font-weight:700;font-size:16px;margin-bottom:4px">Publicar na Na Pista'+(G.pf.np&&G.pf.np.ambiente==='desenvolvimento'?' <span style="font-size:11px;color:#b8860b">(ambiente de TESTE)</span>':'')+'</div>'
+      +'<div style="color:var(--tx3,#666)">'+esc([v.marca,v.modelo,v.versao].filter(Boolean).join(' '))+' · '+esc(v.zeroKm?'0 km':v.placa)+' · '+(v.preco?'R$ '+esc(v.preco):'sem preço')+'</div>'
+      +'<div style="background:#fff7e6;color:#8a5a00;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px">⚠ Se este carro <b>já está na Na Pista pelo Autoconf</b>, não publique aqui: ficaria duplicado.</div>'
+      +'<label style="'+lbl+'">ANO DO MODELO</label><input id="npe-ano" style="'+inp+'" value="'+esc(ano)+'">'
+      +'<label style="'+lbl+'">MARCA (lista da Na Pista)</label><select id="npe-marca" style="'+inp+'">'+opts(marcas,olxMelhor(marcas,v.marca))+'</select>'
+      +'<label style="'+lbl+'">MODELO</label><select id="npe-modelo" style="'+inp+'"><option value="">(escolha a marca)</option></select>'
+      +'<label style="'+lbl+'">VERSÃO</label><select id="npe-versao" style="'+inp+'"><option value="">(escolha o modelo)</option></select>'
+      +'<div style="font-size:11px;color:var(--tx3,#666);margin-top:8px">Fotos, descrição, preço, km, cor, combustível e câmbio vêm do site.</div>'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button class="btn btn-outline btn-sm" id="npe-cancelar">Cancelar</button><button class="btn btn-red btn-sm" id="npe-ok">Publicar</button></div>';
+    const $=id=>ov.querySelector('#'+id);
+    const anoAtual=()=>$('npe-ano').value.replace(/\D/g,'');
+    const carregarVersoes=async sugerir=>{
+      const sel=$('npe-versao');if(!$('npe-modelo').value){sel.innerHTML='<option value="">(escolha o modelo)</option>';return;}
+      sel.innerHTML='<option value="">carregando...</option>';
+      try{const ls=await npCatalogo({modelo:$('npe-modelo').value,ano:anoAtual()});sel.innerHTML=opts(ls,sugerir?olxMelhor(ls,v.versao,[v.modelo,v.versao].join(' ')):'');}
+      catch(e){sel.innerHTML='<option value="">não carregou - tente de novo</option>';}
+    };
+    const carregarModelos=async sugerir=>{
+      const sel=$('npe-modelo');if(!$('npe-marca').value){sel.innerHTML='<option value="">(escolha a marca)</option>';return carregarVersoes(false);}
+      sel.innerHTML='<option value="">carregando...</option>';
+      try{const ls=await npCatalogo({marca:$('npe-marca').value,ano:anoAtual()});sel.innerHTML=opts(ls,sugerir?olxMelhor(ls,v.modelo,String(v.modelo||'').split(/\s+/)[0]):'');}
+      catch(e){sel.innerHTML='<option value="">não carregou - tente de novo</option>';}
+      await carregarVersoes(sugerir);
+    };
+    $('npe-marca').onchange=()=>carregarModelos(false);
+    $('npe-modelo').onchange=()=>carregarVersoes(false);
+    $('npe-ano').onchange=()=>carregarModelos(true);
+    $('npe-cancelar').onclick=()=>fechar(null);
+    ov.onclick=e=>{if(e.target===ov)fechar(null);};
+    $('npe-ok').onclick=()=>{
+      const nome=id=>{const s=$(id);return s.value?s.options[s.selectedIndex].text:'';};
+      if(!$('npe-versao').value){alert('Escolha marca, modelo e versão da lista da Na Pista.');return;}
+      const a=anoAtual();if(a.length!==4){alert('Ano do modelo com 4 números (ex.: 2020).');return;}
+      fechar({versionId:$('npe-versao').value,anoModelo:a,titulo:[nome('npe-marca'),nome('npe-modelo'),nome('npe-versao')].filter(Boolean).join(' ')});
+    };
+    carregarModelos(true);
+  });
+}
+async function publicarNapista(placa,btn){
+  const v=(G.pf.veiculos||[]).find(x=>x.placa===placa);if(!v)return;
+  const escolha=await npEscolherDados(v);if(!escolha)return;
+  const txt=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Enviando...';}
+  try{
+    const corpo={...escolha,km:v.km||'',preco:v.preco||'',cor:v.cor||''};
+    if(v.zeroKm)corpo.zeroKmSiteId=v.zeroKmSiteId;else corpo.placa=v.placa;
+    await litoralCarFetch('napistaPublicar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+    toast('Publicado na Na Pista!','green',6000);
+  }catch(e){console.error(e);alert('A Na Pista não aceitou: '+e.message);}
+  finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.innerHTML=txt;}carregarStatusNapista();}
+}
+async function despublicarNapista(placa,btn){
+  const v=(G.pf.veiculos||[]).find(x=>x.placa===placa)||{};
+  if(!confirm('Tirar '+([v.marca,v.modelo].filter(Boolean).join(' ')||placa)+' da Na Pista?'))return;
+  if(btn)btn.disabled=true;
+  try{const corpo=v.zeroKm?{zeroKmSiteId:v.zeroKmSiteId}:{placa:v.placa};
+    await litoralCarFetch('napistaDespublicar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo)});toast('Anúncio tirado da Na Pista','green');}
+  catch(e){console.error(e);alert('Não deu para tirar da Na Pista: '+e.message);}
+  finally{carregarStatusNapista();}
+}
+window.napistaConectar=napistaConectar;window.publicarNapista=publicarNapista;window.despublicarNapista=despublicarNapista;
 window.olxConectar=olxConectar;window.publicarOLX=publicarOLX;window.despublicarOLX=despublicarOLX;
 window.mlDestacar=mlDestacar;window.pfAlternarNaoAnunciar=pfAlternarNaoAnunciar;window.publicarMercadoLivre=publicarMercadoLivre;window.publicarPendentesMercadoLivre=publicarPendentesMercadoLivre;
 function pfAnuncioML(v){
@@ -3882,7 +3990,7 @@ function renderPlataformasAnuncio(){
     const publicadoLitoral=lcSt.st==='nosso';
     const ml=pfAnuncioML(v);
     const olxA=(G.pf.olx&&G.pf.olx.conectado)?olxAnuncio(v):null;
-    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+((olxA&&!olxA.erro)||(!olxA&&G.pf.olx&&olxFora(v))?1:0);
+    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+((olxA&&!olxA.erro)||(!olxA&&G.pf.olx&&olxFora(v))?1:0)+(npContaPublicado(v)?1:0);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
@@ -3894,6 +4002,7 @@ function renderPlataformasAnuncio(){
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
           if(p.id==='olx')return olxBotao(v,p);
+          if(p.id==='napista')return npBotao(v,p);
           if(p.id==='mercadolivre'){
             if(G.pf.mlErro)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="${String(G.pf.mlErro).replace(/"/g,'')}">${p.nome}: indisponível</span>`;
             if(!G.pf.mlMap)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome}: carregando...</span>`;
