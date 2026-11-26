@@ -826,12 +826,21 @@ const db = firebase.firestore();
 // dados/estoque.json - e' o mesmo banco que o admin.html edita, entao toda
 // alteracao manual (campo, foto, ocultar) aparece aqui na hora, sem precisar
 // publicar nada de novo (pedido da Aline, 01/10/2026).
+// 26/11/2026 (Aline, comparando com o site oficial do Autoconf): carro do sistema
+// SEM preco (R$ 0 / R$ 1 / vazio) nao aparece no site - e' o carro que ainda nao
+// foi liberado para venda. Quando o Rafa coloca o preco no sistema, aparece sozinho.
+// 0 km e carro cadastrado a mao no admin nao entram nessa regra.
+function semPrecoNaoMostra(v){
+  if(v.zeroKm||v.manual||v.precoOculto)return false;
+  const n=Number(String(v.preco??'').replace(/[^\d.,]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.'))||0;
+  return n<=1;
+}
 async function carregarEstoque(){
   const snap = await db.collection('site_veiculos').get();
   // 26/11/2026: um carro sem a lista de fotos (Mobi QIU3497) derrubava o site
   // inteiro ("Erro ao carregar o estoque"). Agora carro sem fotos vira lista vazia
   // (mostra a arte "Em preparação") e o resto do estoque continua aparecendo.
-  ESTOQUE = snap.docs.map(d=>{const v={id:d.id,...d.data()};if(!Array.isArray(v.fotos))v.fotos=[];if(!Array.isArray(v.opcionais))v.opcionais=[];return v;}).filter(v=>!v.oculto);
+  ESTOQUE = snap.docs.map(d=>{const v={id:d.id,...d.data()};if(!Array.isArray(v.fotos))v.fotos=[];if(!Array.isArray(v.opcionais))v.opcionais=[];return v;}).filter(v=>!v.oculto&&!semPrecoNaoMostra(v));
   if(DESTAQUES.length){
     ESTOQUE.sort((a,b)=>{
       const ia=DESTAQUES.indexOf(a.id), ib=DESTAQUES.indexOf(b.id);
