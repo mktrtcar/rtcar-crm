@@ -174,6 +174,14 @@ async function aplicarSistemaNoSite(placa,depois){
     }
   }
 
+  // 26/11/2026 (Aline): o preco vem SEMPRE do sistema (quem precifica e' o Rafa la').
+  // Acaba a regra de 30/10 "carro novo entra sem preco": carro que ficou travado
+  // so' por ela (precoManual e preco ainda vazio) volta a receber o preco do sistema.
+  // Preco digitado a mao no admin (preco preenchido) continua valendo.
+  if(existente&&existente.precoManual&&!String(existente.preco||'').trim()){
+    existente={...existente,precoManual:false,camposBloqueados:(existente.camposBloqueados||[]).filter(c=>c!=='preco')};
+    await ref.set({precoManual:false,camposBloqueados:existente.camposBloqueados},{merge:true});
+  }
   const tec=(await tecnicosPorPlaca())[placaCanon(depois.placa||placa)];
   const dados={...dadosDoSistema(depois,existente?.camposBloqueados||[],existente),...dadosTecnicos(tec,depois,existente?.camposBloqueados||[],existente)};
   dados.origemEstoquePrincipal=true;
@@ -187,15 +195,16 @@ async function aplicarSistemaNoSite(placa,depois){
     dados.fotos=[];
     dados.opcionais=[];
     dados.fotosBloqueadas=false;
-    // 30/10/2026 (pedido da Aline): carro novo entra SEM preco ("Consulte o
-    // preço") - o preco do sistema pode estar errado e ela coloca o preco a
-    // mao no admin. 'preco' travado = o sistema nunca mais mexe no preco
-    // desse carro; precoManual marca "falta definir o preco" no admin.
-    dados.preco='';
-    dados.camposBloqueados=['preco'];
-    dados.precoManual=true;
+    // (26/11/2026: carro novo entra com o preco do sistema - R$ 1 continua "Consulte o preço")
   }
   if(!existente||mudou(existente,dados)){
+    // 26/11/2026: o carro pode ter virado repasse/vendido enquanto esta funcao
+    // rodava (a passada de 30 min le a lista antes). Sem essa conferencia, o
+    // gatilho apagava o carro do site e esta gravacao recriava um pedaco dele
+    // (foi o que aconteceu com o Mobi QIU3497: voltou ao site sem fotos e derrubou a pagina).
+    const agora=await db.collection('rtcar_estoque_publico').doc(placa).get();
+    if(!agora.exists||!STATUS_RELEVANTES.includes(agora.data().status))return;
+    if(existente&&!(await ref.get()).exists)return;
     dados.sincronizadoEstoqueEm=new Date().toISOString();
     await ref.set(dados,{merge:true});
   }
@@ -203,10 +212,15 @@ async function aplicarSistemaNoSite(placa,depois){
   // 29/10/2026: a copia que veio do Autoconf (placaSistema) e' a que aparece
   // no site no lugar desse doc - recebe o mesmo preco/km/ano/cor do sistema
   // (marca/modelo/versao e fotos dela continuam como estao).
-  const precoManual=!existente||existente.precoManual;
+  const precoManual=!!(existente&&existente.precoManual);
   const vinculados=await db.collection('site_veiculos').where('placaSistema','==',placa).get();
   for(const d of vinculados.docs){
-    const atual=d.data();
+    let atual=d.data();
+    // 26/11/2026: copia travada so' pela regra antiga "sem preco" volta a receber o preco do sistema
+    if(!precoManual&&atual.precoManual&&!String(atual.preco||'').trim()){
+      atual={...atual,precoManual:false,camposBloqueados:(atual.camposBloqueados||[]).filter(c=>c!=='preco')};
+      await d.ref.set({precoManual:false,camposBloqueados:atual.camposBloqueados},{merge:true});
+    }
     const dc={...dadosDoSistema(depois,atual.camposBloqueados||[],atual),...dadosTecnicos(tec,depois,atual.camposBloqueados||[],atual)};
     delete dc.marca;delete dc.modelo;delete dc.versao;
     // Carro com preco so' manual: a copia tambem nao recebe o do sistema, e a
