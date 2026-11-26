@@ -828,7 +828,10 @@ const db = firebase.firestore();
 // publicar nada de novo (pedido da Aline, 01/10/2026).
 async function carregarEstoque(){
   const snap = await db.collection('site_veiculos').get();
-  ESTOQUE = snap.docs.map(d=>({id:d.id,...d.data()})).filter(v=>!v.oculto);
+  // 26/11/2026: um carro sem a lista de fotos (Mobi QIU3497) derrubava o site
+  // inteiro ("Erro ao carregar o estoque"). Agora carro sem fotos vira lista vazia
+  // (mostra a arte "Em preparação") e o resto do estoque continua aparecendo.
+  ESTOQUE = snap.docs.map(d=>{const v={id:d.id,...d.data()};if(!Array.isArray(v.fotos))v.fotos=[];if(!Array.isArray(v.opcionais))v.opcionais=[];return v;}).filter(v=>!v.oculto);
   if(DESTAQUES.length){
     ESTOQUE.sort((a,b)=>{
       const ia=DESTAQUES.indexOf(a.id), ib=DESTAQUES.indexOf(b.id);

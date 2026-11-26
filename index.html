@@ -3386,6 +3386,7 @@ async function abrirModalIntegracoes(){
    como "em breve" até ganharem integração de verdade.
    ============================================================ */
 const PLATAFORMAS_ANUNCIO=[
+  {id:'site',nome:'Site',cor:'#c0392b',ativa:true},
   {id:'litoralcar',nome:'LitoralCar',cor:'#0a5ca8',ativa:true},
   {id:'mercadolivre',nome:'Mercado Livre',cor:'#2d3277',ativa:true},
   {id:'olx',nome:'OLX',cor:'#7c1fa2',ativa:true},
@@ -3477,6 +3478,7 @@ async function initPlataformasAnuncio(){
       if(s.combustivel)G.pf.combSite['ZK'+d.id]=s.combustivel;});
     G.pf.litoralcarMap={};
     mapSnap.docs.forEach(d=>G.pf.litoralcarMap[d.id]=d.data());
+    G.pf.siteMap=pfMontarSiteMap(siteSnap.docs);
     // Versao do site (copias do Autoconf) - sugestao quando o sistema nao tem (05/11/2026)
     // Versao FIPE da Avaliacao do sistema (fipeModelo) - melhor fonte quando o
     // estoque nao tem versao (05/11/2026). Se nao conseguir ler, segue sem.
@@ -3926,8 +3928,58 @@ function pfAnuncioML(v){
   }
   return G.pf.mlMap[pfChavePlaca(v.placa)]||null;
 }
+/* 26/11/2026 (Aline, "igual o Autoconf"): o SITE entra como 1a plataforma da aba
+   Anuncios (x/7). O site e' a base: fotos, versao e textos ficam nele (admin do
+   site) e as outras plataformas puxam de la'.
+   - Publicado = visivel no site, com foto e com preco
+   - Falta foto/preco = esta' no site mas aparece "Em preparacao"/"Consulte o preco" -> abre o admin no carro
+   - Oculto = botao Publicar (tira o "oculto")
+   O doc do site pode ser o do sistema (id = placa) ou uma copia antiga do Autoconf
+   (placaSistema = placa); vale o visivel, depois o do sistema, depois o com mais fotos. */
+const SITE_PUBLICO_URL='https://rtcar-site.web.app/';
+function pfMontarSiteMap(docs){
+  const m={};
+  const nota=s=>(s.oculto?0:1000)+(s.origemEstoquePrincipal?100:0)+Math.min((s.fotos||[]).length,99);
+  docs.forEach(d=>{const s=d.data();const ch=[s.zeroKm?'ZK'+d.id:d.id,s.placaSistema].filter(Boolean).map(pfChavePlaca);
+    const item={id:d.id,oculto:!!s.oculto,fotos:(Array.isArray(s.fotos)?s.fotos:[]).length,preco:s.preco,precoOculto:!!s.precoOculto,origemEstoquePrincipal:!!s.origemEstoquePrincipal,
+      versaoTravada:((s.camposBloqueados||[]).includes('versao')&&s.versao)?pfLimparVersao(s.versao,s.marca,s.modelo):''};
+    ch.forEach(k=>{if(!m[k]||nota(item)>nota(m[k]))m[k]=item;});});
+  return m;
+}
+function pfSiteStatus(v){
+  const s=(G.pf.siteMap||{})[pfChavePlaca(v.placa)];
+  if(!s)return{st:'nao'};
+  if(s.oculto)return{st:'oculto',s};
+  const falta=[];if(!s.fotos)falta.push('foto');
+  if(!((Number(String(s.preco||'').replace(/[^0-9]/g,''))||0)>1)&&!s.precoOculto)falta.push('preço');
+  return{st:falta.length?'falta':'ok',falta,s};
+}
+function siteBotao(v,p){
+  const r=pfSiteStatus(v);
+  const nome=String([v.marca,v.modelo].filter(Boolean).join(' ')).replace(/'/g,'');
+  if(r.st==='nao')return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px" title="O carro ainda não chegou no site (o sistema manda sozinho em alguns minutos)">${p.nome}: aguardando</span>`;
+  const editar=`<button class="btn btn-outline btn-sm" style="font-size:11px" title="Abrir este carro no admin do site (fotos, versão, preço, texto)" onclick="window.open('${SITE_PUBLICO_URL}admin.html#editar=${encodeURIComponent(r.s.id)}','_blank')">✎ Fotos / editar</button>`;
+  if(r.st==='oculto')return`<button data-pf-falta class="btn btn-outline btn-sm" style="font-size:11px" title="Está oculto no site - clique para aparecer" onclick="siteMostrar('${r.s.id}','${nome}')">${p.nome}: Publicar</button>${editar}`;
+  if(r.st==='falta')return`<button data-pf-falta class="btn btn-outline btn-sm" style="font-size:11px" title="Está no site, mas aparece como ${r.falta.includes('foto')?'&quot;Em preparação&quot; (sem foto)':''}${r.falta.length>1?' e ':''}${r.falta.includes('preço')?'&quot;Consulte o preço&quot;':''}. Clique para completar no admin." onclick="window.open('${SITE_PUBLICO_URL}admin.html#editar=${encodeURIComponent(r.s.id)}','_blank')">${p.nome}: falta ${r.falta.join(' e ')}</button>`;
+  return`<a class="btn btn-outline btn-sm" style="font-size:11px;text-decoration:none" href="${SITE_PUBLICO_URL}#/carro/${encodeURIComponent(r.s.id)}" target="_blank" rel="noopener" title="Abrir o carro no site"><i class="ti ti-check"></i> ${p.nome}: Publicado</a>${editar}<button class="btn btn-outline btn-sm" style="font-size:11px;color:#6b7280" title="Esconder do site (não apaga nada)" onclick="siteOcultar('${r.s.id}','${nome}')">Ocultar do site</button>`;
+}
+async function siteMarcarOculto(id,oculto){
+  await db.collection('site_veiculos').doc(id).set({oculto},{merge:true});
+  Object.values(G.pf.siteMap||{}).forEach(s=>{if(s.id===id)s.oculto=oculto;});
+  renderPlataformasAnuncio();
+}
+async function siteMostrar(id,nome){
+  if(!confirm('Mostrar '+nome+' no site?'))return;
+  try{await siteMarcarOculto(id,false);toast(nome+' aparece no site agora','green');}catch(e){console.error(e);toast('Erro: '+e.message,'red',5000);}
+}
+async function siteOcultar(id,nome){
+  if(!confirm('Esconder '+nome+' do site? (não apaga fotos nem dados, dá para mostrar de novo)'))return;
+  try{await siteMarcarOculto(id,true);toast(nome+' escondido do site','green');}catch(e){console.error(e);toast('Erro: '+e.message,'red',5000);}
+}
 // Versao sugerida: sistema > anuncio do ML > site. Sempre editavel antes de publicar.
 function versaoSugerida(v){
+  // 26/11/2026 (Aline): versao corrigida a mao no admin do site vale para todas as plataformas
+  const vsSite=(G.pf.siteMap||{})[pfChavePlaca(v.placa)];if(vsSite&&vsSite.versaoTravada)return{txt:vsSite.versaoTravada,fonte:'site (corrigida no admin)'};
   if(String(v.versao||'').trim())return{txt:String(v.versao).trim(),fonte:'cadastro do sistema'};
   const av=(G.pf.versaoAval||{})[pfChavePlaca(v.placa)];if(av)return{txt:av,fonte:'Avaliação (tabela FIPE)'};
   const ml=pfAnuncioML(v);if(ml&&ml.versao)return{txt:ml.versao,fonte:'anúncio do Mercado Livre'};
@@ -3955,9 +4007,10 @@ function pfSituacaoAnuncio(v){
   const lc=pfLitoralStatus(v).st!=='nao';
   const ml=pfAnuncioML(v);const mlOk=!!(ml&&(ml.status==='active'||ml.status==='ativando'));
   const moto=/^(MOTO|MOTOS)$/i.test(String(v.tipo||v.categoria||''))||LITORALCAR_MARCAS_MOTO.some(m=>String(v.marca||'').toLowerCase().includes(m)&&!/honda|bmw|suzuki/.test(String(v.marca||'').toLowerCase()));
-  const faltam=[];if(!lc)faltam.push('LitoralCar');if(!mlOk&&!moto&&G.pf.mlMap)faltam.push('Mercado Livre');
+  const siteOk=pfSiteStatus(v).st==='ok';
+  const faltam=[];if(G.pf.siteMap&&!siteOk)faltam.push('Site');if(!lc)faltam.push('LitoralCar');if(!mlOk&&!moto&&G.pf.mlMap)faltam.push('Mercado Livre');
   const ignorado=!!(G.pf.naoAnunciar||{})[pfChavePlaca(v.placa)];
-  return{semPreco:preco<=1,faltam,publicadas:(lc?1:0)+(mlOk?1:0),ignorado};
+  return{semPreco:preco<=1,faltam,publicadas:(siteOk?1:0)+(lc?1:0)+(mlOk?1:0),ignorado};
 }
 function renderPlataformasAnuncio(){
   if(G.modulo!=='plataformas')return;
@@ -3995,7 +4048,7 @@ function renderPlataformasAnuncio(){
     const publicadoLitoral=lcSt.st==='nosso';
     const ml=pfAnuncioML(v);
     const olxA=(G.pf.olx&&G.pf.olx.conectado)?olxAnuncio(v):null;
-    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+((olxA&&!olxA.erro)||(!olxA&&G.pf.olx&&olxFora(v))?1:0)+(npContaPublicado(v)?1:0);
+    const publicadas=(lcSt.st!=='nao'?1:0)+(ml&&ml.status==='active'?1:0)+((olxA&&!olxA.erro)||(!olxA&&G.pf.olx&&olxFora(v))?1:0)+(npContaPublicado(v)?1:0)+(pfSiteStatus(v).st==='ok'?1:0);
     return`<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:13px">${[v.marca,v.modelo,v.versao].filter(Boolean).join(' ')}</div>
@@ -4006,6 +4059,7 @@ function renderPlataformasAnuncio(){
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">
         ${PLATAFORMAS_ANUNCIO.map(p=>{
           if(!p.ativa)return`<span style="background:var(--bg3);color:var(--tx3);border-radius:6px;padding:5px 10px;font-size:11px">${p.nome} — em breve</span>`;
+          if(p.id==='site')return siteBotao(v,p);
           if(p.id==='olx')return olxBotao(v,p);
           if(p.id==='napista')return npBotao(v,p);
           if(p.id==='mercadolivre'){
@@ -4018,7 +4072,7 @@ function renderPlataformasAnuncio(){
           if(p.id==='litoralcar'&&publicadoLitoral&&lcSt.duplicado)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:#b8860b;color:#b8860b" title="Duplicado: além do nosso anúncio, existe outro feito por fora (nº ${lcSt.fora.map(a=>a.cod).join(', ')}) - excluir o de fora no painel da LitoralCar/Autoconf" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Publicado <span style="background:#b8860b;color:#fff;border-radius:4px;padding:0 5px;margin-left:4px;font-size:10px">⚠ duplicado</span></button>`;
           if(p.id==='litoralcar'&&publicadoLitoral)return`<button class="btn btn-outline btn-sm" style="font-size:11px;border-color:${p.cor};color:${p.cor}" onclick="despublicarPlataforma('${v.placa}','${p.id}')"><i class="ti ti-check"></i> ${p.nome}: Despublicar</button>`;
           return`<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="abrirPublicarPlataforma('${v.placa}','${p.id}')">${p.nome}: Publicar</button>`;
-        }).map(h=>`<div class="${h.startsWith('<span style="background:var(--bg3)')?'':(h.includes(': Publicar</button>')||h.includes('tentar de novo')?'pf-falta':'pf-pub')}" style="display:flex;flex-direction:column;gap:4px;align-items:stretch">${h}</div>`).join('')}
+        }).map(h=>`<div class="${h.startsWith('<span style="background:var(--bg3)')?'':(h.includes(': Publicar</button>')||h.includes('tentar de novo')||h.includes('data-pf-falta')?'pf-falta':'pf-pub')}" style="display:flex;flex-direction:column;gap:4px;align-items:stretch">${h}</div>`).join('')}
         <button class="btn btn-outline btn-sm" style="font-size:11px;color:#6b7280" onclick="pfAlternarNaoAnunciar('${v.placa}')" title="${sit.ignorado?'Volta a aparecer na lista para anunciar':'Tira este carro da lista de anunciar (ex.: vai para repasse). Não apaga anúncio que já esteja no ar.'}">${sit.ignorado?'↩ Voltar a anunciar':'🚫 Não anunciar'}</button>
       </div>
     </div>`;

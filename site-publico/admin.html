@@ -930,6 +930,9 @@ auth.onAuthStateChanged((user) => {
   document.getElementById('login-view').classList.toggle('hidden', !!user);
   document.getElementById('app-view').classList.toggle('hidden', !user);
   if (user) trocarTab('veiculos');
+  // 26/11/2026: botao "Fotos / editar" da aba Anuncios do CRM abre direto o carro (admin.html#editar=ID)
+  const alvo = user && location.hash.match(/^#editar=(.+)$/);
+  if (alvo) (async () => { await carregarVeiculos(); abrirVeiculo(decodeURIComponent(alvo[1])); history.replaceState(null, '', location.pathname); })();
 });
 </script>
 </body>
