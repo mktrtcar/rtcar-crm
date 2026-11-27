@@ -58,7 +58,10 @@ const tagWM=(xml,t)=>{const m=String(xml).match(new RegExp(`<${t}>([\s\S]*?)</${
 async function autenticarWM(){
   const r=await soapWM(WM_LOGIN,'www.webmotors.com.br/wsLoginSistemaRevendedor','autenticar',
     `<cnpj>${WM_CNPJ}</cnpj><email>${xmlEsc(WM_EMAIL)}</email><senha>${xmlEsc(WM_SENHA.value())}</senha>`);
-  return{http:r.status,hash:tagWM(r.xml,'HashAutenticacao'),codigoRetorno:tagWM(r.xml,'CodigoRetorno'),erro:r.status!==200?tagWM(r.xml,'faultstring')||r.xml.slice(0,300):''};
+  const hash=tagWM(r.xml,'HashAutenticacao'),codigo=tagWM(r.xml,'CodigoRetorno');
+  // Login errado vem com HTTP 200, HashAutenticacao='Erro na Autenticacao' e CodigoRetorno=400
+  const ok=r.status===200&&hash&&!/erro/i.test(hash)&&(!codigo||codigo==='0'||codigo==='200');
+  return{http:r.status,hash:ok?hash:'',codigoRetorno:codigo,mensagem:ok?'':hash,erro:ok?'':(tagWM(r.xml,'faultstring')||r.xml.slice(0,600))};
 }
 exports.webmotorsTestarAcesso=onRequest({region:'southamerica-east1',cors:true,secrets:[WM_SENHA],timeoutSeconds:120},async(req,res)=>{
   try{
@@ -66,7 +69,7 @@ exports.webmotorsTestarAcesso=onRequest({region:'southamerica-east1',cors:true,s
     const dec=await admin.auth().verifyIdToken(tk);
     if(!EMAILS_GESTOR_WM.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
     const a=await autenticarWM();
-    if(!a.hash){res.json({autenticou:false,http:a.http,codigoRetorno:a.codigoRetorno,erro:a.erro});return;}
+    if(!a.hash){res.json({autenticou:false,http:a.http,codigoRetorno:a.codigoRetorno,mensagem:a.mensagem,erro:a.erro,senhaTamanho:String(WM_SENHA.value()||'').length});return;}
     const e=await soapWM(WM_ESTOQUE,'www.webmotors.com.br/wsEstoqueRevendedorWebMotors','ObterEstoqueAtual',`<pHashAutenticacao>${xmlEsc(a.hash)}</pHashAutenticacao>`);
     const anuncios=(e.xml.match(/<Anuncio>[\s\S]*?<\/Anuncio>/g)||[]).map(x=>({codigo:tagWM(x,'CodigoAnuncio'),placa:tagWM(x,'Placa'),marca:tagWM(x,'Marca'),modelo:tagWM(x,'Modelo'),versao:tagWM(x,'Versao'),ano:tagWM(x,'AnoModelo'),preco:tagWM(x,'Preco'),modalidade:tagWM(x,'Modalidade')}));
     res.json({autenticou:true,codigoRetorno:a.codigoRetorno,estoqueHttp:e.status,total:anuncios.length,anuncios,amostraXml:anuncios.length?'':e.xml.slice(0,1500)});
