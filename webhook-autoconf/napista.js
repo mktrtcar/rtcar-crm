@@ -86,7 +86,7 @@ exports.napistaOAuthCallback=onRequest({region:'southamerica-east1',secrets:SEGR
       refreshExpiraEm:d.refresh_expires_in?Date.now()+(d.refresh_expires_in-60)*1000:0,conectadoEm:agora,pkceVerifier:'',pkceState:''});
     // Loja(s) a que o login tem acesso: o sellerId e' usado em todas as chamadas
     let lojas=[],sellerId='';
-    try{const a=await chamar('GET','/seller/access');lojas=(a&&a.sellers)||[];sellerId=(lojas.find(l=>/rt\s*car/i.test(l.name||''))||lojas[0]||{}).sellerId||'';}catch(e){console.error('Na Pista /seller/access',e.message);}
+    try{const a=await chamar('GET','/seller/access');lojas=lojasDe(a);sellerId=(lojas.find(l=>/rt\s*car/i.test(l.name||''))||lojas[0]||{}).sellerId||'';}catch(e){console.error('Na Pista /seller/access',e.message);}
     await gravarPrivado({sellerId});
     await db.collection('napista_config').doc('oauth').set({conectadoEm:agora,ambiente:PRODUCAO?'producao':'desenvolvimento',temRefresh:!!d.refresh_token,
       sellerId,lojas:lojas.map(l=>({sellerId:l.sellerId||'',nome:l.name||'',documento:l.sellerDocument||''})),leadsDesde:agora},{merge:true});
@@ -118,11 +118,14 @@ async function chamar(metodo,caminho,corpo){
   if(!r.ok)throw erro('Na Pista '+r.status+' em '+caminho+': '+JSON.stringify(j).slice(0,400),r.status===401?409:502);
   return j;
 }
+// 27/11/2026: o formato real de /seller/access ainda nao foi visto - aceita {sellers:[]}, lista pura, {content|data|pageData:[]} e id/sellerId/name/tradingName
+function lojasDe(a){const l=Array.isArray(a)?a:((a&&(a.sellers||a.content||a.data||a.pageData))||[]);
+  return (Array.isArray(l)?l:[l]).filter(Boolean).map(x=>({...x,sellerId:x.sellerId||x.id||x.seller_id||"",name:x.name||x.tradingName||x.companyName||x.sellerName||""})).filter(x=>x.sellerId);}
 async function sellerIdAtual(){
   const p=await lerPrivado();
   if(p.sellerId)return p.sellerId;
-  const a=await chamar('GET','/seller/access');const s=((a&&a.sellers)||[])[0];
-  if(!s)throw erro('O login da Na Pista não tem nenhuma loja',409);
+  const a=await chamar('GET','/seller/access');const s=lojasDe(a)[0];
+  if(!s)throw erro('O login da Na Pista não tem nenhuma loja (resposta: '+JSON.stringify(a).slice(0,300)+')',409);
   await gravarPrivado({sellerId:s.sellerId});return s.sellerId;
 }
 
