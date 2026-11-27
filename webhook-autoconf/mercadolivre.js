@@ -901,5 +901,72 @@ exports.mercadoLivreAtualizarFotosAuto=onSchedule({region:'southamerica-east1',s
   console.log('mercadoLivreAtualizarFotosAuto',JSON.stringify(r.filter(x=>!x.igual)));
 });
 
+/* 27/11/2026 - TROCA Autoconf -> nosso (pedido da Aline: "pode resolver agora").
+   O ML nao deixa 2 anuncios da mesma placa e o nosso app nao edita anuncio do
+   Autoconf (403), entao a troca e' encerrar o dele e publicar o nosso. O piloto
+   (Etios PJY0924) mostrou que publicar DEPOIS de encerrar perde o combustivel/
+   portas que vinham do anuncio do Autoconf. Aqui: le o anuncio do Autoconf
+   (qualquer status), monta e VALIDA o nosso com ele de apoio, e so' entao
+   encerra o dele e publica o nosso. Falhou antes de encerrar = nada muda.
+   POST {placa, itemIdAutoconf}. */
+exports.mercadoLivreTrocar=onRequest({region:'southamerica-east1',timeoutSeconds:300,memory:'512MiB',cors:true},async(req,res)=>{
+  try{
+    if(req.method!=='POST'){res.status(405).json({erro:'Use POST'});return;}
+    const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const dec=await admin.auth().verifyIdToken(tk);
+    if(!EMAILS_GESTOR.includes(String(dec.email||'').toLowerCase())){res.status(403).json({erro:'Sem permissão'});return;}
+    const pedida=placaChaveML(req.body&&req.body.placa);
+    const acId=String((req.body&&req.body.itemIdAutoconf)||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(!pedida||!/^MLB\d+$/.test(acId)){res.status(400).json({erro:'Informe placa e itemIdAutoconf'});return;}
+    const c=await obterToken();const token=c.accessToken;
+    const ac=await apiML('/items/'+acId,token);
+    if(String(ac.seller_id)!==String(c.userId)){res.status(403).json({erro:'Anúncio não é da conta RT Car'});return;}
+    const placaAc=((ac.attributes||[]).find(a=>a.id==='LICENSE_PLATE')||{}).value_name||'';
+    if(placaChaveML(placaAc)!==pedida){res.status(409).json({erro:'A placa do anúncio do Autoconf ('+placaAc+') não bate com '+pedida});return;}
+    const jaNosso=await db.collection('ml_anuncios').doc(pedida).get();
+    if(jaNosso.exists&&jaNosso.data().itemId&&jaNosso.data().itemId!==acId){
+      try{const it=await apiML('/items/'+jaNosso.data().itemId+'?attributes=id,status',token);
+        if(it&&it.status&&!['closed','inactive'].includes(it.status)){res.status(409).json({erro:'Esse carro já tem anúncio NOSSO no ML ('+it.id+')'});return;}}catch(e){console.error(e.message);}
+    }
+    const feed=(await db.collection('rtcar_estoque_publico').get()).docs.map(d=>({_id:d.id,...d.data()}))
+      .filter(f=>['disponivel','em_preparacao'].includes(f.status));
+    const carro=feed.find(f=>placaChaveML(f.placa)===pedida||placaChaveML(f._id)===pedida);
+    if(!carro){res.status(404).json({erro:'Placa não encontrada no estoque disponível'});return;}
+    const docs=[];
+    const s0=await db.collection('site_veiculos').doc(carro._id).get();if(s0.exists)docs.push(s0.data());
+    (await db.collection('site_veiculos').where('placaSistema','==',carro._id).get()).docs.forEach(d=>docs.push(d.data()));
+    docs.sort((a,b)=>((a.oculto?1:0)-(b.oculto?1:0))||(((b.fotos||[]).length)-((a.fotos||[]).length)));
+    const site=docs[0]?{...docs[0]}:null;
+    if(site)for(const k of ['combustivel','portas','cambio','descricao','cor'])if(!site[k])site[k]=(docs.find(d=>d[k])||{})[k];
+    if(!site||site.oculto){res.status(422).json({erro:'Carro não está visível no site (regra: ML só com o que está no site)'});return;}
+    const attrsCat=await atributosCarros(token);
+    let {modelo}=await anunciosAutoconfPorPlaca(token);
+    if(!modelo&&ac.location&&ac.seller_contact)modelo=ac;
+    const {anuncio,avisos}=montarAnuncioML(carro,site,ac,attrsCat,modelo);
+    const bloqueio=avisos.filter(a=>/Sem preço|Sem fotos|não existe na lista|Sem combustível|Sem número de portas|moto/i.test(a));
+    if(bloqueio.length){res.status(422).json({erro:'Faltam dados',avisos:bloqueio,encerrouAutoconf:false});return;}
+    const v=await validarML(anuncio,token);
+    if(!v.ok){res.status(422).json({erro:'O Mercado Livre recusou na validação',validacaoML:v,encerrouAutoconf:false});return;}
+    let encerrou=false;
+    if(['active','paused'].includes(ac.status)){
+      const r0=await fetch(API+'/items/'+acId,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({status:'closed'})});
+      const j0=await r0.json().catch(()=>({}));
+      if(!r0.ok){res.status(502).json({erro:'O ML não deixou encerrar o anúncio do Autoconf',ml:j0,encerrouAutoconf:false});return;}
+      encerrou=true;
+      await db.collection('ml_encerrados').add({itemId:acId,acao:'closed',motivo:'troca Autoconf->nosso',titulo:ac.title||'',placa:placaAc,por:dec.email||'',em:new Date().toISOString()});
+    }
+    const {description,...corpo}=anuncio;
+    const r=await fetch(API+'/items',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(corpo)});
+    const item=await r.json().catch(()=>({}));
+    if(!r.ok||!item.id){console.error('ml trocar publicar',pedida,r.status,JSON.stringify(item).slice(0,500));
+      res.status(502).json({erro:'Encerrou o do Autoconf mas o ML recusou publicar o nosso - tentar de novo',status:r.status,ml:item,encerrouAutoconf:encerrou});return;}
+    let descricaoOk=false;
+    try{const d=await fetch(API+`/items/${item.id}/description`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(description)});descricaoOk=d.ok;}catch(e){console.error(e);}
+    await db.collection('ml_anuncios').doc(pedida).set({itemId:item.id,link:item.permalink||'',status:item.status||'',origem:'rtcar',
+      placa:carro.placa,titulo:anuncio.title,preco:anuncio.price,publicadoEm:new Date().toISOString(),publicadoPor:dec.email||'',substituiuAutoconf:acId},{merge:true});
+    res.json({ok:true,itemId:item.id,status:item.status,descricaoOk,titulo:anuncio.title,preco:anuncio.price,encerrouAutoconf:encerrou,avisos});
+  }catch(e){console.error(e);res.status(500).json({erro:String(e.message||e)});}
+});
+
 // Uso interno (despublicar-vendidos.js, 25/11/2026) - nao e' function exportada
 Object.defineProperty(exports,'_interno',{enumerable:false,value:{obterToken,API}});
