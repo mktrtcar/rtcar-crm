@@ -23,7 +23,7 @@ function headersLitoral(){
 /* Emails com papel de gestor no CRM (mesmo criterio de isManager() no
    frontend: master/coordenadora/dev) - unica validacao de quem pode acionar
    a publicacao de estoque/consulta de referencias na LitoralCar. */
-const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br'];
+const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br','samuelrtcar@gmail.com']; // Samuel (assistente de marketing, 27/11/2026): publica anuncios e mexe no site
 
 async function exigirGestor(req){
   const auth=req.headers.authorization||'';

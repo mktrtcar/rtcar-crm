@@ -18,7 +18,7 @@ const bucket = admin.storage().bucket();
    desapareceuDaFonte:true e oculta automaticamente (reversivel).
    Busca do proprio rtcar-site.web.app ja publicado (nao precisa do arquivo
    local nem bater no Autoconf de novo aqui). Gestor-only. */
-const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br'];
+const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br','samuelrtcar@gmail.com']; // Samuel (assistente de marketing, 27/11/2026): publica anuncios e mexe no site
 async function exigirGestor(req){
   const auth=req.headers.authorization||'';
   const token=auth.startsWith('Bearer ')?auth.slice(7):null;

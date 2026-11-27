@@ -335,7 +335,7 @@ async function corrigirContatoAnuncios(simular,idsInformados){
   await refConfig().set({contatoCorrigidoEm:new Date().toISOString(),contatoResultado:`${res.filter(x=>x.trocado).length} trocado(s) de ${ids.length}`},{merge:true});
   return{total:ids.length,res};
 }
-const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br'];
+const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br','samuelrtcar@gmail.com']; // Samuel (assistente de marketing, 27/11/2026): publica anuncios e mexe no site
 exports.mercadoLivreCorrigirContato=onRequest({region:'southamerica-east1',timeoutSeconds:540,cors:true},async(req,res)=>{
   try{
     const tk=String(req.headers.authorization||'').replace(/^Bearer /,'');

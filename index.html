@@ -556,6 +556,8 @@ const USUARIOS=[
   {id:'u16',n:'Guilmara',e:'rtcred@rtcar.com.br',           r:'rtcred'},
   {id:'u17',n:'Ezequiel',e:'consultorezequiel@rtcar.com.br',r:'seller'},
   {id:'u18',n:'Jaqueline',e:'documentos@rtcar.com.br',r:'assistente'},
+  // 27/11/2026 (Aline): assistente de marketing / social media - so' Workshop, Anuncios e Site
+  {id:'u19',n:'Samuel',  e:'samuelrtcar@gmail.com',         r:'marketing'},
 ];
 
 /* COLUNAS MARKETING */
@@ -832,7 +834,7 @@ function entrarNaApp(u){
   document.getElementById('app-screen').classList.remove('hidden');
   document.getElementById('sb-av').textContent=u.n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   document.getElementById('sb-name').textContent=u.n;
-  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor',rtcred:'RT Cred',assistente:'Assistente'}[u.r]||u.r);
+  document.getElementById('sb-role').textContent=({master:'Master',manager:'Gestão',seller:'Vendedor',coordenadora:'Coordenadora',dev:'Desenvolvedor',rtcred:'RT Cred',assistente:'Assistente',marketing:'Assistente de Marketing'}[u.r]||u.r);
   document.getElementById('ni-integracoes').style.display=(u.r==='master'?'':'none');
   popularSelects();
   // Mostrar/ocultar tabs de navegação conforme perfil
@@ -1402,6 +1404,8 @@ function podeVerModulo(mod){
   const r=G.user?.r||'seller';
   if(r==='master')return true;
   if(r==='coordenadora')return true;
+  // Assistente de marketing (Samuel, 27/11/2026): Workshop, Anuncios e Site - sem funil de vendas e sem Relacionamento
+  if(r==='marketing')return ['workshop','plataformas','site'].includes(mod);
   // seller: apenas CRM
   return mod==='marketing';
 }
@@ -6735,6 +6739,8 @@ function handleKeydownRTCarCRM(e){
 /* ============================================================
    WORKSHOP — MÓDULO
    ============================================================ */
+// 27/11/2026 (Aline): o assistente de marketing (Samuel) tambem cria/edita eventos e convidados do Workshop
+function podeGerirWorkshop(){return isManager()||G.user?.r==='marketing';}
 async function initWorkshop(){
   // Reset state
   G.ws.eventoAtualId=null;
@@ -6781,8 +6787,8 @@ function renderWorkshop(){
       <div class="tb-tab${G.ws.view==='dashboard'?' on':''}" onclick="__G().ws.view='dashboard';__G().ws.eventoAtualId=null;renderWorkshop()"><i class="ti ti-chart-bar"></i> Dashboard</div>
     </div>
     <div class="tb-sep"></div>
-    ${isManager()&&G.ws.view==='eventos'&&!G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}
-    ${isManager()&&G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalConvidado()"><i class="ti ti-user-plus"></i> Novo Convidado</button>`:''}`;
+    ${podeGerirWorkshop()&&G.ws.view==='eventos'&&!G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}
+    ${podeGerirWorkshop()&&G.ws.eventoAtualId?`<button class="btn btn-red btn-sm" onclick="abrirModalConvidado()"><i class="ti ti-user-plus"></i> Novo Convidado</button>`:''}`;
   if(G.ws.eventoAtualId){
     renderWsKanban(cnt);
   } else if(G.ws.view==='dashboard'){
@@ -6798,7 +6804,7 @@ function renderWsEventos(cnt){
   // Header toolbar
   const hd=document.createElement('div');
   hd.style.cssText='padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between';
-  hd.innerHTML=`<div style="font-size:15px;font-weight:700">📅 Eventos</div>${isManager()?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}`;
+  hd.innerHTML=`<div style="font-size:15px;font-weight:700">📅 Eventos</div>${podeGerirWorkshop()?`<button class="btn btn-red btn-sm" onclick="abrirModalEvento()"><i class="ti ti-plus"></i> Novo Evento</button>`:''}`;
   cnt.appendChild(hd);
   const grid=document.createElement('div');
   grid.className='ws-eventos';
@@ -6896,8 +6902,8 @@ function renderWsKanban(cnt){
         ${c.obs?`<div class="ws-card-obs">${c.obs}</div>`:''}
         <div class="ws-card-actions">
           <button class="card-btn card-btn-label" onclick="event.stopPropagation();abrirModalObsWs('${c.id}')"><i class="ti ti-message-circle"></i> Obs</button>
-          ${isManager()?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();editarConvidado('${c.id}')"><i class="ti ti-edit"></i> Editar</button>`:''}
-          ${isManager()?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="event.stopPropagation();excluirConvidado('${c.id}')"><i class="ti ti-trash"></i> Excluir</button>`:''}
+          ${podeGerirWorkshop()?`<button class="card-btn card-btn-label" onclick="event.stopPropagation();editarConvidado('${c.id}')"><i class="ti ti-edit"></i> Editar</button>`:''}
+          ${podeGerirWorkshop()?`<button class="card-btn card-btn-label" style="color:var(--red)" onclick="event.stopPropagation();excluirConvidado('${c.id}')"><i class="ti ti-trash"></i> Excluir</button>`:''}
         </div>`;
       if(wha){
         const copyBtn=card.querySelector('.ws-card-tel');

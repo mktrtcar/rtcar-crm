@@ -25,7 +25,7 @@ const APPS='https://apps.olx.com.br';
 const FN_BASE='https://southamerica-east1-rtcarprograma.cloudfunctions.net';
 const REDIRECT_URI=FN_BASE+'/olxOAuthCallback';
 const ARQ='privado/olx-oauth.json';
-const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br'];
+const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br','samuelrtcar@gmail.com']; // Samuel (assistente de marketing, 27/11/2026): publica anuncios e mexe no site
 
 async function lerPrivado(){
   try{const [b]=await admin.storage().bucket().file(ARQ).download();return JSON.parse(b.toString());}

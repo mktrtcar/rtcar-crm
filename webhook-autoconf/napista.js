@@ -34,7 +34,7 @@ const FN_BASE='https://southamerica-east1-rtcarprograma.cloudfunctions.net';
 const REDIRECT_URI=FN_BASE+'/napistaOAuthCallback';
 const ARQ='privado/napista-oauth.json';
 const SEGREDOS=['NAPISTA_CLIENT_ID'];
-const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br'];
+const EMAILS_GESTOR=['contato@rtcar.com.br','marcela@rtcar.com.br','rafael@rtcar.com.br','tiago@rtcar.com.br','milena@rtcar.com.br','rubens@rtcar.com.br','samuelrtcar@gmail.com']; // Samuel (assistente de marketing, 27/11/2026): publica anuncios e mexe no site
 const OPC={region:'southamerica-east1',cors:true,secrets:SEGREDOS};
 
 async function lerPrivado(){
